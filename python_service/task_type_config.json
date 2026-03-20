@@ -1,0 +1,17 @@
+{
+  "default": {
+    "enabled": false,
+    "wait_for_edge": false,
+    "prompt": ""
+  },
+  "rules": [
+    {
+      "match": "Search Experience to Product Usefulness",
+      "match_mode": "contains",
+      "enabled": true,
+      "wait_for_edge": true,
+      "prompt":   "The attached screenshot contains a Search Experience to Product Usefulness task. The Query is on the right, the Product ad is on the left. Create the following overview:\n\nQuery components: table with columns Match | Term | What it is. Keep explanations as short as possible — ideally just a label like 'brand' or 'model nr' or 'file format'. Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification: give the shortest explanation that captures the essential nature of the thing — compressed to the irreducible gist, but complete enough that someone unfamiliar has an accurate mental model of what it is.\n\nQuery Meaning In bulletpoints: One concise snapshot of what real-world results this query implies: typical products, price range, likely brands/retailers, and any hard constraints. This is the baseline against which the product is judged.\n\nProduct Overview First line: what the product is — Category, Brand, Modifiers/Misc. Table: Match | Component | Explanation  Rows: product type, brand, color, and all other direct product attributes.\n\nProduct Assessment Table: Match | Dimension | Assessment  Rows covering all applicable indirect/contextual factors: Intent (match), Purpose (match), Function (match), Market segment (match), Important (requirement), Necessary (requirement), Substitutability, Compatibility, Closest link. Add or omit rows as applicable.\n\nInterpretations Table: Likelihood | Interpretation One-line description per row of what the user is probably trying to find.\n\nApplicable Concepts Table: Query Type | Concept | Why Query Type = category (e.g. Product Seeking, Information Seeking). Concept = the specific pattern (e.g. Related but Wrong Purpose/Function, Acceptable Alternative). Why = one-line justification.\n\nThen give a final overall relevance score from 0-100% based on how well the Product addresses the most plausible interpretation of the Query, and how well it satisfies necessary and important requirements implied by the Query (plus short explanation). Finally, suggest a rating (Egregious / Poor / Okay / Good) with a confidence percentage and one-line justification. Apply the rating concepts and decision rules from your instructions when identifying applicable concepts and suggesting a rating.\n\nFormat: Phrases over sentences. Cut all filler. No 'this term refers to' or 'the user is likely looking for' — just the payload. Every word must earn its place. Keep row names short (meaning omit redundant words like match or requirement). Expand all abbreviations and acronyms on first use. Flag and briefly gloss any model/platform/product-line identifiers that are not self-evident. Use ✅ / 🟡 / ❌ to visually indicate positive, mixed, or negative assessments wherever applicable.",
+      "test_trigger": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Local Query Bridge",
+  "version": "0.1.0",
+  "description": "Polls a local screenshot bridge and submits tasks into ChatGPT.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Local Query Bridge"
+  }
+}

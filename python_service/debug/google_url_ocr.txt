@@ -1,0 +1,5 @@
+region=Region(left=0, top=48, width=2560, height=29)
+[raw_psm7] --psm 7
+€ > G A 3 google.com/search?sert=1&pws=0&hl=en&gl=usägws_rd=cr&nord=18q=realme%20watch%205%20charger%20original ar © me § O5». „mM » ra@ a 5 sa: BSG UDESSO=E
+
+parsed=realme watch 5 charger originalar©me§O5».„mM»ra@a5sa:BSGUDESSO=E
