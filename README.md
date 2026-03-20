@@ -12,12 +12,12 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `enabled`: if `false`, that config path is ignored
    - `wait_for_edge`: if `true`, the screenshot is held until you move the mouse to the very left edge of the screen
    - `test_trigger`: if `true`, `Shift+Alt+Z` runs a manual screenshot test using that rule
-   - `prompt`: the prompt text sent to ChatGPT for that task type
+   - `prompts`: one or two prompt texts sent to ChatGPT for that task type
 4. Every new task increment is also recorded on disk by task type:
    - `python_service/task_type_counts.json`: running totals per OCRed task type
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
-   Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into the active ChatGPT tab, attaches screenshots when needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
+   Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
 
 ## Project layout
 
@@ -79,7 +79,7 @@ Current JSON contract:
 - task events:
   - `a`: XOR+hex task counter string
   - `b`: XOR+base64 PNG bytes
-  - `c`: XOR+base64 prompt text
+  - `c`: XOR+base64 JSON prompt list
 - scroll events:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
@@ -136,7 +136,7 @@ Schema:
       "enabled": true,
       "wait_for_edge": true,
       "test_trigger": true,
-      "prompt": "... [TASK_TYPE] ..."
+      "prompts": ["... [TASK_TYPE] ...", "... second prompt ..."]
     }
   ]
 }
@@ -147,7 +147,7 @@ Notes:
 - `enabled=false` disables that config entry
 - `test_trigger=true` marks the rule used by the manual `Shift+Alt+Z` test run
 - rules are checked in order; the first match wins
-- `[TASK_TYPE]` inside a prompt is replaced with the OCRed task type text
+- `[TASK_TYPE]` inside each prompt is replaced with the OCRed task type text
 - with `default.enabled=false`, unmatched task types are ignored completely
 
 ## ChatGPT extension setup

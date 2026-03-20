@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "alarms"
+    "alarms",
+    "storage"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
@@ -19,6 +20,7 @@
     "service_worker": "service_worker.js",
     "type": "module"
   },
+  "options_page": "options.html",
   "action": {
     "default_title": "Local Query Bridge"
   }

@@ -46,14 +46,14 @@ class Region:
 class TaskSettings:
     task_type: str
     wait_for_edge: bool
-    prompt: str
+    prompts: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class ArmedTask:
     task_count: int
     task_type: str
-    prompt: str
+    prompts: tuple[str, ...]
 
 
 # Task-counter detection settings.
@@ -83,8 +83,10 @@ SCREENSHOT_CROP_REGION: Region | None = None
 MOUSE_SIGNAL_EDGE_WIDTH = 2
 
 # Screen-edge scrolling settings for ChatGPT.
-SCROLL_SIGNAL_EDGE_HEIGHT = 2
-SCROLL_REPEAT_SECONDS = 1.0
+SCROLL_SIGNAL_EDGE_HEIGHT = 12
+SCROLL_SIGNAL_RELEASE_HEIGHT = 32
+SCROLL_MONITOR_INTERVAL_SECONDS = 0.05
+SCROLL_REPEAT_SECONDS = 0.2
 SCROLL_DIRECTION_UP = "up"
 SCROLL_DIRECTION_DOWN = "down"
 
@@ -113,7 +115,7 @@ DEFAULT_TASK_TYPE_CONFIG = {
     "default": {
         "enabled": False,
         "wait_for_edge": False,
-        "prompt": "",
+        "prompts": [],
     },
     "rules": [
         {
@@ -122,7 +124,7 @@ DEFAULT_TASK_TYPE_CONFIG = {
             "enabled": True,
             "wait_for_edge": True,
             "test_trigger": False,
-            "prompt": DEFAULT_PROMPT,
+            "prompts": [DEFAULT_PROMPT],
         }
     ],
 }
@@ -256,7 +258,7 @@ class SharedState:
                 self.armed_task = ArmedTask(
                     task_count=task_count,
                     task_type=settings.task_type,
-                    prompt=settings.prompt,
+                    prompts=settings.prompts,
                 )
                 return "armed"
 
@@ -269,14 +271,14 @@ class SharedState:
             self.armed_task = None
             return armed_task
 
-    def publish_payload(self, task_count: int, screenshot_png: bytes, prompt: str) -> None:
+    def publish_payload(self, task_count: int, screenshot_png: bytes, prompts: list[str] | tuple[str, ...]) -> None:
         with self.lock:
             self.pending_events.append(
                 {
                     "type": "task",
                     "task_count": task_count,
                     "screenshot_png": screenshot_png,
-                    "prompt": prompt,
+                    "prompts": list(prompts),
                 }
             )
 
@@ -301,7 +303,7 @@ class SharedState:
         if event_type == "task":
             task_count = int(event["task_count"])
             screenshot_png = bytes(event["screenshot_png"])
-            prompt = str(event["prompt"])
+            prompts = [str(prompt) for prompt in event.get("prompts", [])]
             print(
                 f"[bridge {timestamp_now()}] served counter={task_count} bytes={len(screenshot_png)}",
                 flush=True,
@@ -309,7 +311,7 @@ class SharedState:
             return {
                 "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
                 "b": xor_encrypt_bytes_to_base64(screenshot_png, XOR_KEY),
-                "c": xor_encrypt_string_to_base64(prompt, XOR_KEY),
+                "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
             }
 
@@ -390,6 +392,22 @@ def ensure_task_type_config(path: Path) -> None:
     path.write_text(json.dumps(DEFAULT_TASK_TYPE_CONFIG, indent=2), encoding="utf-8")
 
 
+def normalize_prompt_entries(raw_value: Any, fallback: Any = None) -> list[str]:
+    def coerce_prompts(value: Any) -> list[str]:
+        if isinstance(value, list):
+            prompts = [str(item).strip() for item in value]
+        elif isinstance(value, str):
+            prompts = [value.strip()]
+        else:
+            prompts = []
+        return [prompt for prompt in prompts if prompt]
+
+    prompts = coerce_prompts(raw_value)
+    if not prompts and fallback is not None:
+        prompts = coerce_prompts(fallback)
+    return prompts[:2]
+
+
 def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
     default = raw.get("default", {}) if isinstance(raw, dict) else {}
     rules = raw.get("rules", []) if isinstance(raw, dict) else []
@@ -397,6 +415,11 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
         default = {}
     if not isinstance(rules, list):
         rules = []
+
+    default_prompts = normalize_prompt_entries(
+        default.get("prompts", default.get("prompt", DEFAULT_TASK_TYPE_CONFIG["default"]["prompts"])),
+        DEFAULT_TASK_TYPE_CONFIG["default"]["prompts"],
+    )
 
     normalized_rules: list[dict[str, Any]] = []
     for rule in rules:
@@ -409,7 +432,10 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
                 "enabled": bool(rule.get("enabled", True)),
                 "wait_for_edge": bool(rule.get("wait_for_edge", default.get("wait_for_edge", False))),
                 "test_trigger": bool(rule.get("test_trigger", False)),
-                "prompt": str(rule.get("prompt", default.get("prompt", DEFAULT_PROMPT))),
+                "prompts": normalize_prompt_entries(
+                    rule.get("prompts", rule.get("prompt", default_prompts or [DEFAULT_PROMPT])),
+                    default_prompts or [DEFAULT_PROMPT],
+                ),
             }
         )
 
@@ -417,7 +443,7 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
         "default": {
             "enabled": bool(default.get("enabled", DEFAULT_TASK_TYPE_CONFIG["default"]["enabled"])),
             "wait_for_edge": bool(default.get("wait_for_edge", DEFAULT_TASK_TYPE_CONFIG["default"]["wait_for_edge"])),
-            "prompt": str(default.get("prompt", DEFAULT_TASK_TYPE_CONFIG["default"]["prompt"])),
+            "prompts": default_prompts,
         },
         "rules": normalized_rules,
     }
@@ -447,8 +473,14 @@ def resolve_task_settings(task_type: str, config: dict[str, Any]) -> TaskSetting
         return None
 
     wait_for_edge = bool(source.get("wait_for_edge", False))
-    prompt = str(source.get("prompt", DEFAULT_PROMPT)).replace("[TASK_TYPE]", normalized_type)
-    return TaskSettings(task_type=normalized_type, wait_for_edge=wait_for_edge, prompt=prompt)
+    prompts = tuple(
+        prompt.replace("[TASK_TYPE]", normalized_type)
+        for prompt in source.get("prompts", [DEFAULT_PROMPT])
+        if str(prompt).strip()
+    )
+    if not prompts:
+        prompts = (DEFAULT_PROMPT.replace("[TASK_TYPE]", normalized_type),)
+    return TaskSettings(task_type=normalized_type, wait_for_edge=wait_for_edge, prompts=prompts)
 
 def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
     for rule in config.get("rules", []):
@@ -458,8 +490,14 @@ def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
             continue
 
         task_type = clean_ocr_text(str(rule.get("match", ""))) or "Test Task"
-        prompt = str(rule.get("prompt", DEFAULT_PROMPT)).replace("[TASK_TYPE]", task_type)
-        return TaskSettings(task_type=task_type, wait_for_edge=False, prompt=prompt)
+        prompts = tuple(
+            prompt.replace("[TASK_TYPE]", task_type)
+            for prompt in rule.get("prompts", [DEFAULT_PROMPT])
+            if str(prompt).strip()
+        )
+        if not prompts:
+            prompts = (DEFAULT_PROMPT.replace("[TASK_TYPE]", task_type),)
+        return TaskSettings(task_type=task_type, wait_for_edge=False, prompts=prompts)
 
     return None
 
@@ -661,13 +699,20 @@ def is_mouse_signal_active() -> bool:
     return 0 <= x < MOUSE_SIGNAL_EDGE_WIDTH
 
 
-def get_scroll_signal_direction(monitor: dict[str, int]) -> str | None:
+def get_scroll_signal_direction(monitor: dict[str, int], active_direction: str | None) -> str | None:
     _x, y = get_cursor_position()
-    top_boundary = monitor["top"] + SCROLL_SIGNAL_EDGE_HEIGHT
-    bottom_boundary = monitor["top"] + monitor["height"] - SCROLL_SIGNAL_EDGE_HEIGHT
-    if y < top_boundary:
+    top_enter_boundary = monitor["top"] + SCROLL_SIGNAL_EDGE_HEIGHT
+    bottom_enter_boundary = monitor["top"] + monitor["height"] - SCROLL_SIGNAL_EDGE_HEIGHT
+    top_release_boundary = monitor["top"] + SCROLL_SIGNAL_RELEASE_HEIGHT
+    bottom_release_boundary = monitor["top"] + monitor["height"] - SCROLL_SIGNAL_RELEASE_HEIGHT
+
+    if active_direction == SCROLL_DIRECTION_UP and y <= top_release_boundary:
         return SCROLL_DIRECTION_UP
-    if y >= bottom_boundary:
+    if active_direction == SCROLL_DIRECTION_DOWN and y >= bottom_release_boundary:
+        return SCROLL_DIRECTION_DOWN
+    if y <= top_enter_boundary:
+        return SCROLL_DIRECTION_UP
+    if y >= bottom_enter_boundary:
         return SCROLL_DIRECTION_DOWN
     return None
 
@@ -716,12 +761,33 @@ def capture_primary_monitor(screenshotter: mss.mss, monitor: dict[str, int]) -> 
     grabbed = np.asarray(screenshotter.grab(monitor))
     return cv2.cvtColor(grabbed, cv2.COLOR_BGRA2BGR)
 
+def monitor_scroll_signals() -> None:
+    with mss.mss() as screenshotter:
+        monitor = screenshotter.monitors[1]
+        active_scroll_direction: str | None = None
+        next_scroll_at = time.monotonic()
+
+        while True:
+            try:
+                scroll_direction = get_scroll_signal_direction(monitor, active_scroll_direction)
+                now = time.monotonic()
+                if scroll_direction != active_scroll_direction:
+                    active_scroll_direction = scroll_direction
+                    next_scroll_at = now
+                if active_scroll_direction is not None:
+                    while now >= next_scroll_at:
+                        STATE.publish_scroll(active_scroll_direction)
+                        next_scroll_at += SCROLL_REPEAT_SECONDS
+            except Exception as exc:
+                print(f"[bridge {timestamp_now()}] scroll monitor error: {exc}", flush=True)
+
+            time.sleep(SCROLL_MONITOR_INTERVAL_SECONDS)
+
+
 def monitor_screen() -> None:
     counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
     task_type_icon_template = load_template_image(TASK_TYPE_ICON_TEMPLATE_PATH)
     last_edge_active = is_mouse_signal_active()
-    active_scroll_direction: str | None = None
-    next_scroll_at = 0.0
 
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
@@ -741,22 +807,12 @@ def monitor_screen() -> None:
                         STATE.publish_payload(
                             task_count if task_count is not None else 0,
                             build_screenshot_payload(frame_bgr),
-                            test_settings.prompt,
+                            test_settings.prompts,
                         )
                         print(
                             f"[test {timestamp_now()}] hotkey={TEST_HOTKEY_LABEL} queued type={test_settings.task_type}",
                             flush=True,
                         )
-
-                scroll_direction = get_scroll_signal_direction(monitor)
-                now = time.monotonic()
-                if scroll_direction != active_scroll_direction:
-                    active_scroll_direction = scroll_direction
-                    next_scroll_at = now
-                if active_scroll_direction is not None:
-                    while now >= next_scroll_at:
-                        STATE.publish_scroll(active_scroll_direction)
-                        next_scroll_at += SCROLL_REPEAT_SECONDS
 
                 if task_count is not None and STATE.is_new_task(task_count):
                     task_type = clean_ocr_text(extract_task_type(frame_bgr, task_type_icon_template)) or "Unknown"
@@ -772,7 +828,7 @@ def monitor_screen() -> None:
                     else:
                         action = STATE.register_task(task_count, settings)
                         if action == "ready":
-                            STATE.publish_payload(task_count, build_screenshot_payload(frame_bgr), settings.prompt)
+                            STATE.publish_payload(task_count, build_screenshot_payload(frame_bgr), settings.prompts)
                             print(
                                 f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} total={task_type_total}",
                                 flush=True,
@@ -790,7 +846,7 @@ def monitor_screen() -> None:
                         STATE.publish_payload(
                             armed_task.task_count,
                             build_screenshot_payload(frame_bgr),
-                            armed_task.prompt,
+                            armed_task.prompts,
                         )
                         print(
                             f"[task {timestamp_now()}] counter={armed_task.task_count} type={armed_task.task_type} released",
@@ -810,6 +866,9 @@ def main() -> None:
 
     hotkey_thread = threading.Thread(target=monitor_test_hotkey, name="test-hotkey", daemon=True)
     hotkey_thread.start()
+
+    scroll_thread = threading.Thread(target=monitor_scroll_signals, name="scroll-monitor", daemon=True)
+    scroll_thread.start()
 
     monitor_thread = threading.Thread(target=monitor_screen, name="screen-monitor", daemon=True)
     monitor_thread.start()

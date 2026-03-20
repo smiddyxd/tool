@@ -25,6 +25,8 @@ Base everything strictly on the screenshot attachment.`;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
   const ATTACHMENT_SETTLE_MS = 1500;
   const PROMPT_SETTLE_MS = 2000;
+  const SCROLL_STEP_VIEWPORT_RATIO = 0.18;
+  const SCROLL_EXECUTION_INTERVAL_MS = 180;
   const SEND_BUTTON_RETRY_COUNT = 20;
   const SEND_BUTTON_RETRY_DELAY_MS = 250;
 
@@ -33,6 +35,12 @@ Base everything strictly on the screenshot attachment.`;
       window.setTimeout(resolve, milliseconds);
     });
   }
+
+  const scrollState = {
+    upCredits: 0,
+    downCredits: 0,
+    timerId: null,
+  };
 
   async function waitForElement(selector, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
@@ -144,20 +152,124 @@ Base everything strictly on the screenshot attachment.`;
     await delay(ATTACHMENT_SETTLE_MS);
   }
 
-  function scrollChatGpt(direction, steps = 1) {
-    const scrollingElement = document.scrollingElement || document.documentElement || document.body;
-    const halfPageDistance = Math.max(window.innerHeight * 0.5, 100);
-    const multiplier = Math.max(1, Number.isFinite(steps) ? steps : 1);
-    const offset = halfPageDistance * multiplier * (direction === "up" ? -1 : 1);
+  function getScrollTarget() {
+    const candidates = [
+      document.querySelector("main"),
+      document.querySelector('[role="main"]'),
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+      ...Array.from(document.querySelectorAll("div, main, section, article")),
+    ].filter(Boolean);
 
-    if (typeof window.scrollBy === "function") {
-      window.scrollBy({ top: offset, left: 0, behavior: "auto" });
+    let bestTarget = null;
+    let bestRange = 0;
+
+    for (const candidate of candidates) {
+      if (!(candidate instanceof HTMLElement)) {
+        continue;
+      }
+
+      const style = window.getComputedStyle(candidate);
+      const overflowY = style.overflowY;
+      const canScroll = ["auto", "scroll", "overlay"].includes(overflowY) || candidate === document.scrollingElement || candidate === document.documentElement || candidate === document.body;
+      const scrollRange = candidate.scrollHeight - candidate.clientHeight;
+      if (!canScroll || scrollRange <= 0) {
+        continue;
+      }
+
+      if (scrollRange > bestRange) {
+        bestRange = scrollRange;
+        bestTarget = candidate;
+      }
+    }
+
+    return bestTarget;
+  }
+
+  function applyScrollStep(direction) {
+    const target = getScrollTarget();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+    const perStepDistance = Math.max(viewportHeight * SCROLL_STEP_VIEWPORT_RATIO, 60);
+    const requestedOffset = perStepDistance * (direction === "up" ? -1 : 1);
+
+    if (target instanceof HTMLElement) {
+      const currentScrollTop = target.scrollTop;
+      const maxScrollTop = Math.max(0, target.scrollHeight - target.clientHeight);
+      const nextScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + requestedOffset));
+      target.scrollTop = nextScrollTop;
+      console.log("Local Query Bridge applied scroll", {
+        direction,
+        target: target.tagName,
+        requestedOffset,
+        appliedOffset: nextScrollTop - currentScrollTop,
+        currentScrollTop,
+        nextScrollTop,
+        maxScrollTop,
+      });
       return;
     }
 
-    if (scrollingElement) {
-      scrollingElement.scrollTop += offset;
+    const root = document.scrollingElement || document.documentElement || document.body;
+    const currentScrollTop = root ? root.scrollTop : window.scrollY;
+    const maxScrollTop = root ? Math.max(0, root.scrollHeight - root.clientHeight) : currentScrollTop;
+    const nextScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + requestedOffset));
+    window.scrollTo({ top: nextScrollTop, left: 0, behavior: "auto" });
+    console.log("Local Query Bridge applied scroll", {
+      direction,
+      target: "window",
+      requestedOffset,
+      appliedOffset: nextScrollTop - currentScrollTop,
+      currentScrollTop,
+      nextScrollTop,
+      maxScrollTop,
+    });
+  }
+
+  function drainOneScrollCredit() {
+    if (scrollState.upCredits <= 0 && scrollState.downCredits <= 0) {
+      if (scrollState.timerId !== null) {
+        window.clearInterval(scrollState.timerId);
+        scrollState.timerId = null;
+      }
+      return;
     }
+
+    if (scrollState.downCredits > 0) {
+      scrollState.downCredits -= 1;
+      applyScrollStep("down");
+      return;
+    }
+
+    if (scrollState.upCredits > 0) {
+      scrollState.upCredits -= 1;
+      applyScrollStep("up");
+    }
+  }
+
+  function ensureScrollLoop() {
+    if (scrollState.timerId !== null) {
+      return;
+    }
+
+    scrollState.timerId = window.setInterval(drainOneScrollCredit, SCROLL_EXECUTION_INTERVAL_MS);
+  }
+
+  function queueScroll(direction, steps = 1) {
+    const credits = Math.max(1, Number.isFinite(steps) ? steps : 1);
+    if (direction === "down") {
+      const cancelled = Math.min(scrollState.upCredits, credits);
+      scrollState.upCredits -= cancelled;
+      scrollState.downCredits += credits - cancelled;
+    } else if (direction === "up") {
+      const cancelled = Math.min(scrollState.downCredits, credits);
+      scrollState.downCredits -= cancelled;
+      scrollState.upCredits += credits - cancelled;
+    } else {
+      return;
+    }
+
+    ensureScrollLoop();
   }
 
   async function submitScreenshot(imageDataUrl, taskCount, promptText) {
@@ -203,7 +315,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (message?.type === SCROLL_MESSAGE_TYPE) {
-      scrollChatGpt(message.direction, Number.isFinite(message.steps) ? message.steps : 1);
+      queueScroll(message.direction, Number.isFinite(message.steps) ? message.steps : 1);
       sendResponse({ ok: true });
       return false;
     }
