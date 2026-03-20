@@ -22,8 +22,8 @@ from flask import Flask, Response, jsonify
 POLL_INTERVAL_SECONDS = 0.5
 HANDSHAKE_LOG_INTERVAL_SECONDS = 10.0
 
-# HTTP server binding for the local bridge endpoint.
-HTTP_HOST = "127.0.0.1"
+# HTTP server binding for the local/LAN bridge endpoint.
+HTTP_HOST = "0.0.0.0"
 HTTP_PORT = 62041
 EVENT_ENDPOINT_PATH = "/a"
 

@@ -66,7 +66,12 @@ cd python_service
 
 Both launchers stop any process already listening on the configured bridge port before starting a fresh instance.
 
-The active bridge endpoint is:
+The bridge now listens on LAN as well as locally (`HTTP_HOST = 0.0.0.0`).
+
+Current primary-PC LAN endpoint:
+- `http://192.168.0.215:62041/a`
+
+Local endpoint on the same PC:
 - `http://127.0.0.1:62041/a`
 
 Current JSON contract:
@@ -157,6 +162,7 @@ Notes:
 The extension now requests:
 - `http://127.0.0.1/*`
 - `http://localhost/*`
+- `http://192.168.0.215/*`
 
 ## Logging
 
@@ -192,3 +198,18 @@ python_service/debug/
 - `screen_bridge.py` attaches the full primary-monitor screenshot by default. If you want a crop instead, set `SCREENSHOT_CROP_REGION`.
 - The bridge uses the current live frame when the left-edge signal releases a waiting task, so delayed tasks are captured after loading finishes.
 - The extension still uses a generic `input[type="file"]` selector for ChatGPT attachments. If ChatGPT changes that DOM, update `ATTACHMENT_INPUT_SELECTOR` in `chrome_extension/content_script.js`.
+
+## LAN setup
+
+To run the extension on a second device on the same router:
+
+1. Run the Python bridge on PC 1.
+2. Make sure PC 1 keeps the same LAN IP, or update the extension if it changes. The current detected IP is `192.168.0.215`.
+3. On PC 2, load the unpacked extension from the same `chrome_extension` folder contents.
+4. In `chrome://extensions`, reload the extension after any `manifest.json` or `service_worker.js` change.
+5. Open a ChatGPT tab on PC 2 and refresh it once after reloading the extension.
+6. Allow inbound TCP traffic to port `62041` on PC 1 in Windows Firewall if the second device cannot connect.
+
+If the IP changes later, update these two files on PC 2 and reload the extension:
+- `chrome_extension/service_worker.js`
+- `chrome_extension/manifest.json`

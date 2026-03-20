@@ -1,5 +1,6 @@
-// Local bridge endpoint exposed by the Python service.
-const LOCAL_EVENT_URL = "http://127.0.0.1:62041/a";
+// Bridge endpoint exposed by the Python service. Set this to the LAN IP of the PC running the Python bridge.
+const BRIDGE_BASE_URL = "http://192.168.0.215:62041";
+const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
