@@ -1,0 +1,785 @@
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import cv2
+import numpy as np
+
+INPUT_DIR = Path(__file__).resolve().parent / "manual_screenshots"
+OUTPUT_PATH = Path(__file__).resolve().parent / "paddleocr_manual_results.json"
+DEBUG_DIR = Path(__file__).resolve().parent / "paddleocr_debug"
+SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+PADDLEOCR_LANG = "german"
+PADDLEOCR_USE_DOC_ORIENTATION_CLASSIFY = False
+PADDLEOCR_USE_DOC_UNWARPING = False
+PADDLEOCR_USE_TEXTLINE_ORIENTATION = False
+PADDLEOCR_TEXT_DET_THRESH = 0.12
+PADDLEOCR_TEXT_DET_BOX_THRESH = 0.3
+PADDLEOCR_TEXT_REC_SCORE_THRESH = 0.0
+PADDLEOCR_MIN_DET_SIDE_LEN = 256
+PADDLEOCR_UPSCALE_TARGET_MAX_SIDE = 960
+PADDLEOCR_MAX_UPSCALE_FACTOR = 4.0
+PADDLEOCR_TEXT_DET_LIMIT_TYPE = "max"
+OCR_FOCUS_LEFT = 250
+OCR_FOCUS_TOP = 160
+OCR_FOCUS_RIGHT = 990
+OCR_FOCUS_BOTTOM = 190
+OCR_FOCUS_PADDING_LEFT = 0
+OCR_FOCUS_PADDING_TOP = 0
+OCR_FOCUS_PADDING_RIGHT = 220
+OCR_FOCUS_PADDING_BOTTOM = 0
+BLOCK_HORIZONTAL_GAP_PX = 72
+BLOCK_VERTICAL_GAP_PX = 28
+BLOCK_ROW_ALIGNMENT_PX = 18
+JSON_INDENT = 2
+DEFAULT_CAPTURE_PREFIX = "manual"
+
+_PADDLE_OCR_INSTANCE: Any | None = None
+
+
+NOISE_ONLY_PATTERN = re.compile(r"^[.\-+\u2022\u00b7_=~:;,'`^\|/\\]+$")
+MOJIBAKE_MARKERS = ("\u00c3", "\u00e2", "\u20ac", "\u0153", "\u017e", "\ufffd")
+TARGET_NON_ASCII = "\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df"
+
+
+def repair_mojibake(text: str) -> str:
+    if not text:
+        return text
+
+    try:
+        repaired = text.encode("latin-1", errors="ignore").decode("utf-8", errors="ignore")
+    except Exception:
+        return text
+
+    def score(value: str) -> int:
+        return (
+            sum(value.count(ch) for ch in TARGET_NON_ASCII) * 4
+            - sum(value.count(marker) for marker in MOJIBAKE_MARKERS) * 3
+        )
+
+    return repaired if repaired and score(repaired) > score(text) else text
+
+
+def normalize_token_text(text: str) -> str:
+    text = repair_mojibake(text.strip())
+    text = text.replace("\u2212", "-")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def is_noise_token(text: str, confidence: float) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if NOISE_ONLY_PATTERN.fullmatch(stripped):
+        return True
+    if confidence < 0.6 and len(stripped) <= 2:
+        return True
+    if confidence < 0.75 and stripped in {"i", "ii", "u", "n"}:
+        return True
+    return False
+
+
+def suppress_red_spellcheck_marks(image_bgr: Any) -> Any:
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    lower_red_1 = np.array([0, 90, 90], dtype=np.uint8)
+    upper_red_1 = np.array([12, 255, 255], dtype=np.uint8)
+    lower_red_2 = np.array([168, 90, 90], dtype=np.uint8)
+    upper_red_2 = np.array([180, 255, 255], dtype=np.uint8)
+    mask = cv2.inRange(hsv, lower_red_1, upper_red_1) | cv2.inRange(hsv, lower_red_2, upper_red_2)
+    cleaned = image_bgr.copy()
+    cleaned[mask > 0] = (25, 25, 25)
+    return cleaned
+
+
+def load_paddleocr() -> Any:
+    global _PADDLE_OCR_INSTANCE
+
+    if _PADDLE_OCR_INSTANCE is not None:
+        return _PADDLE_OCR_INSTANCE
+
+    try:
+        os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+        from paddleocr import PaddleOCR  # type: ignore
+    except ImportError as exc:  # pragma: no cover - environment-specific
+        raise RuntimeError(
+            "PaddleOCR is not installed. Install PaddlePaddle and paddleocr first."
+        ) from exc
+
+    _PADDLE_OCR_INSTANCE = PaddleOCR(
+        use_doc_orientation_classify=PADDLEOCR_USE_DOC_ORIENTATION_CLASSIFY,
+        use_doc_unwarping=PADDLEOCR_USE_DOC_UNWARPING,
+        use_textline_orientation=PADDLEOCR_USE_TEXTLINE_ORIENTATION,
+        lang=PADDLEOCR_LANG,
+    )
+    return _PADDLE_OCR_INSTANCE
+
+
+def iter_input_images(argv: list[str]) -> list[Path]:
+    if len(argv) > 1:
+        image_paths = [Path(value).expanduser().resolve() for value in argv[1:]]
+    else:
+        INPUT_DIR.mkdir(parents=True, exist_ok=True)
+        image_paths = sorted(
+            path.resolve()
+            for path in INPUT_DIR.iterdir()
+            if path.is_file() and path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
+        )
+    return [path for path in image_paths if path.is_file()]
+
+
+def load_results(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"schema_version": 1, "entries_by_day": {}}
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        return {"schema_version": 1, "entries_by_day": {}}
+
+    raw.setdefault("schema_version", 1)
+    raw.setdefault("entries_by_day", {})
+    if not isinstance(raw["entries_by_day"], dict):
+        raw["entries_by_day"] = {}
+    return raw
+
+
+def save_results(path: Path, results: dict[str, Any]) -> None:
+    path.write_text(json.dumps(results, indent=JSON_INDENT, ensure_ascii=False), encoding="utf-8")
+
+
+def is_ocr_line(value: Any) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return False
+    box, text_info = value
+    if not isinstance(box, (list, tuple, np.ndarray)) or not isinstance(text_info, (list, tuple)):
+        return False
+    return len(text_info) >= 2
+
+
+def extract_result_payload(raw_result: Any) -> dict[str, Any]:
+    if isinstance(raw_result, list):
+        if not raw_result:
+            return {}
+        if len(raw_result) == 1:
+            return extract_result_payload(raw_result[0])
+        if is_ocr_line(raw_result[0]):
+            return {}
+
+    if isinstance(raw_result, dict):
+        return raw_result
+
+    json_attr = getattr(raw_result, "json", None)
+    if isinstance(json_attr, dict):
+        if "res" in json_attr and isinstance(json_attr["res"], dict):
+            return json_attr["res"]
+        return json_attr
+
+    if hasattr(raw_result, "items"):
+        try:
+            return dict(raw_result.items())
+        except Exception:
+            return {}
+
+    return {}
+
+
+def normalize_ocr_lines(raw_result: Any) -> list[Any]:
+    payload = extract_result_payload(raw_result)
+    if not payload:
+        return []
+
+    rec_texts = payload.get("rec_texts") or []
+    rec_scores = payload.get("rec_scores") or []
+    rec_polys = payload.get("rec_polys") or []
+    normalized_lines: list[Any] = []
+
+    line_count = min(len(rec_texts), len(rec_scores), len(rec_polys))
+    for index in range(line_count):
+        normalized_lines.append((rec_polys[index], (rec_texts[index], rec_scores[index])))
+    return normalized_lines
+
+
+def round_point(value: float) -> float:
+    return round(float(value), 1)
+
+
+def to_bbox_points(raw_box: Any) -> list[list[float]]:
+    points: list[list[float]] = []
+    if isinstance(raw_box, np.ndarray):
+        iterable = raw_box.tolist()
+    elif isinstance(raw_box, (list, tuple)):
+        iterable = raw_box
+    else:
+        return points
+
+    for point in iterable:
+        if isinstance(point, np.ndarray):
+            point = point.tolist()
+        if not isinstance(point, (list, tuple)) or len(point) < 2:
+            continue
+        points.append([round_point(point[0]), round_point(point[1])])
+    return points
+
+
+def translate_bbox_points(bbox: list[list[float]], *, x_offset: float = 0.0, y_offset: float = 0.0) -> list[list[float]]:
+    return [[round_point(point[0] + x_offset), round_point(point[1] + y_offset)] for point in bbox]
+
+
+def average(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def axis_bucket(center: float, extent: int, labels: tuple[str, str, str]) -> str:
+    if extent <= 0:
+        return labels[1]
+    ratio = center / extent
+    if ratio < 1 / 3:
+        return labels[0]
+    if ratio < 2 / 3:
+        return labels[1]
+    return labels[2]
+
+
+def classify_position(center_x: float, center_y: float, width: int, height: int) -> dict[str, Any]:
+    horizontal = axis_bucket(center_x, width, ("left", "mid", "right"))
+    vertical = axis_bucket(center_y, height, ("top", "mid", "bottom"))
+    return {
+        "label": f"{vertical}-{horizontal}",
+        "vertical_band": vertical,
+        "horizontal_band": horizontal,
+        "center": {"x": round_point(center_x), "y": round_point(center_y)},
+    }
+
+
+def ensure_debug_dir() -> None:
+    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def make_json_safe(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(key): make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [make_json_safe(item) for item in value]
+    if hasattr(value, "items"):
+        try:
+            return {str(key): make_json_safe(item) for key, item in value.items()}
+        except Exception:
+            pass
+    return repr(value)
+
+
+def summarize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    summary: dict[str, Any] = {}
+    for key in ("input_path", "page_index", "text_type", "text_rec_score_thresh", "return_word_box"):
+        if key in payload:
+            summary[key] = make_json_safe(payload[key])
+    for key in ("rec_texts", "rec_scores", "rec_polys", "rec_boxes", "dt_polys", "textline_orientation_angles"):
+        if key in payload:
+            summary[key] = make_json_safe(payload[key])
+    if "model_settings" in payload:
+        summary["model_settings"] = make_json_safe(payload["model_settings"])
+    if "text_det_params" in payload:
+        summary["text_det_params"] = make_json_safe(payload["text_det_params"])
+    return summary
+
+
+def crop_to_focus_region(image_bgr: Any) -> tuple[Any, dict[str, int]]:
+    image_height, image_width = image_bgr.shape[:2]
+    left = max(0, min(OCR_FOCUS_LEFT - OCR_FOCUS_PADDING_LEFT, image_width - 1))
+    right = max(left + 1, min(OCR_FOCUS_RIGHT + OCR_FOCUS_PADDING_RIGHT, image_width))
+    top = max(0, min(OCR_FOCUS_TOP - OCR_FOCUS_PADDING_TOP, image_height - 1))
+    bottom = max(top + 1, min(OCR_FOCUS_BOTTOM + OCR_FOCUS_PADDING_BOTTOM, image_height))
+    focus_region = {
+        "left": left,
+        "top": top,
+        "width": right - left,
+        "height": bottom - top,
+        "right": right,
+        "bottom": bottom,
+    }
+    return image_bgr[top:bottom, left:right].copy(), focus_region
+
+
+def compute_detection_side_len(image_bgr: Any) -> int:
+    height, width = image_bgr.shape[:2]
+    return max(PADDLEOCR_MIN_DET_SIDE_LEN, min(max(height, width), PADDLEOCR_UPSCALE_TARGET_MAX_SIDE))
+
+
+def build_ocr_variants(image_bgr: Any) -> list[dict[str, Any]]:
+    height, width = image_bgr.shape[:2]
+    cleaned = suppress_red_spellcheck_marks(image_bgr)
+    variants = [
+        {"label": "original", "image": image_bgr, "scale": 1.0},
+        {"label": "red_cleaned", "image": cleaned, "scale": 1.0},
+    ]
+
+    max_side = max(height, width)
+    scale = 1.0
+    if max_side < PADDLEOCR_UPSCALE_TARGET_MAX_SIDE:
+        scale = min(PADDLEOCR_UPSCALE_TARGET_MAX_SIDE / max_side, PADDLEOCR_MAX_UPSCALE_FACTOR)
+        if scale > 1.05:
+            resized = cv2.resize(cleaned, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+            variants.append({"label": f"upscaled_{scale:.2f}x".replace(".", "_"), "image": resized, "scale": round(scale, 3)})
+            gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+            gray_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+            variants.append({"label": f"gray_{scale:.2f}x".replace(".", "_"), "image": gray_bgr, "scale": round(scale, 3)})
+            _, threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            threshold_bgr = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+            variants.append({"label": f"threshold_{scale:.2f}x".replace(".", "_"), "image": threshold_bgr, "scale": round(scale, 3)})
+
+    return variants
+
+
+def run_ocr_variant(ocr_instance: Any, variant: dict[str, Any]) -> dict[str, Any]:
+    image_bgr = variant["image"]
+    raw_result = ocr_instance.predict(
+        image_bgr,
+        use_doc_orientation_classify=PADDLEOCR_USE_DOC_ORIENTATION_CLASSIFY,
+        use_doc_unwarping=PADDLEOCR_USE_DOC_UNWARPING,
+        use_textline_orientation=PADDLEOCR_USE_TEXTLINE_ORIENTATION,
+        text_det_limit_side_len=compute_detection_side_len(image_bgr),
+        text_det_limit_type=PADDLEOCR_TEXT_DET_LIMIT_TYPE,
+        text_det_thresh=PADDLEOCR_TEXT_DET_THRESH,
+        text_det_box_thresh=PADDLEOCR_TEXT_DET_BOX_THRESH,
+        text_rec_score_thresh=PADDLEOCR_TEXT_REC_SCORE_THRESH,
+        return_word_box=False,
+    )
+    raw_lines = normalize_ocr_lines(raw_result)
+    texts = [str(text_info[0]).strip() for _, text_info in raw_lines if str(text_info[0]).strip()]
+    confidences = [float(text_info[1]) for _, text_info in raw_lines]
+    return {
+        "label": variant["label"],
+        "scale": variant["scale"],
+        "image": image_bgr,
+        "raw_result": raw_result,
+        "raw_line_count": len(texts),
+        "texts": texts,
+        "total_text_length": sum(len(text) for text in texts),
+        "average_confidence": round(sum(confidences) / len(confidences), 4) if confidences else 0.0,
+        "det_side_len": compute_detection_side_len(image_bgr),
+        "det_limit_type": PADDLEOCR_TEXT_DET_LIMIT_TYPE,
+        "image_size": {"width": int(image_bgr.shape[1]), "height": int(image_bgr.shape[0])},
+        "payload": extract_result_payload(raw_result),
+    }
+
+
+def save_debug_artifacts(image_path: Path, focus_region: dict[str, int], variant_runs: list[dict[str, Any]]) -> Path:
+    ensure_debug_dir()
+    debug_json_path = DEBUG_DIR / f"{image_path.stem}.json"
+    debug_payload = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "source_image": str(image_path),
+        "focus_region": focus_region,
+        "variants": [],
+    }
+
+    for variant_run in variant_runs:
+        debug_variant = {
+            "label": variant_run["label"],
+            "scale": variant_run["scale"],
+            "image_size": variant_run["image_size"],
+            "det_side_len": variant_run["det_side_len"],
+            "det_limit_type": variant_run["det_limit_type"],
+            "raw_line_count": variant_run["raw_line_count"],
+            "total_text_length": variant_run["total_text_length"],
+            "average_confidence": variant_run["average_confidence"],
+            "texts": variant_run["texts"],
+            "payload": summarize_payload(variant_run["payload"]),
+        }
+        debug_image_path = DEBUG_DIR / f"{image_path.stem}__{variant_run['label']}.png"
+        cv2.imwrite(str(debug_image_path), variant_run["image"])
+        debug_variant["debug_image"] = str(debug_image_path)
+        debug_payload["variants"].append(debug_variant)
+
+    debug_json_path.write_text(json.dumps(debug_payload, indent=JSON_INDENT, ensure_ascii=False), encoding="utf-8")
+    return debug_json_path
+
+
+def choose_best_variant(variant_runs: list[dict[str, Any]]) -> dict[str, Any]:
+    def score(item: dict[str, Any]) -> tuple[float, float, float, float]:
+        raw_line_count = max(1, int(item["raw_line_count"]))
+        average_chars_per_line = item["total_text_length"] / raw_line_count
+        return (
+            1.0 if item["raw_line_count"] > 0 else 0.0,
+            average_chars_per_line,
+            float(item["average_confidence"]),
+            -float(raw_line_count),
+        )
+
+    return max(variant_runs, key=score)
+
+
+def ocr_text_region(image_bgr: Any) -> dict[str, Any]:
+    ocr_instance = load_paddleocr()
+    variant_runs = [run_ocr_variant(ocr_instance, variant) for variant in build_ocr_variants(image_bgr)]
+    best_variant = choose_best_variant(variant_runs)
+    grouped_lines, raw_line_count = build_grouped_lines(
+        best_variant["raw_result"],
+        analysis_width=int(image_bgr.shape[1]),
+        analysis_height=int(image_bgr.shape[0]),
+        x_offset=0,
+        y_offset=0,
+    )
+    grouped_text = " ".join(line["text"] for line in grouped_lines if line["text"]).strip()
+    return {
+        "text": grouped_text,
+        "lines": grouped_lines,
+        "raw_line_count": raw_line_count,
+        "variant": best_variant["label"],
+        "variant_runs": [
+            {
+                "label": variant_run["label"],
+                "raw_line_count": variant_run["raw_line_count"],
+                "total_text_length": variant_run["total_text_length"],
+                "average_confidence": variant_run["average_confidence"],
+                "det_side_len": variant_run["det_side_len"],
+                "det_limit_type": variant_run["det_limit_type"],
+            }
+            for variant_run in variant_runs
+        ],
+    }
+
+
+def bbox_metrics(bbox: list[list[float]]) -> dict[str, float]:
+    xs = [point[0] for point in bbox]
+    ys = [point[1] for point in bbox]
+    min_x = min(xs)
+    max_x = max(xs)
+    min_y = min(ys)
+    max_y = max(ys)
+    return {
+        "min_x": min_x,
+        "max_x": max_x,
+        "min_y": min_y,
+        "max_y": max_y,
+        "width": max_x - min_x,
+        "height": max_y - min_y,
+        "center_x": average(xs),
+        "center_y": average(ys),
+    }
+
+
+def interval_gap(a_min: float, a_max: float, b_min: float, b_max: float) -> float:
+    if a_max < b_min:
+        return b_min - a_max
+    if b_max < a_min:
+        return a_min - b_max
+    return 0.0
+
+
+def interval_overlap(a_min: float, a_max: float, b_min: float, b_max: float) -> float:
+    return max(0.0, min(a_max, b_max) - max(a_min, b_min))
+
+
+def should_merge_segments(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_box = left["metrics"]
+    right_box = right["metrics"]
+    horizontal_gap = interval_gap(left_box["min_x"], left_box["max_x"], right_box["min_x"], right_box["max_x"])
+    vertical_gap = interval_gap(left_box["min_y"], left_box["max_y"], right_box["min_y"], right_box["max_y"])
+    horizontal_overlap = interval_overlap(left_box["min_x"], left_box["max_x"], right_box["min_x"], right_box["max_x"])
+    vertical_overlap = interval_overlap(left_box["min_y"], left_box["max_y"], right_box["min_y"], right_box["max_y"])
+
+    row_alignment = max(BLOCK_ROW_ALIGNMENT_PX, min(left_box["height"], right_box["height"]) * 0.7)
+    same_row = vertical_overlap > 0 or abs(left_box["center_y"] - right_box["center_y"]) <= row_alignment
+    close_horizontally = same_row and horizontal_gap <= max(BLOCK_HORIZONTAL_GAP_PX, min(left_box["height"], right_box["height"]) * 3.0)
+
+    column_overlap_required = min(left_box["width"], right_box["width"]) * 0.15
+    close_vertically = horizontal_overlap >= column_overlap_required and vertical_gap <= max(BLOCK_VERTICAL_GAP_PX, min(left_box["height"], right_box["height"]) * 1.8)
+
+    return close_horizontally or close_vertically
+
+
+def group_segments(segments: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    if not segments:
+        return []
+
+    parent = list(range(len(segments)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(a_index: int, b_index: int) -> None:
+        a_root = find(a_index)
+        b_root = find(b_index)
+        if a_root != b_root:
+            parent[b_root] = a_root
+
+    for left_index in range(len(segments)):
+        for right_index in range(left_index + 1, len(segments)):
+            if should_merge_segments(segments[left_index], segments[right_index]):
+                union(left_index, right_index)
+
+    grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for index, segment in enumerate(segments):
+        grouped[find(index)].append(segment)
+
+    return sorted(
+        grouped.values(),
+        key=lambda cluster: (
+            min(item["metrics"]["min_y"] for item in cluster),
+            min(item["metrics"]["min_x"] for item in cluster),
+        ),
+    )
+
+
+def merge_cluster(cluster: list[dict[str, Any]], analysis_width: int, analysis_height: int, x_offset: int, y_offset: int) -> dict[str, Any]:
+    cluster = sorted(cluster, key=lambda item: (item["metrics"]["min_y"], item["metrics"]["min_x"]))
+    rows: list[list[dict[str, Any]]] = []
+
+    for item in cluster:
+        if not rows:
+            rows.append([item])
+            continue
+        previous_row = rows[-1]
+        previous_center_y = average([entry["metrics"]["center_y"] for entry in previous_row])
+        row_tolerance = max(BLOCK_ROW_ALIGNMENT_PX, average([entry["metrics"]["height"] for entry in previous_row]) * 0.8)
+        if abs(item["metrics"]["center_y"] - previous_center_y) <= row_tolerance:
+            previous_row.append(item)
+        else:
+            rows.append([item])
+
+    row_texts: list[str] = []
+    for row in rows:
+        row = sorted(row, key=lambda item: item["metrics"]["min_x"])
+        row_text = " ".join(item["text"] for item in row if item["text"])
+        if row_text:
+            row_texts.append(row_text)
+
+    merged_text = "\n".join(row_texts).strip()
+    all_bbox_points = [point for item in cluster for point in item["bbox"]]
+    min_x = min(point[0] for point in all_bbox_points)
+    max_x = max(point[0] for point in all_bbox_points)
+    min_y = min(point[1] for point in all_bbox_points)
+    max_y = max(point[1] for point in all_bbox_points)
+    bbox = [
+        [round_point(min_x + x_offset), round_point(min_y + y_offset)],
+        [round_point(max_x + x_offset), round_point(min_y + y_offset)],
+        [round_point(max_x + x_offset), round_point(max_y + y_offset)],
+        [round_point(min_x + x_offset), round_point(max_y + y_offset)],
+    ]
+    position = classify_position((min_x + max_x) / 2, (min_y + max_y) / 2, analysis_width, analysis_height)
+    average_confidence = average([item["confidence"] for item in cluster])
+
+    return {
+        "text": merged_text,
+        "confidence": round(average_confidence, 4),
+        "bbox": bbox,
+        "position": position,
+        "raw_item_count": len(cluster),
+    }
+
+
+def build_grouped_lines(raw_result: Any, *, analysis_width: int, analysis_height: int, x_offset: int, y_offset: int) -> tuple[list[dict[str, Any]], int]:
+    raw_lines = normalize_ocr_lines(raw_result)
+    segments: list[dict[str, Any]] = []
+
+    for raw_box, text_info in raw_lines:
+        bbox = to_bbox_points(raw_box)
+        if not bbox:
+            continue
+        text = normalize_token_text(str(text_info[0]))
+        confidence = float(text_info[1])
+        if is_noise_token(text, confidence):
+            continue
+        metrics = bbox_metrics(bbox)
+        segments.append({"text": text, "confidence": confidence, "bbox": bbox, "metrics": metrics})
+
+    grouped_lines = [merge_cluster(cluster, analysis_width, analysis_height, x_offset, y_offset) for cluster in group_segments(segments)]
+    grouped_lines = [item for item in grouped_lines if item["text"]]
+    return grouped_lines, len(segments)
+
+
+def build_entry(
+    image_path: Path,
+    full_image_bgr: Any,
+    raw_result: Any,
+    *,
+    focus_region: dict[str, int],
+    variant_label: str,
+    variant_runs: list[dict[str, Any]],
+    debug_json_path: Path,
+) -> dict[str, Any]:
+    analysis_width = focus_region["width"]
+    analysis_height = focus_region["height"]
+    grouped_lines, raw_line_count = build_grouped_lines(
+        raw_result,
+        analysis_width=analysis_width,
+        analysis_height=analysis_height,
+        x_offset=focus_region["left"],
+        y_offset=focus_region["top"],
+    )
+    texts_by_region: dict[str, list[str]] = defaultdict(list)
+    for line in grouped_lines:
+        texts_by_region[line["position"]["label"]].append(line["text"])
+
+    ordered_summary = {
+        label: texts_by_region[label]
+        for label in (
+            "top-left",
+            "top-mid",
+            "top-right",
+            "mid-left",
+            "mid-mid",
+            "mid-right",
+            "bottom-left",
+            "bottom-mid",
+            "bottom-right",
+        )
+        if texts_by_region.get(label)
+    }
+
+    return {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "source_image": str(image_path),
+        "image_size": {"width": int(full_image_bgr.shape[1]), "height": int(full_image_bgr.shape[0])},
+        "focus_region": focus_region,
+        "ocr_variant": variant_label,
+        "ocr_debug_path": str(debug_json_path),
+        "ocr_variants_tried": [
+            {
+                "label": variant_run["label"],
+                "raw_line_count": variant_run["raw_line_count"],
+                "total_text_length": variant_run["total_text_length"],
+                "average_confidence": variant_run["average_confidence"],
+                "image_size": variant_run["image_size"],
+                "det_side_len": variant_run["det_side_len"],
+                "det_limit_type": variant_run["det_limit_type"],
+            }
+            for variant_run in variant_runs
+        ],
+        "raw_line_count": raw_line_count,
+        "summary_by_region": ordered_summary,
+        "lines": grouped_lines,
+    }
+
+
+def append_entry(results: dict[str, Any], entry: dict[str, Any]) -> None:
+    timestamp = datetime.fromisoformat(entry["timestamp"])
+    day_key = timestamp.strftime("%Y-%m-%d")
+    hour_key = timestamp.strftime("%H")
+    day_group = results["entries_by_day"].setdefault(day_key, {})
+    if not isinstance(day_group, dict):
+        day_group = {}
+        results["entries_by_day"][day_key] = day_group
+    hour_group = day_group.setdefault(hour_key, [])
+    if not isinstance(hour_group, list):
+        hour_group = []
+        day_group[hour_key] = hour_group
+    hour_group.append(entry)
+
+
+def process_image_path(
+    image_path: Path,
+    *,
+    ocr: Any | None = None,
+    results: dict[str, Any] | None = None,
+    pre_cropped_focus_region: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    ocr_instance = ocr if ocr is not None else load_paddleocr()
+    result_store = results if results is not None else load_results(OUTPUT_PATH)
+
+    image_bgr = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    if image_bgr is None:
+        raise RuntimeError(f"Unable to read image: {image_path}")
+
+    if pre_cropped_focus_region is None:
+        focus_image_bgr, focus_region = crop_to_focus_region(image_bgr)
+        source_image_bgr = image_bgr
+    else:
+        focus_image_bgr = image_bgr
+        focus_region = pre_cropped_focus_region
+        source_image_bgr = image_bgr
+
+    variant_runs = [run_ocr_variant(ocr_instance, variant) for variant in build_ocr_variants(focus_image_bgr)]
+    best_variant = choose_best_variant(variant_runs)
+    debug_json_path = save_debug_artifacts(image_path, focus_region, variant_runs)
+    entry = build_entry(
+        image_path,
+        source_image_bgr,
+        best_variant["raw_result"],
+        focus_region=focus_region,
+        variant_label=best_variant["label"],
+        variant_runs=variant_runs,
+        debug_json_path=debug_json_path,
+    )
+    append_entry(result_store, entry)
+    if results is None:
+        save_results(OUTPUT_PATH, result_store)
+    return entry
+
+
+def save_manual_capture_image(image_bgr: Any, *, prefix: str = DEFAULT_CAPTURE_PREFIX) -> Path:
+    INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    image_path = INPUT_DIR / f"{prefix}_{timestamp}.png"
+    if not cv2.imwrite(str(image_path), image_bgr):
+        raise RuntimeError(f"Failed to save manual screenshot to {image_path}")
+    return image_path
+
+
+def capture_and_process_image(image_bgr: Any, *, prefix: str = DEFAULT_CAPTURE_PREFIX) -> dict[str, Any]:
+    focus_image_bgr, screen_focus_region = crop_to_focus_region(image_bgr)
+    image_path = save_manual_capture_image(focus_image_bgr, prefix=prefix)
+    results = load_results(OUTPUT_PATH)
+    entry = process_image_path(
+        image_path,
+        results=results,
+        pre_cropped_focus_region={
+            "left": 0,
+            "top": 0,
+            "width": int(focus_image_bgr.shape[1]),
+            "height": int(focus_image_bgr.shape[0]),
+            "right": int(focus_image_bgr.shape[1]),
+            "bottom": int(focus_image_bgr.shape[0]),
+            "source_screen_region": screen_focus_region,
+        },
+    )
+    save_results(OUTPUT_PATH, results)
+    return {"image_path": image_path, "entry": entry}
+
+
+def main(argv: list[str]) -> int:
+    image_paths = iter_input_images(argv)
+    if not image_paths:
+        print(f"No input images found. Put screenshots in {INPUT_DIR} or pass file paths.", flush=True)
+        return 1
+
+    ocr = load_paddleocr()
+    results = load_results(OUTPUT_PATH)
+
+    processed_count = 0
+    for image_path in image_paths:
+        entry = process_image_path(image_path, ocr=ocr, results=results)
+        processed_count += 1
+        print(
+            f"Processed {image_path.name}: {len(entry['lines'])} grouped blocks from {entry['raw_line_count']} raw lines via {entry['ocr_variant']} -> {OUTPUT_PATH.name}",
+            flush=True,
+        )
+
+    save_results(OUTPUT_PATH, results)
+    print(f"Saved {processed_count} OCR entr{'y' if processed_count == 1 else 'ies'} to {OUTPUT_PATH}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

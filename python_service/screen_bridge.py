@@ -15,6 +15,7 @@ from typing import Any
 import cv2
 import mss
 import numpy as np
+import paddleocr_manual_test
 import pytesseract
 from flask import Flask, Response, jsonify
 
@@ -26,6 +27,7 @@ HANDSHAKE_LOG_INTERVAL_SECONDS = 10.0
 HTTP_HOST = "0.0.0.0"
 HTTP_PORT = 62041
 EVENT_ENDPOINT_PATH = "/a"
+REPEAT_CAPTURE_ENDPOINT_PATH = "/b"
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -47,6 +49,7 @@ class TaskSettings:
     task_type: str
     wait_for_edge: bool
     prompts: tuple[str, ...]
+    repeat_prefix: str
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,16 @@ class ArmedTask:
     task_count: int
     task_type: str
     prompts: tuple[str, ...]
+    repeat_prefix: str
+
+
+@dataclass(frozen=True)
+class RepeatableTask:
+    task_count: int
+    task_type: str
+    prompts: tuple[str, ...]
+    repeat_prefix: str
+    base_screenshot_png: bytes
 
 
 # Task-counter detection settings.
@@ -83,6 +96,7 @@ SCREENSHOT_CROP_REGION: Region | None = None
 MOUSE_SIGNAL_EDGE_WIDTH = 2
 
 # Screen-edge scrolling settings for ChatGPT.
+ENABLE_SCROLL_BRIDGE = False
 SCROLL_SIGNAL_EDGE_HEIGHT = 12
 SCROLL_SIGNAL_RELEASE_HEIGHT = 32
 SCROLL_MONITOR_INTERVAL_SECONDS = 0.05
@@ -92,11 +106,14 @@ SCROLL_DIRECTION_DOWN = "down"
 
 # Manual test trigger settings.
 TEST_HOTKEY_LABEL = "Shift+Alt+Z"
+PADDLE_OCR_HOTKEY_LABEL = "Shift+Alt+X"
 MOD_ALT = 0x0001
 MOD_SHIFT = 0x0004
 VK_Z = 0x5A
+VK_X = 0x58
 WM_HOTKEY = 0x0312
 TEST_HOTKEY_ID = 1
+PADDLE_OCR_HOTKEY_ID = 2
 
 # Debug artifacts. The latest crops and OCR outputs are overwritten on each write.
 DEBUG_OUTPUT_ENABLED = False
@@ -104,6 +121,8 @@ DEBUG_OUTPUT_DIR = Path(__file__).resolve().parent / "debug"
 TASK_TYPE_CONFIG_PATH = Path(__file__).resolve().parent / "task_type_config.json"
 TASK_TYPE_COUNTS_PATH = Path(__file__).resolve().parent / "task_type_counts.json"
 TASK_TYPE_HISTORY_PATH = Path(__file__).resolve().parent / "task_type_history.jsonl"
+TASK_ARCHIVE_SCREENSHOT_DIR = Path(__file__).resolve().parent / "task_screenshots"
+TASK_ARCHIVE_CAPTURE_DELAY_SECONDS = 0.5
 
 DEFAULT_PROMPT = """The attached screenshot contains the current task page. First extract the exact Google search query shown in the screenshot. Then, for each semantically distinct component, provide a bullet point explaining what it is. Keep explanations as short as possible -- ideally just a label like \"brand name\" or \"model nr\" or \"file format\". Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification, give the shortest explanation that captures the essential nature of the thing while still leaving someone unfamiliar with an accurate mental model.
 
@@ -111,11 +130,14 @@ Then, below the bullets, list the most plausible interpretations of the full que
 
 Base everything strictly on the screenshot attachment."""
 
+DEFAULT_REPEAT_PREFIX = """Use the Google search screenshots to identify the user intent of the query that is most relatable to the product, assume that as the user intent, and update your final judgment accordingly."""
+
 DEFAULT_TASK_TYPE_CONFIG = {
     "default": {
         "enabled": False,
         "wait_for_edge": False,
         "prompts": [],
+        "repeat_prefix": DEFAULT_REPEAT_PREFIX,
     },
     "rules": [
         {
@@ -125,6 +147,7 @@ DEFAULT_TASK_TYPE_CONFIG = {
             "wait_for_edge": True,
             "test_trigger": False,
             "prompts": [DEFAULT_PROMPT],
+            "repeat_prefix": DEFAULT_REPEAT_PREFIX,
         }
     ],
 }
@@ -227,6 +250,15 @@ class TestTriggerState:
 
 
 TEST_TRIGGER_STATE = TestTriggerState()
+PADDLE_OCR_TRIGGER_STATE = TestTriggerState()
+
+
+def warmup_paddleocr() -> None:
+    try:
+        paddleocr_manual_test.load_paddleocr()
+        print(f"[paddleocr {timestamp_now()}] warmup-ready", flush=True)
+    except Exception as exc:
+        print(f"[paddleocr {timestamp_now()}] warmup-skipped error: {exc}", flush=True)
 
 
 @dataclass
@@ -234,6 +266,7 @@ class SharedState:
     last_seen_task_count: int | None = None
     pending_events: deque[dict[str, Any]] = field(default_factory=deque)
     armed_task: ArmedTask | None = None
+    repeatable_task: RepeatableTask | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def is_new_task(self, task_count: int) -> bool:
@@ -246,6 +279,7 @@ class SharedState:
                 return False
             self.last_seen_task_count = task_count
             self.armed_task = None
+            self.repeatable_task = None
             return True
 
     def register_task(self, task_count: int, settings: TaskSettings) -> str:
@@ -254,11 +288,13 @@ class SharedState:
                 return "duplicate"
 
             self.last_seen_task_count = task_count
+            self.repeatable_task = None
             if settings.wait_for_edge:
                 self.armed_task = ArmedTask(
                     task_count=task_count,
                     task_type=settings.task_type,
                     prompts=settings.prompts,
+                    repeat_prefix=settings.repeat_prefix,
                 )
                 return "armed"
 
@@ -271,13 +307,39 @@ class SharedState:
             self.armed_task = None
             return armed_task
 
-    def publish_payload(self, task_count: int, screenshot_png: bytes, prompts: list[str] | tuple[str, ...]) -> None:
+    def remember_repeatable_task(
+        self,
+        task_count: int,
+        task_type: str,
+        prompts: list[str] | tuple[str, ...],
+        repeat_prefix: str,
+        base_screenshot_png: bytes,
+    ) -> None:
+        with self.lock:
+            self.repeatable_task = RepeatableTask(
+                task_count=task_count,
+                task_type=task_type,
+                prompts=tuple(prompts),
+                repeat_prefix=repeat_prefix,
+                base_screenshot_png=base_screenshot_png,
+            )
+
+    def get_repeatable_task(self) -> RepeatableTask | None:
+        with self.lock:
+            return self.repeatable_task
+
+    def publish_payload(
+        self,
+        task_count: int,
+        screenshots_png: list[bytes] | tuple[bytes, ...],
+        prompts: list[str] | tuple[str, ...],
+    ) -> None:
         with self.lock:
             self.pending_events.append(
                 {
                     "type": "task",
                     "task_count": task_count,
-                    "screenshot_png": screenshot_png,
+                    "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
                     "prompts": list(prompts),
                 }
             )
@@ -302,15 +364,17 @@ class SharedState:
         event_type = str(event.get("type", ""))
         if event_type == "task":
             task_count = int(event["task_count"])
-            screenshot_png = bytes(event["screenshot_png"])
+            screenshot_pngs = [bytes(screenshot_png) for screenshot_png in event.get("screenshots_png", [])]
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
+            encoded_screenshots = [base64.b64encode(screenshot_png).decode("ascii") for screenshot_png in screenshot_pngs]
+            total_bytes = sum(len(screenshot_png) for screenshot_png in screenshot_pngs)
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} bytes={len(screenshot_png)}",
+                f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes}",
                 flush=True,
             )
             return {
                 "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
-                "b": xor_encrypt_bytes_to_base64(screenshot_png, XOR_KEY),
+                "b": xor_encrypt_string_to_base64(json.dumps(encoded_screenshots, ensure_ascii=False), XOR_KEY),
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
             }
@@ -334,6 +398,7 @@ STATE = SharedState()
 @app.after_request
 def add_cors_headers(response: Response) -> Response:
     response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -342,6 +407,33 @@ def add_cors_headers(response: Response) -> Response:
 def get_pending_task() -> Any:
     maybe_log_handshake()
     return jsonify(STATE.consume_event())
+
+
+@app.get(REPEAT_CAPTURE_ENDPOINT_PATH)
+def capture_repeat_screenshot() -> Any:
+    repeatable_task = STATE.get_repeatable_task()
+    if repeatable_task is None:
+        return jsonify({"a": "", "b": "", "c": "", "d": "", "e": ""})
+
+    with mss.mss() as screenshotter:
+        monitor = screenshotter.monitors[1]
+        frame_bgr = capture_primary_monitor(screenshotter, monitor)
+
+    captured_screenshot_png = build_screenshot_payload(frame_bgr)
+    repeat_prompts = build_repeat_prompts(repeatable_task)
+    print(
+        f"[repeat {timestamp_now()}] counter={repeatable_task.task_count} type={repeatable_task.task_type} captured-by-request",
+        flush=True,
+    )
+    return jsonify(
+        {
+            "a": xor_encrypt_to_hex(str(repeatable_task.task_count), XOR_KEY),
+            "b": xor_encrypt_bytes_to_base64(captured_screenshot_png, XOR_KEY),
+            "c": xor_encrypt_string_to_base64(json.dumps(list(repeat_prompts), ensure_ascii=False), XOR_KEY),
+            "d": xor_encrypt_to_hex("repeat", XOR_KEY),
+            "e": xor_encrypt_bytes_to_base64(repeatable_task.base_screenshot_png, XOR_KEY),
+        }
+    )
 
 
 def timestamp_now() -> str:
@@ -420,6 +512,9 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
         default.get("prompts", default.get("prompt", DEFAULT_TASK_TYPE_CONFIG["default"]["prompts"])),
         DEFAULT_TASK_TYPE_CONFIG["default"]["prompts"],
     )
+    default_repeat_prefix = str(
+        default.get("repeat_prefix", DEFAULT_TASK_TYPE_CONFIG["default"]["repeat_prefix"])
+    ).strip() or DEFAULT_REPEAT_PREFIX
 
     normalized_rules: list[dict[str, Any]] = []
     for rule in rules:
@@ -436,6 +531,7 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
                     rule.get("prompts", rule.get("prompt", default_prompts or [DEFAULT_PROMPT])),
                     default_prompts or [DEFAULT_PROMPT],
                 ),
+                "repeat_prefix": str(rule.get("repeat_prefix", default_repeat_prefix)).strip() or default_repeat_prefix,
             }
         )
 
@@ -444,6 +540,7 @@ def normalize_task_type_config(raw: dict[str, Any]) -> dict[str, Any]:
             "enabled": bool(default.get("enabled", DEFAULT_TASK_TYPE_CONFIG["default"]["enabled"])),
             "wait_for_edge": bool(default.get("wait_for_edge", DEFAULT_TASK_TYPE_CONFIG["default"]["wait_for_edge"])),
             "prompts": default_prompts,
+            "repeat_prefix": default_repeat_prefix,
         },
         "rules": normalized_rules,
     }
@@ -480,7 +577,14 @@ def resolve_task_settings(task_type: str, config: dict[str, Any]) -> TaskSetting
     )
     if not prompts:
         prompts = (DEFAULT_PROMPT.replace("[TASK_TYPE]", normalized_type),)
-    return TaskSettings(task_type=normalized_type, wait_for_edge=wait_for_edge, prompts=prompts)
+    repeat_prefix = str(source.get("repeat_prefix", DEFAULT_REPEAT_PREFIX)).strip() or DEFAULT_REPEAT_PREFIX
+    repeat_prefix = repeat_prefix.replace("[TASK_TYPE]", normalized_type)
+    return TaskSettings(
+        task_type=normalized_type,
+        wait_for_edge=wait_for_edge,
+        prompts=prompts,
+        repeat_prefix=repeat_prefix,
+    )
 
 def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
     for rule in config.get("rules", []):
@@ -497,7 +601,14 @@ def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
         )
         if not prompts:
             prompts = (DEFAULT_PROMPT.replace("[TASK_TYPE]", task_type),)
-        return TaskSettings(task_type=task_type, wait_for_edge=False, prompts=prompts)
+        repeat_prefix = str(rule.get("repeat_prefix", DEFAULT_REPEAT_PREFIX)).strip() or DEFAULT_REPEAT_PREFIX
+        repeat_prefix = repeat_prefix.replace("[TASK_TYPE]", task_type)
+        return TaskSettings(
+            task_type=task_type,
+            wait_for_edge=False,
+            prompts=prompts,
+            repeat_prefix=repeat_prefix,
+        )
 
     return None
 
@@ -662,8 +773,35 @@ def extract_task_type(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> s
         height=TASK_TYPE_SCAN_REGION.height,
     )
     text_crop = extract_region(frame_bgr, text_region)
-    variants = preprocess_task_type_variants(text_crop)
 
+    paddle_result: dict[str, Any] | None = None
+    paddle_error: str | None = None
+    try:
+        paddle_result = paddleocr_manual_test.ocr_text_region(text_crop)
+        paddle_text = clean_ocr_text(paddle_result.get("text", ""))
+    except Exception as exc:
+        paddle_error = str(exc)
+        paddle_text = ""
+
+    save_debug_image("task_type_scan_region.png", icon_region)
+    save_debug_image("task_type_text_region.png", text_crop)
+
+    if paddle_text:
+        save_debug_text(
+            "task_type_ocr.txt",
+            "\n".join(
+                [
+                    f"engine='paddle' variant={paddle_result.get('variant')!r} cleaned={paddle_text!r}",
+                    f"raw_line_count={paddle_result.get('raw_line_count')!r}",
+                    f"lines={json.dumps(paddle_result.get('lines', []), ensure_ascii=False)}",
+                    f"variants={json.dumps(paddle_result.get('variant_runs', []), ensure_ascii=False)}",
+                ]
+            )
+            + "\n",
+        )
+        return paddle_text
+
+    variants = preprocess_task_type_variants(text_crop)
     attempts: list[tuple[str, str, str]] = []
     for label, image in variants:
         raw_text = ocr_single_line(image, language=OCR_LANGUAGE, config=TASK_TYPE_OCR_CONFIG)
@@ -672,14 +810,15 @@ def extract_task_type(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> s
 
     best_label, _best_raw, best_cleaned = max(attempts, key=lambda item: len(item[2]))
 
-    save_debug_image("task_type_scan_region.png", icon_region)
-    save_debug_image("task_type_text_region.png", text_crop)
     for label, image in variants:
         save_debug_image(f"task_type_{label}.png", image)
     save_debug_text(
         "task_type_ocr.txt",
         "\n".join(
-            [f"best={best_label!r} cleaned={best_cleaned!r}"]
+            [
+                f"engine='tesseract-fallback' paddle_error={paddle_error!r} paddle_text={paddle_text!r}",
+                f"best={best_label!r} cleaned={best_cleaned!r}",
+            ]
             + [f"{label}: raw={raw!r} cleaned={cleaned!r}" for label, raw, cleaned in attempts]
         )
         + "\n",
@@ -694,9 +833,19 @@ def get_cursor_position() -> tuple[int, int]:
     return int(point.x), int(point.y)
 
 
-def is_mouse_signal_active() -> bool:
+def is_mouse_signal_active(monitor: dict[str, int] | None = None) -> bool:
     x, _y = get_cursor_position()
-    return 0 <= x < MOUSE_SIGNAL_EDGE_WIDTH
+    if monitor is None:
+        return 0 <= x < MOUSE_SIGNAL_EDGE_WIDTH
+
+    return monitor["left"] <= x < monitor["left"] + MOUSE_SIGNAL_EDGE_WIDTH
+
+
+def build_repeat_prompts(repeatable_task: RepeatableTask) -> tuple[str, ...]:
+    prefix = repeatable_task.repeat_prefix.strip()
+    if not prefix:
+        return repeatable_task.prompts
+    return tuple(f"{prefix}\n\n{prompt}".strip() for prompt in repeatable_task.prompts)
 
 
 def get_scroll_signal_direction(monitor: dict[str, int], active_direction: str | None) -> str | None:
@@ -720,26 +869,46 @@ def get_scroll_signal_direction(monitor: dict[str, int], active_direction: str |
 def monitor_test_hotkey() -> None:
     msg = wintypes.MSG()
     user32 = ctypes.windll.user32
-    registered = bool(user32.RegisterHotKey(None, TEST_HOTKEY_ID, MOD_SHIFT | MOD_ALT, VK_Z))
-    if not registered:
+    registered_test = bool(user32.RegisterHotKey(None, TEST_HOTKEY_ID, MOD_SHIFT | MOD_ALT, VK_Z))
+    registered_paddle_ocr = bool(user32.RegisterHotKey(None, PADDLE_OCR_HOTKEY_ID, MOD_SHIFT | MOD_ALT, VK_X))
+
+    if not registered_test:
         error_code = ctypes.GetLastError()
         print(
             f"[test {timestamp_now()}] hotkey-register-failed key={TEST_HOTKEY_LABEL} error={error_code}",
             flush=True,
         )
-        return
+    else:
+        print(f"[test {timestamp_now()}] hotkey-registered key={TEST_HOTKEY_LABEL}", flush=True)
 
-    print(f"[test {timestamp_now()}] hotkey-registered key={TEST_HOTKEY_LABEL}", flush=True)
+    if not registered_paddle_ocr:
+        error_code = ctypes.GetLastError()
+        print(
+            f"[paddleocr {timestamp_now()}] hotkey-register-failed key={PADDLE_OCR_HOTKEY_LABEL} error={error_code}",
+            flush=True,
+        )
+    else:
+        print(f"[paddleocr {timestamp_now()}] hotkey-registered key={PADDLE_OCR_HOTKEY_LABEL}", flush=True)
+
+    if not registered_test and not registered_paddle_ocr:
+        return
 
     try:
         while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
-            if msg.message == WM_HOTKEY and msg.wParam == TEST_HOTKEY_ID:
-                TEST_TRIGGER_STATE.signal()
-                print(f"[test {timestamp_now()}] hotkey-pressed key={TEST_HOTKEY_LABEL}", flush=True)
+            if msg.message == WM_HOTKEY:
+                if msg.wParam == TEST_HOTKEY_ID:
+                    TEST_TRIGGER_STATE.signal()
+                    print(f"[test {timestamp_now()}] hotkey-pressed key={TEST_HOTKEY_LABEL}", flush=True)
+                elif msg.wParam == PADDLE_OCR_HOTKEY_ID:
+                    PADDLE_OCR_TRIGGER_STATE.signal()
+                    print(f"[paddleocr {timestamp_now()}] hotkey-pressed key={PADDLE_OCR_HOTKEY_LABEL}", flush=True)
             user32.TranslateMessage(ctypes.byref(msg))
             user32.DispatchMessageW(ctypes.byref(msg))
     finally:
-        user32.UnregisterHotKey(None, TEST_HOTKEY_ID)
+        if registered_test:
+            user32.UnregisterHotKey(None, TEST_HOTKEY_ID)
+        if registered_paddle_ocr:
+            user32.UnregisterHotKey(None, PADDLE_OCR_HOTKEY_ID)
 
 
 def encode_png(image_bgr: np.ndarray) -> bytes:
@@ -749,12 +918,27 @@ def encode_png(image_bgr: np.ndarray) -> bytes:
     return encoded.tobytes()
 
 
-def build_screenshot_payload(frame_bgr: np.ndarray) -> bytes:
+def build_screenshot_image(frame_bgr: np.ndarray) -> np.ndarray:
     screenshot_bgr = frame_bgr
     if SCREENSHOT_CROP_REGION is not None:
         screenshot_bgr = extract_region(frame_bgr, SCREENSHOT_CROP_REGION)
     save_debug_image("latest_screenshot.png", screenshot_bgr)
-    return encode_png(screenshot_bgr)
+    return screenshot_bgr
+
+
+def build_screenshot_payload(frame_bgr: np.ndarray) -> bytes:
+    return encode_png(build_screenshot_image(frame_bgr))
+
+
+def save_task_archive_screenshot(frame_bgr: np.ndarray, task_count: int) -> Path:
+    TASK_ARCHIVE_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    screenshot_bgr = build_screenshot_image(frame_bgr)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = TASK_ARCHIVE_SCREENSHOT_DIR / f"task_{int(task_count)}_{timestamp}.png"
+    success = cv2.imwrite(str(file_path), screenshot_bgr)
+    if not success:
+        raise RuntimeError(f"Failed to save task screenshot to {file_path}")
+    return file_path
 
 
 def capture_primary_monitor(screenshotter: mss.mss, monitor: dict[str, int]) -> np.ndarray:
@@ -787,14 +971,33 @@ def monitor_scroll_signals() -> None:
 def monitor_screen() -> None:
     counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
     task_type_icon_template = load_template_image(TASK_TYPE_ICON_TEMPLATE_PATH)
-    last_edge_active = is_mouse_signal_active()
 
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
+        last_edge_active = is_mouse_signal_active(monitor)
+        last_counter_visible = False
         while True:
             try:
                 frame_bgr = capture_primary_monitor(screenshotter, monitor)
                 task_count = extract_task_counter(frame_bgr, counter_icon_template)
+                counter_visible = task_count is not None
+                should_archive_task_screenshot = bool(
+                    task_count is not None and (
+                        not last_counter_visible or STATE.is_new_task(task_count)
+                    )
+                )
+                if should_archive_task_screenshot:
+                    time.sleep(TASK_ARCHIVE_CAPTURE_DELAY_SECONDS)
+                    frame_bgr = capture_primary_monitor(screenshotter, monitor)
+                    refreshed_task_count = extract_task_counter(frame_bgr, counter_icon_template)
+                    if refreshed_task_count is not None:
+                        task_count = refreshed_task_count
+                    archive_path = save_task_archive_screenshot(frame_bgr, task_count)
+                    print(
+                        f"[task-screenshot {timestamp_now()}] counter={task_count} saved={archive_path.name}",
+                        flush=True,
+                    )
+                    counter_visible = task_count is not None
 
                 if TEST_TRIGGER_STATE.consume():
                     test_settings = resolve_test_task_settings(CONFIG_CACHE.load())
@@ -804,13 +1007,40 @@ def monitor_screen() -> None:
                             flush=True,
                         )
                     else:
+                        screenshot_png = build_screenshot_payload(frame_bgr)
+                        effective_task_count = task_count if task_count is not None else 0
+                        STATE.remember_repeatable_task(
+                            effective_task_count,
+                            test_settings.task_type,
+                            test_settings.prompts,
+                            test_settings.repeat_prefix,
+                            screenshot_png,
+                        )
                         STATE.publish_payload(
-                            task_count if task_count is not None else 0,
-                            build_screenshot_payload(frame_bgr),
+                            effective_task_count,
+                            [screenshot_png],
                             test_settings.prompts,
                         )
                         print(
                             f"[test {timestamp_now()}] hotkey={TEST_HOTKEY_LABEL} queued type={test_settings.task_type}",
+                            flush=True,
+                        )
+
+                if PADDLE_OCR_TRIGGER_STATE.consume():
+                    screenshot_bgr = build_screenshot_image(frame_bgr)
+                    try:
+                        result = paddleocr_manual_test.capture_and_process_image(screenshot_bgr, prefix="llm_test")
+                    except Exception as exc:
+                        print(
+                            f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} error: {exc}",
+                            flush=True,
+                        )
+                    else:
+                        image_path = result["image_path"]
+                        entry = result["entry"]
+                        debug_name = Path(entry.get("ocr_debug_path", "")).name if entry.get("ocr_debug_path") else ""
+                        print(
+                            f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} saved={image_path.name} lines={len(entry.get('lines', []))} variant={entry.get('ocr_variant', 'unknown')} debug={debug_name}",
                             flush=True,
                         )
 
@@ -828,7 +1058,15 @@ def monitor_screen() -> None:
                     else:
                         action = STATE.register_task(task_count, settings)
                         if action == "ready":
-                            STATE.publish_payload(task_count, build_screenshot_payload(frame_bgr), settings.prompts)
+                            screenshot_png = build_screenshot_payload(frame_bgr)
+                            STATE.remember_repeatable_task(
+                                task_count,
+                                settings.task_type,
+                                settings.prompts,
+                                settings.repeat_prefix,
+                                screenshot_png,
+                            )
+                            STATE.publish_payload(task_count, [screenshot_png], settings.prompts)
                             print(
                                 f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} total={task_type_total}",
                                 flush=True,
@@ -839,13 +1077,21 @@ def monitor_screen() -> None:
                                 flush=True,
                             )
 
-                edge_active = is_mouse_signal_active()
+                edge_active = is_mouse_signal_active(monitor)
                 if edge_active and not last_edge_active:
                     armed_task = STATE.consume_armed_task()
                     if armed_task is not None:
+                        screenshot_png = build_screenshot_payload(frame_bgr)
+                        STATE.remember_repeatable_task(
+                            armed_task.task_count,
+                            armed_task.task_type,
+                            armed_task.prompts,
+                            armed_task.repeat_prefix,
+                            screenshot_png,
+                        )
                         STATE.publish_payload(
                             armed_task.task_count,
-                            build_screenshot_payload(frame_bgr),
+                            [screenshot_png],
                             armed_task.prompts,
                         )
                         print(
@@ -853,6 +1099,7 @@ def monitor_screen() -> None:
                             flush=True,
                         )
                 last_edge_active = edge_active
+                last_counter_visible = counter_visible
             except Exception as exc:
                 print(f"[bridge {timestamp_now()}] monitor error: {exc}", flush=True)
 
@@ -867,8 +1114,12 @@ def main() -> None:
     hotkey_thread = threading.Thread(target=monitor_test_hotkey, name="test-hotkey", daemon=True)
     hotkey_thread.start()
 
-    scroll_thread = threading.Thread(target=monitor_scroll_signals, name="scroll-monitor", daemon=True)
-    scroll_thread.start()
+    paddleocr_warmup_thread = threading.Thread(target=warmup_paddleocr, name="paddleocr-warmup", daemon=True)
+    paddleocr_warmup_thread.start()
+
+    if ENABLE_SCROLL_BRIDGE:
+        scroll_thread = threading.Thread(target=monitor_scroll_signals, name="scroll-monitor", daemon=True)
+        scroll_thread.start()
 
     monitor_thread = threading.Thread(target=monitor_screen, name="screen-monitor", daemon=True)
     monitor_thread.start()

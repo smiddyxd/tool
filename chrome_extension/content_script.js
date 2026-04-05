@@ -9,6 +9,12 @@
   const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea";
   const SEND_BUTTON_SELECTOR = '[data-testid="send-button"]';
   const ATTACHMENT_INPUT_SELECTOR = 'input[type="file"]';
+  const STOP_STREAMING_BUTTON_SELECTOR = '[data-testid="stop-button"], #composer-submit-button[aria-label="Stop streaming"]';
+  const START_VOICE_BUTTON_SELECTOR = '[data-testid="composer-speech-button"][aria-label="Start Voice"]';
+  const WEB_SEARCH_PILL_SELECTOR = 'button[aria-label^="Search"], button.__composer-pill';
+  const WEB_SEARCH_MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitemcheckbox"], [role="menuitem"]';
+  const WEB_SEARCH_PILL_LABEL = "Search";
+  const WEB_SEARCH_MENU_LABEL = "Web search";
 
   // Fallback prompt template if the server does not send one.
   const BOILERPLATE_PROMPT = `The attached screenshot contains the current task page. First extract the exact Google search query shown in the screenshot. Then, for each semantically distinct component, provide a bullet point explaining what it is. Keep explanations as short as possible -- ideally just a label like "brand name" or "model nr" or "file format". Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification, give the shortest explanation that captures the essential nature of the thing while still leaving someone unfamiliar with an accurate mental model.
@@ -19,12 +25,21 @@ Base everything strictly on the screenshot attachment.`;
 
   // Content-script timing settings for DOM availability, upload settling, and send-button activation.
   const MESSAGE_TYPE = "submitScreenshot";
+  const QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE = "queueRepeatScreenshot";
+  const SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE = "submitRepeatDraft";
+  const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
+  const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
   const SCROLL_MESSAGE_TYPE = "scrollChatGpt";
   const PING_MESSAGE_TYPE = "localQueryBridgePing";
   const ELEMENT_WAIT_TIMEOUT_MS = 10000;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
+  const ATTACHMENT_INPUT_WAIT_TIMEOUT_MS = 4000;
+  const WEB_SEARCH_WAIT_POLL_MS = 500;
+  const WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS = 2500;
   const ATTACHMENT_SETTLE_MS = 1500;
   const PROMPT_SETTLE_MS = 2000;
+  const RESPONSE_STATE_POLL_MS = 250;
+  const RESPONSE_COMPLETE_TIMEOUT_MS = 300000;
   const SCROLL_STEP_VIEWPORT_RATIO = 0.18;
   const SCROLL_EXECUTION_INTERVAL_MS = 180;
   const SEND_BUTTON_RETRY_COUNT = 20;
@@ -42,6 +57,38 @@ Base everything strictly on the screenshot attachment.`;
     timerId: null,
   };
 
+  const webSearchState = {
+    routeKey: null,
+    ensuredForRoute: false,
+  };
+
+  const autoScrollState = {
+    runId: 0,
+    userScrolled: false,
+  };
+
+  const MANUAL_SCROLL_KEYS = new Set([
+    "ArrowUp",
+    "ArrowDown",
+    "PageUp",
+    "PageDown",
+    "Home",
+    "End",
+    " ",
+    "Spacebar",
+  ]);
+
+  function isEditableTarget(target) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    return target instanceof HTMLInputElement
+      || target instanceof HTMLTextAreaElement
+      || target.isContentEditable
+      || Boolean(target.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'));
+  }
+
   async function waitForElement(selector, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
 
@@ -55,6 +102,122 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     throw new Error(`Timed out waiting for ${selector}`);
+  }
+
+  async function waitForOptionalElement(selector, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const element = document.querySelector(selector);
+      if (element) {
+        return element;
+      }
+
+      await delay(ELEMENT_WAIT_INTERVAL_MS);
+    }
+
+    return null;
+  }
+
+  function getCurrentRouteKey() {
+    return `${window.location.pathname}${window.location.search}`;
+  }
+
+  function syncWebSearchStateWithRoute() {
+    const routeKey = getCurrentRouteKey();
+    if (webSearchState.routeKey !== routeKey) {
+      webSearchState.routeKey = routeKey;
+      webSearchState.ensuredForRoute = false;
+    }
+  }
+
+  function markWebSearchEnsured() {
+    webSearchState.routeKey = getCurrentRouteKey();
+    webSearchState.ensuredForRoute = true;
+  }
+
+  function isWebSearchEnabled() {
+    return Array.from(document.querySelectorAll(WEB_SEARCH_PILL_SELECTOR)).some((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+
+      const labelText = element.textContent?.trim() ?? "";
+      const ariaLabel = element.getAttribute("aria-label") ?? "";
+      return labelText.includes(WEB_SEARCH_PILL_LABEL) || ariaLabel.includes(WEB_SEARCH_PILL_LABEL);
+    });
+  }
+
+  function isResponseGenerating() {
+    return document.querySelector(STOP_STREAMING_BUTTON_SELECTOR) instanceof HTMLElement;
+  }
+
+  function isResponseIdle() {
+    return document.querySelector(START_VOICE_BUTTON_SELECTOR) instanceof HTMLElement;
+  }
+
+  function noteManualScroll(source) {
+    if (autoScrollState.runId === 0 || autoScrollState.userScrolled) {
+      return;
+    }
+
+    autoScrollState.userScrolled = true;
+    console.log("Local Query Bridge auto-scroll canceled by manual scroll", { source, runId: autoScrollState.runId });
+  }
+
+  function findVisibleWebSearchMenuItem() {
+    return Array.from(document.querySelectorAll(WEB_SEARCH_MENU_ITEM_SELECTOR)).find((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+
+      return element.textContent?.trim().includes(WEB_SEARCH_MENU_LABEL);
+    }) ?? null;
+  }
+
+  function dispatchKeyboardEvent(target, type, key, code) {
+    const event = new KeyboardEvent(type, {
+      key,
+      code,
+      keyCode: key === "Enter" ? 13 : key.toUpperCase().charCodeAt(0),
+      which: key === "Enter" ? 13 : key.toUpperCase().charCodeAt(0),
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    target.dispatchEvent(event);
+  }
+
+  async function waitForWebSearchEnabled() {
+    while (!isWebSearchEnabled()) {
+      await delay(WEB_SEARCH_WAIT_POLL_MS);
+    }
+  }
+
+  async function waitForWebSearchEnabledWithTimeout(timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (isWebSearchEnabled()) {
+        return true;
+      }
+      await delay(WEB_SEARCH_WAIT_POLL_MS);
+    }
+    return isWebSearchEnabled();
+  }
+
+  async function tryEnableWebSearchFromVisibleMenu() {
+    const menuItem = findVisibleWebSearchMenuItem();
+    if (!(menuItem instanceof HTMLElement)) {
+      return false;
+    }
+
+    if (menuItem.getAttribute("aria-checked") === "true") {
+      return await waitForWebSearchEnabledWithTimeout(WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS);
+    }
+
+    console.log("Local Query Bridge attempting web search enable from visible menu");
+    menuItem.click();
+    return await waitForWebSearchEnabledWithTimeout(WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS);
   }
 
   function dispatchEditorEvents(editor, value) {
@@ -113,7 +276,21 @@ Base everything strictly on the screenshot attachment.`;
     setContentEditableValue(editor, value);
   }
 
-  function dataUrlToFile(imageDataUrl, taskCount) {
+  function normalizeImageDataUrls(rawValue) {
+    if (Array.isArray(rawValue)) {
+      return rawValue
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean);
+    }
+
+    if (typeof rawValue === "string" && rawValue.trim()) {
+      return [rawValue.trim()];
+    }
+
+    return [];
+  }
+
+  function dataUrlToFile(imageDataUrl, taskCount, screenshotIndex) {
     const match = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) {
       throw new Error("Invalid screenshot data URL");
@@ -128,29 +305,147 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     const extension = mimeType === "image/jpeg" ? "jpg" : "png";
-    return new File([bytes], `task-${taskCount}.${extension}`, { type: mimeType });
+    const suffix = Number.isInteger(screenshotIndex) ? `-${screenshotIndex + 1}` : "";
+    return new File([bytes], `task-${taskCount}${suffix}.${extension}`, { type: mimeType });
   }
 
-  async function attachScreenshotFile(file, editor) {
-    const attachmentInput = document.querySelector(ATTACHMENT_INPUT_SELECTOR);
-    if (attachmentInput instanceof HTMLInputElement) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      attachmentInput.files = dataTransfer.files;
-      attachmentInput.dispatchEvent(new Event("change", { bubbles: true }));
-      await delay(ATTACHMENT_SETTLE_MS);
+  async function ensureWebSearchEnabled() {
+    syncWebSearchStateWithRoute();
+    if (webSearchState.ensuredForRoute) {
       return;
     }
 
-    const pasteData = new DataTransfer();
-    pasteData.items.add(file);
-    const pasteEvent = typeof ClipboardEvent === "function"
-      ? new ClipboardEvent("paste", { bubbles: true, cancelable: true })
-      : new Event("paste", { bubbles: true, cancelable: true });
-    Object.defineProperty(pasteEvent, "clipboardData", { value: pasteData });
-    editor.dispatchEvent(pasteEvent);
-    await delay(ATTACHMENT_SETTLE_MS);
+    if (isWebSearchEnabled()) {
+      console.log("Local Query Bridge web search already enabled");
+      markWebSearchEnsured();
+      return;
+    }
+
+    const enabledFromVisibleMenu = await tryEnableWebSearchFromVisibleMenu();
+    if (enabledFromVisibleMenu) {
+      console.log("Local Query Bridge enabled web search from visible menu");
+      markWebSearchEnsured();
+      return;
+    }
+
+    console.log("Local Query Bridge waiting for manual web search activation");
+    await waitForWebSearchEnabled();
+    console.log("Local Query Bridge detected manual web search activation");
+    markWebSearchEnsured();
   }
+
+  async function attachScreenshotFiles(files, editor) {
+    for (const file of files) {
+      const attachmentInput = await waitForOptionalElement(ATTACHMENT_INPUT_SELECTOR, ATTACHMENT_INPUT_WAIT_TIMEOUT_MS);
+      if (attachmentInput instanceof HTMLInputElement) {
+        console.log("Local Query Bridge attaching screenshot via file input", { name: file.name, size: file.size });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        attachmentInput.files = dataTransfer.files;
+        attachmentInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await delay(ATTACHMENT_SETTLE_MS);
+        continue;
+      }
+
+      console.log("Local Query Bridge attaching screenshot via paste fallback", { name: file.name, size: file.size });
+      const pasteData = new DataTransfer();
+      pasteData.items.add(file);
+      const pasteEvent = typeof ClipboardEvent === "function"
+        ? new ClipboardEvent("paste", { bubbles: true, cancelable: true })
+        : new Event("paste", { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvent, "clipboardData", { value: pasteData });
+      editor.dispatchEvent(pasteEvent);
+      await delay(ATTACHMENT_SETTLE_MS);
+    }
+  }
+
+  function scrollToBottomNow() {
+    const target = getScrollTarget();
+    if (target instanceof HTMLElement) {
+      const nextScrollTop = Math.max(0, target.scrollHeight - target.clientHeight);
+      target.scrollTop = nextScrollTop;
+      console.log("Local Query Bridge auto-scrolled to bottom", {
+        target: target.tagName,
+        nextScrollTop,
+      });
+      return;
+    }
+
+    const root = document.scrollingElement || document.documentElement || document.body;
+    const maxScrollTop = root ? Math.max(0, root.scrollHeight - root.clientHeight) : window.scrollY;
+    window.scrollTo({ top: maxScrollTop, left: 0, behavior: "auto" });
+    console.log("Local Query Bridge auto-scrolled to bottom", {
+      target: "window",
+      nextScrollTop: maxScrollTop,
+    });
+  }
+
+  async function watchResponseCompletionAndAutoScroll(runId) {
+    const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
+    let sawGenerating = false;
+
+    console.log("Local Query Bridge watching response completion", { runId });
+    while (Date.now() < deadline && autoScrollState.runId === runId) {
+      if (isResponseGenerating()) {
+        sawGenerating = true;
+      } else if (sawGenerating && isResponseIdle()) {
+        if (!autoScrollState.userScrolled) {
+          scrollToBottomNow();
+        } else {
+          console.log("Local Query Bridge skipped auto-scroll after completion", { runId });
+        }
+        if (autoScrollState.runId === runId) {
+          autoScrollState.runId = 0;
+        }
+        return;
+      }
+
+      await delay(RESPONSE_STATE_POLL_MS);
+    }
+
+    if (autoScrollState.runId === runId) {
+      autoScrollState.runId = 0;
+    }
+  }
+
+  function startAutoScrollWatch() {
+    autoScrollState.runId += 1;
+    autoScrollState.userScrolled = false;
+    const runId = autoScrollState.runId;
+    void watchResponseCompletionAndAutoScroll(runId);
+  }
+
+  window.addEventListener("wheel", () => {
+    noteManualScroll("wheel");
+  }, { passive: true });
+
+  window.addEventListener("touchmove", () => {
+    noteManualScroll("touchmove");
+  }, { passive: true });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.repeat) {
+      return;
+    }
+
+    if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space") {
+      event.preventDefault();
+      event.stopPropagation();
+      void chrome.runtime.sendMessage({ type: REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE });
+      return;
+    }
+
+    if (!event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space" && !isEditableTarget(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+      void chrome.runtime.sendMessage({ type: REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE });
+      return;
+    }
+
+    if (MANUAL_SCROLL_KEYS.has(event.key)) {
+      noteManualScroll(`key:${event.key}`);
+    }
+  }, true);
 
   function getScrollTarget() {
     const candidates = [
@@ -272,19 +567,9 @@ Base everything strictly on the screenshot attachment.`;
     ensureScrollLoop();
   }
 
-  async function submitScreenshot(imageDataUrl, taskCount, promptText) {
-    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
-    const screenshotFile = dataUrlToFile(imageDataUrl, taskCount);
-    const prompt = typeof promptText === "string" && promptText.trim().length > 0
-      ? promptText
-      : BOILERPLATE_PROMPT;
-
-    editor.focus();
-    await attachScreenshotFile(screenshotFile, editor);
-    populatePromptEditor(editor, prompt);
-
+  async function clickSendWhenReady(taskCount) {
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
-    console.log("Local Query Bridge prompt inserted; waiting before send", {
+    console.log("Local Query Bridge waiting before send", {
       promptSettleMs: PROMPT_SETTLE_MS,
       taskCount,
     });
@@ -299,6 +584,93 @@ Base everything strictly on the screenshot attachment.`;
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
+        startAutoScrollWatch();
+        return;
+      }
+
+      await delay(SEND_BUTTON_RETRY_DELAY_MS);
+    }
+
+    throw new Error("Send button did not become clickable");
+  }
+
+  async function queueRepeatScreenshotDraft(imageDataUrls, taskCount) {
+    const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
+    console.log("Local Query Bridge received repeat screenshot request", {
+      taskCount,
+      screenshotCount: normalizedImageDataUrls.length,
+    });
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    const screenshotFiles = normalizedImageDataUrls.map((imageDataUrl, screenshotIndex) => (
+      dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
+    ));
+
+    editor.focus();
+    await attachScreenshotFiles(screenshotFiles, editor);
+    console.log("Local Query Bridge queued repeat screenshots in draft", {
+      taskCount,
+      screenshotCount: screenshotFiles.length,
+    });
+  }
+
+  async function submitRepeatDraft(taskCount, promptText) {
+    console.log("Local Query Bridge received repeat confirm request", {
+      taskCount,
+      promptLength: typeof promptText === "string" ? promptText.length : 0,
+    });
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    const prompt = typeof promptText === "string" && promptText.trim().length > 0
+      ? promptText
+      : BOILERPLATE_PROMPT;
+
+    editor.focus();
+    await ensureWebSearchEnabled();
+    populatePromptEditor(editor, prompt);
+    await clickSendWhenReady(taskCount);
+  }
+
+  async function submitScreenshot(imageDataUrls, taskCount, promptText) {
+    const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
+    console.log("Local Query Bridge received submit request", {
+      taskCount,
+      promptLength: typeof promptText === "string" ? promptText.length : 0,
+      screenshotCount: normalizedImageDataUrls.length,
+    });
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    const screenshotFiles = normalizedImageDataUrls.map((imageDataUrl, screenshotIndex) => (
+      dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
+    ));
+    const prompt = typeof promptText === "string" && promptText.trim().length > 0
+      ? promptText
+      : BOILERPLATE_PROMPT;
+
+    editor.focus();
+    console.log("Local Query Bridge ensuring web search before inserting prompt", {
+      taskCount,
+      promptSettleMs: PROMPT_SETTLE_MS,
+      screenshotCount: screenshotFiles.length,
+    });
+    await ensureWebSearchEnabled();
+    populatePromptEditor(editor, prompt);
+    await attachScreenshotFiles(screenshotFiles, editor);
+
+    const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
+    console.log("Local Query Bridge waiting before send", {
+      promptSettleMs: PROMPT_SETTLE_MS,
+      taskCount,
+    });
+
+    for (let attempt = 0; attempt < SEND_BUTTON_RETRY_COUNT; attempt += 1) {
+      const remainingDelayMs = earliestSendAt - Date.now();
+      if (remainingDelayMs > 0) {
+        await delay(remainingDelayMs);
+      }
+
+      const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
+      if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
+        console.log("Local Query Bridge clicking send", { taskCount, attempt });
+        sendButton.click();
+        startAutoScrollWatch();
         return;
       }
 
@@ -320,14 +692,45 @@ Base everything strictly on the screenshot attachment.`;
       return false;
     }
 
-    if (message?.type !== MESSAGE_TYPE || typeof message.imageDataUrl !== "string") {
+    if (message?.type === QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE) {
+      const imageDataUrls = normalizeImageDataUrls(message?.imageDataUrls ?? message?.imageDataUrl);
+      if (imageDataUrls.length === 0) {
+        sendResponse({ ok: false });
+        return false;
+      }
+
+      sendResponse({ ok: true });
+      void queueRepeatScreenshotDraft(imageDataUrls, message.taskCount ?? 0).catch((error) => {
+        console.error("Local Query Bridge repeat screenshot queue failed", error);
+      });
       return false;
     }
 
+    if (message?.type === SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE) {
+      sendResponse({ ok: true });
+      void submitRepeatDraft(
+        message.taskCount ?? 0,
+        typeof message.promptText === "string" ? message.promptText : "",
+      ).catch((error) => {
+        console.error("Local Query Bridge repeat draft submit failed", error);
+      });
+      return false;
+    }
+
+    const imageDataUrls = normalizeImageDataUrls(message?.imageDataUrls ?? message?.imageDataUrl);
+    if (message?.type !== MESSAGE_TYPE || imageDataUrls.length === 0) {
+      return false;
+    }
+
+    console.log("Local Query Bridge content script got screenshot message", {
+      taskCount: message.taskCount ?? 0,
+      promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
+      screenshotCount: imageDataUrls.length,
+    });
     sendResponse({ ok: true });
 
     void submitScreenshot(
-      message.imageDataUrl,
+      imageDataUrls,
       message.taskCount ?? 0,
       typeof message.promptText === "string" ? message.promptText : "",
     ).catch((error) => {

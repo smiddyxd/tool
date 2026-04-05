@@ -1,11 +1,13 @@
 // Bridge endpoint exposed by the Python service. Set this to the LAN IP of the PC running the Python bridge.
 const BRIDGE_BASE_URL = "http://192.168.0.215:62041";
 const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
+const REPEAT_CAPTURE_URL = `${BRIDGE_BASE_URL}/b`;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
 const POLL_PERIOD_MINUTES = 0.005;
 const FAST_SCROLL_REPOLL_DELAY_MS = 100;
+const ENABLE_SCROLL_BRIDGE = false;
 
 // Shared single-byte XOR key used by the Python service.
 const XOR_KEY = 0x5a;
@@ -14,6 +16,7 @@ const HANDSHAKE_LOG_INTERVAL_MS = 10000;
 // Event types emitted by the Python service.
 const EVENT_TYPE_TASK = "task";
 const EVENT_TYPE_SCROLL = "scroll";
+const EVENT_TYPE_REPEAT = "repeat";
 
 // Extension settings persisted through the options page.
 const DEFAULT_START_PAGE_URL = "https://chatgpt.com/g/g-p-69bc1388b0588191bd1c176e83f018e4-rating/project";
@@ -27,6 +30,10 @@ const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 const CHATGPT_URL_PATTERNS = ["https://chat.openai.com/*", "https://chatgpt.com/*"];
 const CONTENT_SCRIPT_FILE = "content_script.js";
 const CONTENT_SCRIPT_PING_TYPE = "localQueryBridgePing";
+const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
+const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
+const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
+const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
@@ -34,6 +41,7 @@ const MAX_EVENTS_PER_POLL = 10;
 const state = {
   isPolling: false,
   pendingSubmission: null,
+  pendingRepeatDraft: null,
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
 };
@@ -127,6 +135,21 @@ function xorDecryptBase64ToString(base64Value, key) {
 
   const decryptedBytes = xorDecryptBase64(base64Value, key);
   return new TextDecoder().decode(decryptedBytes);
+}
+
+function normalizeImageDataUrls(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean)
+      .map((value) => `data:image/png;base64,${value}`);
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return [rawValue.trim()];
+  }
+
+  return [];
 }
 
 function isChatGptUrl(url) {
@@ -397,12 +420,36 @@ async function ensureContentScript(tabId) {
   });
 }
 
-async function sendToChatGpt(tabId, imageDataUrl, taskCount, promptText) {
+async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
     type: "submitScreenshot",
-    imageDataUrl,
+    imageDataUrls,
+    taskCount,
+    promptText,
+  });
+
+  return response?.ok === true;
+}
+
+async function queueRepeatScreenshot(tabId, imageDataUrls, taskCount) {
+  await ensureContentScript(tabId);
+
+  const response = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_QUEUE_REPEAT_TYPE,
+    imageDataUrls,
+    taskCount,
+  });
+
+  return response?.ok === true;
+}
+
+async function submitRepeatDraft(tabId, taskCount, promptText) {
+  await ensureContentScript(tabId);
+
+  const response = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE,
     taskCount,
     promptText,
   });
@@ -422,48 +469,22 @@ async function sendScrollToChatGpt(tabId, direction, steps) {
   return response?.ok === true;
 }
 
-async function buildSubmissionTargets(promptTexts) {
-  const settings = await getOptions();
+async function assignPromptTargets(baseTabs, promptTexts, logLabel) {
   const promptCount = Math.max(1, Array.isArray(promptTexts) && promptTexts.length > 0 ? promptTexts.length : 1);
-  let baseTabs = await getActiveChatGptTabsAcrossWindows();
-
-  if (baseTabs.length === 0) {
-    const preferredTab = await getPreferredChatGptTab();
-    if (preferredTab?.id) {
-      baseTabs = [preferredTab];
-    }
-  }
-
-  if (baseTabs.length === 0) {
-    const freshTab = await openFreshChatGptTab(undefined, settings.defaultStartPageUrl);
-    if (freshTab?.id) {
-      baseTabs = [freshTab];
-    }
-  }
-
   const slotMap = await getTabPromptSlots();
   let slotMapChanged = false;
-  const resolvedTabs = [];
-
-  for (const baseTab of baseTabs) {
-    let tab = baseTab;
-    if (!tab?.id) {
-      continue;
-    }
-
-    if (settings.resetLimit > 0) {
-      const submissionCount = await getTabSubmissionCount(tab.id);
-      if (submissionCount >= settings.resetLimit) {
-        const resetTab = await resetChatGptTab(tab.id, settings.defaultStartPageUrl);
-        if (resetTab?.id) {
-          tab = resetTab;
-          console.log(`Local Query Bridge reset ChatGPT tab after ${submissionCount} prompt(s)`);
-        }
-      }
-    }
-
-    if (tab?.id) {
-      resolvedTabs.push(tab);
+  const liveTabs = await chrome.tabs.query({
+    url: CHATGPT_URL_PATTERNS,
+  });
+  const liveTabIds = new Set(
+    liveTabs
+      .filter((tab) => tab?.id && isChatGptUrl(tab.url))
+      .map((tab) => String(tab.id)),
+  );
+  for (const tabId of Object.keys(slotMap)) {
+    if (!liveTabIds.has(tabId)) {
+      delete slotMap[tabId];
+      slotMapChanged = true;
     }
   }
 
@@ -476,7 +497,7 @@ async function buildSubmissionTargets(promptTexts) {
   }
 
   const activeTargetsBySlot = new Map();
-  for (const tab of resolvedTabs) {
+  for (const tab of baseTabs) {
     const slot = getSlotValue(slotMap, tab.id);
     if (!Number.isInteger(slot) || slot < 0 || slot >= promptCount || activeTargetsBySlot.has(slot)) {
       continue;
@@ -492,7 +513,7 @@ async function buildSubmissionTargets(promptTexts) {
     }
   }
 
-  for (const tab of resolvedTabs) {
+  for (const tab of baseTabs) {
     if (freeSlots.length === 0) {
       break;
     }
@@ -529,7 +550,71 @@ async function buildSubmissionTargets(promptTexts) {
     });
   }
 
+  console.log(logLabel, {
+    promptCount,
+    activeTabs: baseTabs.map((tab) => tab?.id).filter(Number.isInteger),
+    targets: targets.map((target) => target.tabId),
+  });
   return targets;
+}
+
+async function buildSubmissionTargets(promptTexts) {
+  const settings = await getOptions();
+  let baseTabs = await getActiveChatGptTabsAcrossWindows();
+
+  if (baseTabs.length === 0) {
+    const preferredTab = await getPreferredChatGptTab();
+    if (preferredTab?.id) {
+      baseTabs = [preferredTab];
+    }
+  }
+
+  if (baseTabs.length === 0) {
+    const freshTab = await openFreshChatGptTab(undefined, settings.defaultStartPageUrl);
+    if (freshTab?.id) {
+      baseTabs = [freshTab];
+    }
+  }
+
+  const resolvedTabs = [];
+
+  for (const baseTab of baseTabs) {
+    let tab = baseTab;
+    if (!tab?.id) {
+      continue;
+    }
+
+    if (settings.resetLimit > 0) {
+      const submissionCount = await getTabSubmissionCount(tab.id);
+      if (submissionCount >= settings.resetLimit) {
+        const resetTab = await resetChatGptTab(tab.id, settings.defaultStartPageUrl);
+        if (resetTab?.id) {
+          tab = resetTab;
+          console.log(`Local Query Bridge reset ChatGPT tab after ${submissionCount} prompt(s)`);
+        }
+      }
+    }
+
+    if (tab?.id) {
+      resolvedTabs.push(tab);
+    }
+  }
+
+  return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved submission targets");
+}
+
+async function buildRepeatTargets(promptTexts) {
+  let baseTabs = await getActiveChatGptTabsAcrossWindows();
+
+  if (baseTabs.length === 0) {
+    const preferredTab = await getPreferredChatGptTab();
+    if (preferredTab?.id) {
+      baseTabs = [preferredTab];
+    }
+  }
+
+  const resolvedTabs = baseTabs.filter((tab) => tab?.id && isChatGptUrl(tab.url));
+  return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved repeat targets");
 }
 
 async function validateSubmissionTargets(targets) {
@@ -579,12 +664,18 @@ async function deliverPendingSubmission() {
 
   const targets = await getOrCreatePendingTargets();
   if (targets.length === 0) {
+    console.warn("Local Query Bridge has no eligible ChatGPT submission targets");
     return;
   }
 
-  const { imageDataUrl, taskCount } = state.pendingSubmission;
+  const { imageDataUrls, taskCount } = state.pendingSubmission;
+  console.log("Local Query Bridge delivering screenshot", {
+    taskCount,
+    screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
+    targets: targets.map((target) => target.tabId),
+  });
   const results = await Promise.allSettled(
-    targets.map((target) => sendToChatGpt(target.tabId, imageDataUrl, taskCount, target.promptText)),
+    targets.map((target) => sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText)),
   );
 
   const failedTargets = [];
@@ -609,10 +700,15 @@ async function deliverPendingSubmission() {
     return;
   }
 
+  console.warn("Local Query Bridge delivery left pending targets", failedTargets.map((target) => target.tabId));
   state.pendingSubmission.targets = failedTargets;
 }
 
 async function handleScrollEvent(direction, steps) {
+  if (!ENABLE_SCROLL_BRIDGE) {
+    return;
+  }
+
   const tabs = await getActiveChatGptTabsAcrossWindows();
   if (tabs.length === 0) {
     return;
@@ -655,6 +751,159 @@ async function fetchBridgePayload() {
   }
 }
 
+async function fetchRepeatCapturePayload() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(REPEAT_CAPTURE_URL, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      console.warn("Local Query Bridge repeat capture response not ok", response.status);
+      return null;
+    }
+
+    const payload = await response.json();
+    maybeLogHandshake();
+    return payload;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function getOrCreatePendingRepeatTargets(taskCount, promptTexts) {
+  if (
+    state.pendingRepeatDraft
+    && state.pendingRepeatDraft.taskCount === taskCount
+    && Array.isArray(state.pendingRepeatDraft.targets)
+    && state.pendingRepeatDraft.targets.length > 0
+  ) {
+    const validTargets = await validateSubmissionTargets(state.pendingRepeatDraft.targets);
+    if (validTargets.length > 0) {
+      state.pendingRepeatDraft.targets = validTargets;
+      return validTargets;
+    }
+  }
+
+  return buildRepeatTargets(promptTexts);
+}
+
+async function handleRepeatCaptureRequest() {
+  const payload = await fetchRepeatCapturePayload();
+  if (!payload?.a || !payload?.b || !payload?.c || !payload?.e) {
+    console.warn("Local Query Bridge repeat capture unavailable");
+    return;
+  }
+
+  const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
+  const taskCount = Number.parseInt(taskText, 10);
+  const capturedImageDataUrl = xorDecryptBase64ToDataUrl(payload.b, XOR_KEY);
+  const baseImageDataUrl = xorDecryptBase64ToDataUrl(payload.e, XOR_KEY);
+  const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
+  if (Number.isNaN(taskCount) || !capturedImageDataUrl || !baseImageDataUrl) {
+    console.warn("Local Query Bridge repeat capture payload invalid");
+    return;
+  }
+
+  let promptTexts = [];
+  if (promptPayload) {
+    try {
+      promptTexts = normalizePromptTexts(JSON.parse(promptPayload));
+    } catch (_error) {
+      promptTexts = normalizePromptTexts(promptPayload);
+    }
+  }
+
+  const existingDraft = state.pendingRepeatDraft;
+  const targets = await getOrCreatePendingRepeatTargets(taskCount, promptTexts);
+  if (targets.length === 0) {
+    console.warn("Local Query Bridge has no eligible ChatGPT repeat targets");
+    return;
+  }
+
+  const includeBaseScreenshot = !(existingDraft && existingDraft.taskCount === taskCount);
+  const imageDataUrls = includeBaseScreenshot
+    ? [baseImageDataUrl, capturedImageDataUrl]
+    : [capturedImageDataUrl];
+  const results = await Promise.allSettled(
+    targets.map((target) => queueRepeatScreenshot(target.tabId, imageDataUrls, taskCount)),
+  );
+
+  const successfulTargets = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    const result = results[index];
+    const target = targets[index];
+    if (result.status === "fulfilled" && result.value === true) {
+      successfulTargets.push(target);
+      state.lastChatGptTabId = target.tabId;
+    }
+  }
+
+  if (successfulTargets.length === 0) {
+    console.warn("Local Query Bridge failed to queue repeat screenshot in ChatGPT");
+    return;
+  }
+
+  state.pendingRepeatDraft = {
+    taskCount,
+    promptTexts,
+    targets: successfulTargets,
+    captureCount: (existingDraft && existingDraft.taskCount === taskCount ? existingDraft.captureCount : 0) + 1,
+  };
+  console.log(`Local Query Bridge queued repeat screenshot in ${successfulTargets.length} tab(s)`, {
+    taskCount,
+    captureCount: state.pendingRepeatDraft.captureCount,
+    attachedScreenshots: imageDataUrls.length,
+  });
+}
+
+async function handleRepeatConfirmRequest() {
+  if (!state.pendingRepeatDraft) {
+    console.warn("Local Query Bridge has no pending repeat draft to confirm");
+    return;
+  }
+
+  const validTargets = await validateSubmissionTargets(state.pendingRepeatDraft.targets);
+  if (validTargets.length === 0) {
+    console.warn("Local Query Bridge has no valid repeat draft targets");
+    state.pendingRepeatDraft = null;
+    return;
+  }
+
+  state.pendingRepeatDraft.targets = validTargets;
+  const { taskCount, targets } = state.pendingRepeatDraft;
+  const results = await Promise.allSettled(
+    targets.map((target) => submitRepeatDraft(target.tabId, taskCount, target.promptText)),
+  );
+
+  const failedTargets = [];
+  let successfulCount = 0;
+  for (let index = 0; index < targets.length; index += 1) {
+    const result = results[index];
+    const target = targets[index];
+    if (result.status === "fulfilled" && result.value === true) {
+      successfulCount += 1;
+      state.lastChatGptTabId = target.tabId;
+      await incrementTabSubmissionCount(target.tabId);
+      continue;
+    }
+
+    failedTargets.push(target);
+  }
+
+  if (failedTargets.length === 0) {
+    console.log(`Local Query Bridge submitted repeat draft to ChatGPT in ${successfulCount} tab(s)`);
+    state.pendingRepeatDraft = null;
+    return;
+  }
+
+  console.warn("Local Query Bridge repeat draft left pending targets", failedTargets.map((target) => target.tabId));
+  state.pendingRepeatDraft.targets = failedTargets;
+}
+
 async function pollLocalBridge() {
   if (state.isPolling) {
     return;
@@ -679,6 +928,10 @@ async function pollLocalBridge() {
 
       const eventType = xorDecryptHex(payload?.d ?? "", XOR_KEY).trim();
       if (eventType === EVENT_TYPE_SCROLL) {
+        if (!ENABLE_SCROLL_BRIDGE) {
+          continue;
+        }
+
         const direction = xorDecryptHex(payload.a ?? "", XOR_KEY).trim();
         const stepsText = xorDecryptHex(payload.b ?? "", XOR_KEY).trim();
         const steps = Number.parseInt(stepsText, 10);
@@ -696,9 +949,17 @@ async function pollLocalBridge() {
 
       const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
       const taskCount = Number.parseInt(taskText, 10);
-      const imageDataUrl = xorDecryptBase64ToDataUrl(payload.b, XOR_KEY);
+      const imagePayload = xorDecryptBase64ToString(payload.b ?? "", XOR_KEY).trim();
+      let imageDataUrls = [];
+      if (imagePayload) {
+        try {
+          imageDataUrls = normalizeImageDataUrls(JSON.parse(imagePayload));
+        } catch (_error) {
+          imageDataUrls = normalizeImageDataUrls(xorDecryptBase64ToDataUrl(payload.b, XOR_KEY));
+        }
+      }
       const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
-      if (Number.isNaN(taskCount) || !imageDataUrl) {
+      if (Number.isNaN(taskCount) || imageDataUrls.length === 0) {
         return;
       }
 
@@ -711,10 +972,14 @@ async function pollLocalBridge() {
         }
       }
 
-      console.log("Local Query Bridge retrieved new task screenshot");
+      console.log("Local Query Bridge retrieved new task screenshot", {
+        taskCount,
+        screenshotCount: imageDataUrls.length,
+      });
+      state.pendingRepeatDraft = null;
       state.pendingSubmission = {
         taskCount,
-        imageDataUrl,
+        imageDataUrls,
         promptTexts,
         targets: null,
       };
@@ -754,6 +1019,30 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   void pollLocalBridge();
 });
 
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE) {
+    void handleRepeatCaptureRequest()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        console.warn("Local Query Bridge repeat capture failed", error);
+        sendResponse({ ok: false });
+      });
+    return true;
+  }
+
+  if (message?.type === REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE) {
+    void handleRepeatConfirmRequest()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        console.warn("Local Query Bridge repeat confirm failed", error);
+        sendResponse({ ok: false });
+      });
+    return true;
+  }
+
+  return false;
+});
+
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (state.lastChatGptTabId === tabId) {
     state.lastChatGptTabId = null;
@@ -763,6 +1052,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     state.pendingSubmission.targets = state.pendingSubmission.targets.filter((target) => target.tabId !== tabId);
     if (state.pendingSubmission.targets.length === 0) {
       state.pendingSubmission.targets = null;
+    }
+  }
+
+  if (Array.isArray(state.pendingRepeatDraft?.targets)) {
+    state.pendingRepeatDraft.targets = state.pendingRepeatDraft.targets.filter((target) => target.tabId !== tabId);
+    if (state.pendingRepeatDraft.targets.length === 0) {
+      state.pendingRepeatDraft = null;
     }
   }
 

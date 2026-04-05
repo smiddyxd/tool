@@ -111,6 +111,12 @@ Manual test trigger:
 - the first enabled rule with `test_trigger=true` is used as the task type/prompt source
 - the screenshot is queued immediately; it does not wait for the left-edge gate
 
+Manual PaddleOCR test trigger:
+- hotkey: `Shift+Alt+X`
+- captures the same screenshot image used by the LLM test flow
+- saves that image under `python_service/manual_screenshots/`
+- appends a structured PaddleOCR transcript to `python_service/paddleocr_manual_results.json`
+
 Task-type counting:
 - every new global counter increment is recorded against the OCRed task type, even if that task type is ignored by the automation rules
 - totals are stored in `python_service/task_type_counts.json`
@@ -149,6 +155,30 @@ Notes:
 - rules are checked in order; the first match wins
 - `[TASK_TYPE]` inside each prompt is replaced with the OCRed task type text
 - with `default.enabled=false`, unmatched task types are ignored completely
+
+## PaddleOCR manual test
+
+For manual screenshot OCR experiments, use:
+
+```powershell
+cd python_service
+python paddleocr_manual_test.py
+```
+
+Default behavior:
+- reads screenshots from `python_service/manual_screenshots/`
+- appends OCR output to `python_service/paddleocr_manual_results.json`
+- groups entries by day, then by hour
+- stores each OCR line with text, confidence, bounding box, and a rough region label like `top-left`, `mid-right`, or `bottom-mid`
+- also stores a `summary_by_region` map for faster reading
+
+You can also pass one or more image paths directly:
+
+```powershell
+python paddleocr_manual_test.py C:/path/to/shot1.png C:/path/to/shot2.png
+```
+
+The script requires PaddleOCR to be installed separately from the main bridge requirements.
 
 ## ChatGPT extension setup
 

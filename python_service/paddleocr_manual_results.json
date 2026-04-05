@@ -1,0 +1,633 @@
+{
+  "schema_version": 1,
+  "entries_by_day": {
+    "2026-03-26": {
+      "18": [
+        {
+          "timestamp": "2026-03-26T18:30:55",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260326_183033_443214.png",
+          "image_size": {
+            "width": 620,
+            "height": 90
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 620,
+            "height": 90,
+            "right": 620,
+            "bottom": 90,
+            "source_screen_region": {
+              "left": 980,
+              "top": 290,
+              "width": 620,
+              "height": 90,
+              "right": 1600,
+              "bottom": 380
+            }
+          },
+          "ocr_variant": "threshold_1_55x",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260326_183033_443214.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 43,
+              "total_text_length": 197,
+              "average_confidence": 0.8841,
+              "image_size": {
+                "width": 620,
+                "height": 90
+              },
+              "det_side_len": 620
+            },
+            {
+              "label": "upscaled_1_55x",
+              "raw_line_count": 38,
+              "total_text_length": 196,
+              "average_confidence": 0.9407,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960
+            },
+            {
+              "label": "gray_1_55x",
+              "raw_line_count": 37,
+              "total_text_length": 192,
+              "average_confidence": 0.9642,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960
+            },
+            {
+              "label": "threshold_1_55x",
+              "raw_line_count": 40,
+              "total_text_length": 212,
+              "average_confidence": 0.8964,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960
+            }
+          ],
+          "raw_line_count": 40,
+          "summary_by_region": {
+            "bottom-right": [
+              "ich bereits große opfer in kauf genommen, permanente gesundheitliche\neinschränkungen, ich weiß i nicht wie • • • • gesund ich sein werde, wenn . + + ich ii raus • • • gehen muss\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf"
+            ]
+          },
+          "lines": [
+            {
+              "text": "ich bereits große opfer in kauf genommen, permanente gesundheitliche\neinschränkungen, ich weiß i nicht wie • • • • gesund ich sein werde, wenn . + + ich ii raus • • • gehen muss\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf",
+              "confidence": 0.9412,
+              "bbox": [
+                [
+                  2.0,
+                  11.0
+                ],
+                [
+                  946.0,
+                  11.0
+                ],
+                [
+                  946.0,
+                  125.0
+                ],
+                [
+                  2.0,
+                  125.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-right",
+                "vertical_band": "bottom",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 474.0,
+                  "y": 68.0
+                }
+              },
+              "raw_item_count": 40
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-03-26T18:38:53",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260326_183849_563943.png",
+          "image_size": {
+            "width": 620,
+            "height": 90
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 620,
+            "height": 90,
+            "right": 620,
+            "bottom": 90,
+            "source_screen_region": {
+              "left": 980,
+              "top": 290,
+              "width": 620,
+              "height": 90,
+              "right": 1600,
+              "bottom": 380
+            }
+          },
+          "ocr_variant": "upscaled_1_55x",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260326_183849_563943.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 209,
+              "average_confidence": 0.8516,
+              "image_size": {
+                "width": 620,
+                "height": 90
+              },
+              "det_side_len": 620,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 212,
+              "average_confidence": 0.8154,
+              "image_size": {
+                "width": 620,
+                "height": 90
+              },
+              "det_side_len": 620,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "upscaled_1_55x",
+              "raw_line_count": 3,
+              "total_text_length": 209,
+              "average_confidence": 0.9911,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_1_55x",
+              "raw_line_count": 3,
+              "total_text_length": 209,
+              "average_confidence": 0.9887,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_1_55x",
+              "raw_line_count": 3,
+              "total_text_length": 207,
+              "average_confidence": 0.9897,
+              "image_size": {
+                "width": 960,
+                "height": 139
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 3,
+          "summary_by_region": {
+            "bottom-right": [
+              "ich bereits große opfer in kauf genommen, permanente gesundheitlich\neinschränkungen, ich weiß nicht wie gesund ich sein werde, wenn ich r\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf"
+            ]
+          },
+          "lines": [
+            {
+              "text": "ich bereits große opfer in kauf genommen, permanente gesundheitlich\neinschränkungen, ich weiß nicht wie gesund ich sein werde, wenn ich r\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf",
+              "confidence": 0.9911,
+              "bbox": [
+                [
+                  193.0,
+                  10.0
+                ],
+                [
+                  960.0,
+                  10.0
+                ],
+                [
+                  960.0,
+                  122.0
+                ],
+                [
+                  193.0,
+                  122.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-right",
+                "vertical_band": "bottom",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 576.5,
+                  "y": 66.0
+                }
+              },
+              "raw_item_count": 3
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-03-26T18:44:01",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260326_184357_615130.png",
+          "image_size": {
+            "width": 840,
+            "height": 90
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 840,
+            "height": 90,
+            "right": 840,
+            "bottom": 90,
+            "source_screen_region": {
+              "left": 980,
+              "top": 290,
+              "width": 840,
+              "height": 90,
+              "right": 1820,
+              "bottom": 380
+            }
+          },
+          "ocr_variant": "gray_1_14x",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260326_184357_615130.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 226,
+              "average_confidence": 0.9161,
+              "image_size": {
+                "width": 840,
+                "height": 90
+              },
+              "det_side_len": 840,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 226,
+              "average_confidence": 0.8455,
+              "image_size": {
+                "width": 840,
+                "height": 90
+              },
+              "det_side_len": 840,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "upscaled_1_14x",
+              "raw_line_count": 6,
+              "total_text_length": 223,
+              "average_confidence": 0.9105,
+              "image_size": {
+                "width": 960,
+                "height": 103
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_1_14x",
+              "raw_line_count": 3,
+              "total_text_length": 224,
+              "average_confidence": 0.9929,
+              "image_size": {
+                "width": 960,
+                "height": 103
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_1_14x",
+              "raw_line_count": 4,
+              "total_text_length": 226,
+              "average_confidence": 0.8871,
+              "image_size": {
+                "width": 960,
+                "height": 103
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 3,
+          "summary_by_region": {
+            "mid-mid": [
+              "ich bereits große opfer in kauf genommen, permanente gesundheitliche\neinschränkungen, ich weiß nicht wie gesund ich sein werde, wenn ich raus gehen muss\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf"
+            ]
+          },
+          "lines": [
+            {
+              "text": "ich bereits große opfer in kauf genommen, permanente gesundheitliche\neinschränkungen, ich weiß nicht wie gesund ich sein werde, wenn ich raus gehen muss\nich bin ein fragiles system, ich funktioniere weil ich zu hause sein darf",
+              "confidence": 0.9929,
+              "bbox": [
+                [
+                  140.0,
+                  6.0
+                ],
+                [
+                  841.0,
+                  6.0
+                ],
+                [
+                  841.0,
+                  89.0
+                ],
+                [
+                  140.0,
+                  89.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 490.5,
+                  "y": 47.5
+                }
+              },
+              "raw_item_count": 3
+            }
+          ]
+        }
+      ]
+    },
+    "2026-03-27": {
+      "12": [
+        {
+          "timestamp": "2026-03-27T12:35:41",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260327_123540_715255.png",
+          "image_size": {
+            "width": 960,
+            "height": 30
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 960,
+            "height": 30,
+            "right": 960,
+            "bottom": 30,
+            "source_screen_region": {
+              "left": 250,
+              "top": 160,
+              "width": 960,
+              "height": 30,
+              "right": 1210,
+              "bottom": 190
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260327_123540_715255.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 4,
+              "total_text_length": 14,
+              "average_confidence": 0.6769,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 4,
+              "total_text_length": 14,
+              "average_confidence": 0.6769,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 3,
+          "summary_by_region": {
+            "mid-left": [
+              "düsseldorf"
+            ],
+            "mid-right": [
+              "X",
+              "•!"
+            ]
+          },
+          "lines": [
+            {
+              "text": "düsseldorf",
+              "confidence": 0.9999,
+              "bbox": [
+                [
+                  1.0,
+                  6.0
+                ],
+                [
+                  92.0,
+                  6.0
+                ],
+                [
+                  92.0,
+                  28.0
+                ],
+                [
+                  1.0,
+                  28.0
+                ]
+              ],
+              "position": {
+                "label": "mid-left",
+                "vertical_band": "mid",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 46.5,
+                  "y": 17.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "X",
+              "confidence": 0.7027,
+              "bbox": [
+                [
+                  743.0,
+                  8.0
+                ],
+                [
+                  765.0,
+                  8.0
+                ],
+                [
+                  765.0,
+                  29.0
+                ],
+                [
+                  743.0,
+                  29.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 754.0,
+                  "y": 18.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "•!",
+              "confidence": 0.6818,
+              "bbox": [
+                [
+                  845.0,
+                  13.0
+                ],
+                [
+                  866.0,
+                  13.0
+                ],
+                [
+                  866.0,
+                  24.0
+                ],
+                [
+                  845.0,
+                  24.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 855.5,
+                  "y": 18.5
+                }
+              },
+              "raw_item_count": 1
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-03-27T12:35:54",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260327_123553_985468.png",
+          "image_size": {
+            "width": 960,
+            "height": 30
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 960,
+            "height": 30,
+            "right": 960,
+            "bottom": 30,
+            "source_screen_region": {
+              "left": 250,
+              "top": 160,
+              "width": 960,
+              "height": 30,
+              "right": 1210,
+              "bottom": 190
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260327_123553_985468.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 2,
+              "total_text_length": 87,
+              "average_confidence": 0.7072,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 2,
+              "total_text_length": 87,
+              "average_confidence": 0.7072,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 1,
+          "summary_by_region": {
+            "mid-mid": [
+              "Äußerst ungewöhnliche, übermäßig mühselige Überprüfungsübertragungsüberlappungen füh ×"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Äußerst ungewöhnliche, übermäßig mühselige Überprüfungsübertragungsüberlappungen füh ×",
+              "confidence": 0.986,
+              "bbox": [
+                [
+                  1.0,
+                  5.0
+                ],
+                [
+                  764.0,
+                  5.0
+                ],
+                [
+                  764.0,
+                  28.0
+                ],
+                [
+                  1.0,
+                  28.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 382.5,
+                  "y": 16.5
+                }
+              },
+              "raw_item_count": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
