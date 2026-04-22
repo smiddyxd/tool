@@ -16,6 +16,7 @@ const HANDSHAKE_LOG_INTERVAL_MS = 10000;
 // Event types emitted by the Python service.
 const EVENT_TYPE_TASK = "task";
 const EVENT_TYPE_TEXT_TASK = "text_task";
+const EVENT_TYPE_ALERT_TASK = "alert_task";
 const EVENT_TYPE_SCROLL = "scroll";
 const EVENT_TYPE_REPEAT = "repeat";
 
@@ -32,6 +33,7 @@ const CHATGPT_URL_PATTERNS = ["https://chat.openai.com/*", "https://chatgpt.com/
 const CONTENT_SCRIPT_FILE = "content_script.js";
 const CONTENT_SCRIPT_PING_TYPE = "localQueryBridgePing";
 const CONTENT_SCRIPT_SUBMIT_TEXT_TYPE = "submitTextPrompt";
+const CONTENT_SCRIPT_SHOW_ALERT_TYPE = "showBridgeAlert";
 const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
 const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
@@ -447,6 +449,36 @@ async function sendTextPromptToChatGpt(tabId, taskCount, promptText) {
   return response?.ok === true;
 }
 
+async function focusChatGptTab(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.id) {
+      return false;
+    }
+
+    if (Number.isInteger(tab.windowId)) {
+      await chrome.windows.update(tab.windowId, { focused: true });
+    }
+    await chrome.tabs.update(tab.id, { active: true });
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function showAlertInChatGpt(tabId, taskCount, alertText) {
+  await ensureContentScript(tabId);
+  await focusChatGptTab(tabId);
+
+  const response = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_SHOW_ALERT_TYPE,
+    taskCount,
+    alertText,
+  });
+
+  return response?.ok === true;
+}
+
 async function queueRepeatScreenshot(tabId, imageDataUrls, taskCount) {
   await ensureContentScript(tabId);
 
@@ -631,6 +663,24 @@ async function buildRepeatTargets(promptTexts) {
   return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved repeat targets");
 }
 
+async function buildAlertTargets(alertTexts) {
+  let tab = await getPreferredChatGptTab();
+
+  if (!tab?.id) {
+    const settings = await getOptions();
+    tab = await openFreshChatGptTab(undefined, settings.defaultStartPageUrl);
+  }
+
+  if (!tab?.id) {
+    return [];
+  }
+
+  return [{
+    tabId: tab.id,
+    promptText: selectPromptForIndex(alertTexts, 0),
+  }];
+}
+
 async function validateSubmissionTargets(targets) {
   const validTargets = [];
   for (const target of targets) {
@@ -666,7 +716,9 @@ async function getOrCreatePendingTargets() {
     }
   }
 
-  const nextTargets = await buildSubmissionTargets(state.pendingSubmission.promptTexts);
+  const nextTargets = state.pendingSubmission.submissionMode === EVENT_TYPE_ALERT_TASK
+    ? await buildAlertTargets(state.pendingSubmission.promptTexts)
+    : await buildSubmissionTargets(state.pendingSubmission.promptTexts);
   state.pendingSubmission.targets = nextTargets;
   return nextTargets;
 }
@@ -683,15 +735,19 @@ async function deliverPendingSubmission() {
   }
 
   const { imageDataUrls, taskCount, submissionMode } = state.pendingSubmission;
+  const isAlertSubmission = submissionMode === EVENT_TYPE_ALERT_TASK;
   const isTextSubmission = submissionMode === EVENT_TYPE_TEXT_TASK;
-  console.log(`Local Query Bridge delivering ${isTextSubmission ? "text prompt" : "screenshot"}`, {
+  const deliveryLabel = isAlertSubmission ? "alert" : (isTextSubmission ? "text prompt" : "screenshot");
+  console.log(`Local Query Bridge delivering ${deliveryLabel}`, {
     taskCount,
     screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
     targets: targets.map((target) => target.tabId),
   });
   const results = await Promise.allSettled(
     targets.map((target) => (
-      isTextSubmission
+      isAlertSubmission
+        ? showAlertInChatGpt(target.tabId, taskCount, target.promptText)
+        : isTextSubmission
         ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText)
         : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText)
     )),
@@ -706,7 +762,9 @@ async function deliverPendingSubmission() {
     if (result.status === "fulfilled" && result.value === true) {
       successfulCount += 1;
       state.lastChatGptTabId = target.tabId;
-      await incrementTabSubmissionCount(target.tabId);
+      if (!isAlertSubmission) {
+        await incrementTabSubmissionCount(target.tabId);
+      }
       continue;
     }
 
@@ -714,7 +772,7 @@ async function deliverPendingSubmission() {
   }
 
   if (failedTargets.length === 0) {
-    console.log(`Local Query Bridge submitted ${isTextSubmission ? "text prompt" : "screenshot"} to ChatGPT in ${successfulCount} tab(s)`);
+    console.log(`Local Query Bridge completed ${deliveryLabel} in ${successfulCount} tab(s)`);
     state.pendingSubmission = null;
     return;
   }
@@ -992,6 +1050,42 @@ async function pollLocalBridge() {
           promptTexts,
           targets: null,
           submissionMode: EVENT_TYPE_TEXT_TASK,
+        };
+
+        await deliverPendingSubmission();
+        return;
+      }
+
+      if (eventType === EVENT_TYPE_ALERT_TASK) {
+        if (!payload?.a) {
+          return;
+        }
+
+        const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
+        const taskCount = Number.parseInt(taskText, 10);
+        const alertPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
+        let alertTexts = [];
+        if (alertPayload) {
+          try {
+            alertTexts = normalizePromptTexts(JSON.parse(alertPayload));
+          } catch (_error) {
+            alertTexts = normalizePromptTexts(alertPayload);
+          }
+        }
+        if (Number.isNaN(taskCount) || alertTexts.length === 0) {
+          return;
+        }
+
+        console.log("Local Query Bridge retrieved alert event", {
+          taskCount,
+          alertCount: alertTexts.length,
+        });
+        state.pendingRepeatDraft = null;
+        state.pendingSubmission = {
+          taskCount,
+          promptTexts: alertTexts,
+          targets: null,
+          submissionMode: EVENT_TYPE_ALERT_TASK,
         };
 
         await deliverPendingSubmission();

@@ -13,7 +13,7 @@
       "wait_for_edge": true,
       "test_trigger": true,
       "prompts": [
-        "Apply `prompt.md` from project files to the provided Search Experience to Product Usefulness task input as the full processing instruction set. `manual.md` in project files is the concept and heuristic reference that `prompt.md` operates over. The task input may be either the attached screenshot or labeled text in the chat message. When labeled text is provided, treat `Query:` as the user query and `Product Text:` as the product/ad text. Produce the rating output specified in `prompt.md` -- do not restate or summarize the instructions, execute them."
+        "Apply `Concept Guide + Analysis Template.md` from project files to the provided Search Experience to Product Usefulness task input. The file has two parts: Part 1 is the concept and heuristic reference, Part 2 is the analysis template that operates over Part 1. Execute Part 2 as the full processing instruction set, consulting Part 1 wherever Part 2's cross-references point. The task input may be either the attached screenshot or labeled text in the chat message. When labeled text is provided, treat `Query:` as the user query and `Product Text:` as the product/ad text. Produce the rating output specified in Part 2 -- do not restate or summarize the instructions, execute them."
       ],
       "repeat_prefix": "Use the Google search screenshots to identify the user intent of the query that is most relatable to the product, assume that as the user intent, and update your final judgment accordingly."
     },

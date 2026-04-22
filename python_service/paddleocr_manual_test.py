@@ -27,6 +27,7 @@ PADDLEOCR_MIN_DET_SIDE_LEN = 256
 PADDLEOCR_UPSCALE_TARGET_MAX_SIDE = 960
 PADDLEOCR_MAX_UPSCALE_FACTOR = 4.0
 PADDLEOCR_TEXT_DET_LIMIT_TYPE = "max"
+PADDLEOCR_COLOR_VARIANT_MIN_SCALE = 1.15
 OCR_FOCUS_LEFT = 330
 OCR_FOCUS_TOP = 170
 OCR_FOCUS_RIGHT = 1090
@@ -40,6 +41,11 @@ BLOCK_VERTICAL_GAP_PX = 28
 BLOCK_ROW_ALIGNMENT_PX = 18
 BOTTOM_BLOCK_VERTICAL_GAP_PX = 10
 QUERY_LINE_PREFIX = "query:"
+BASE_VARIANT_PHASE = "base"
+RETRY_VARIANT_PHASE = "retry"
+PRICE_LIKE_PATTERN = re.compile(
+    r"(?ix)(?:[$€£¥₹₩]\s*\d[\d,]*(?:\.\d{2})?|\d[\d,]*(?:\.\d{2})\s*(?:[$€£¥₹₩]|usd|eur|gbp|cad|aud))"
+)
 JSON_INDENT = 2
 DEFAULT_CAPTURE_PREFIX = "manual"
 
@@ -99,6 +105,58 @@ def suppress_red_spellcheck_marks(image_bgr: Any) -> Any:
     cleaned = image_bgr.copy()
     cleaned[mask > 0] = (25, 25, 25)
     return cleaned
+
+
+def gray_to_bgr(gray_image: Any) -> Any:
+    return cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
+
+
+def build_gray_variant(image_bgr: Any) -> Any:
+    return gray_to_bgr(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY))
+
+
+def build_threshold_variant(image_bgr: Any) -> Any:
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    _, threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return gray_to_bgr(threshold)
+
+
+def build_contrast_variant(image_bgr: Any) -> Any:
+    lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)
+    lightness, a_channel, b_channel = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8))
+    enhanced_lightness = clahe.apply(lightness)
+    enhanced_lab = cv2.merge((enhanced_lightness, a_channel, b_channel))
+    return cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
+
+
+def mask_to_text_variant(mask: Any) -> Any:
+    kernel = np.ones((2, 2), dtype=np.uint8)
+    refined = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    refined = cv2.dilate(refined, kernel, iterations=1)
+    binary = np.full(refined.shape, 255, dtype=np.uint8)
+    binary[refined > 0] = 0
+    return gray_to_bgr(binary)
+
+
+def build_dark_text_variant(image_bgr: Any) -> Any:
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    dark_mask = cv2.inRange(
+        hsv,
+        np.array([0, 0, 0], dtype=np.uint8),
+        np.array([180, 120, 175], dtype=np.uint8),
+    )
+    return mask_to_text_variant(dark_mask)
+
+
+def build_color_text_variant(image_bgr: Any, *, lower_hsv: tuple[int, int, int], upper_hsv: tuple[int, int, int]) -> Any:
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    color_mask = cv2.inRange(
+        hsv,
+        np.array(lower_hsv, dtype=np.uint8),
+        np.array(upper_hsv, dtype=np.uint8),
+    )
+    return mask_to_text_variant(color_mask)
 
 
 def load_paddleocr() -> Any:
@@ -324,27 +382,96 @@ def compute_detection_side_len(image_bgr: Any) -> int:
     return max(PADDLEOCR_MIN_DET_SIDE_LEN, min(max(height, width), PADDLEOCR_UPSCALE_TARGET_MAX_SIDE))
 
 
-def build_ocr_variants(image_bgr: Any) -> list[dict[str, Any]]:
+def build_ocr_variants(image_bgr: Any, *, include_retry_variants: bool = False) -> list[dict[str, Any]]:
     height, width = image_bgr.shape[:2]
     cleaned = suppress_red_spellcheck_marks(image_bgr)
-    variants = [
-        {"label": "original", "image": image_bgr, "scale": 1.0},
-        {"label": "red_cleaned", "image": cleaned, "scale": 1.0},
-    ]
+    variants: list[dict[str, Any]] = []
+
+    def add_variant(label: str, variant_image: Any, *, scale: float = 1.0, phase: str = BASE_VARIANT_PHASE) -> None:
+        variants.append(
+            {
+                "label": label,
+                "image": variant_image,
+                "scale": round(float(scale), 3),
+                "retry_phase": phase,
+            }
+        )
+
+    add_variant("original", image_bgr)
+    add_variant("red_cleaned", cleaned)
+    add_variant("gray_native", build_gray_variant(cleaned))
+    add_variant("threshold_native", build_threshold_variant(cleaned))
+
+    if include_retry_variants:
+        contrast = build_contrast_variant(cleaned)
+        add_variant("contrast_native", contrast, phase=RETRY_VARIANT_PHASE)
+        add_variant("dark_text_native", build_dark_text_variant(contrast), phase=RETRY_VARIANT_PHASE)
+        add_variant(
+            "blue_text_native",
+            build_color_text_variant(contrast, lower_hsv=(88, 45, 35), upper_hsv=(132, 255, 255)),
+            phase=RETRY_VARIANT_PHASE,
+        )
+        add_variant(
+            "green_text_native",
+            build_color_text_variant(contrast, lower_hsv=(34, 35, 30), upper_hsv=(92, 255, 255)),
+            phase=RETRY_VARIANT_PHASE,
+        )
 
     max_side = max(height, width)
-    scale = 1.0
     if max_side < PADDLEOCR_UPSCALE_TARGET_MAX_SIDE:
         scale = min(PADDLEOCR_UPSCALE_TARGET_MAX_SIDE / max_side, PADDLEOCR_MAX_UPSCALE_FACTOR)
         if scale > 1.05:
-            resized = cv2.resize(cleaned, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-            variants.append({"label": f"upscaled_{scale:.2f}x".replace(".", "_"), "image": resized, "scale": round(scale, 3)})
-            gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-            gray_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-            variants.append({"label": f"gray_{scale:.2f}x".replace(".", "_"), "image": gray_bgr, "scale": round(scale, 3)})
-            _, threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            threshold_bgr = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
-            variants.append({"label": f"threshold_{scale:.2f}x".replace(".", "_"), "image": threshold_bgr, "scale": round(scale, 3)})
+            resized_cleaned = cv2.resize(cleaned, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+            add_variant(f"upscaled_{scale:.2f}x".replace(".", "_"), resized_cleaned, scale=scale, phase=RETRY_VARIANT_PHASE)
+            add_variant(
+                f"gray_{scale:.2f}x".replace(".", "_"),
+                build_gray_variant(resized_cleaned),
+                scale=scale,
+                phase=RETRY_VARIANT_PHASE,
+            )
+            add_variant(
+                f"threshold_{scale:.2f}x".replace(".", "_"),
+                build_threshold_variant(resized_cleaned),
+                scale=scale,
+                phase=RETRY_VARIANT_PHASE,
+            )
+            if include_retry_variants and scale >= PADDLEOCR_COLOR_VARIANT_MIN_SCALE:
+                contrast_resized = build_contrast_variant(resized_cleaned)
+                add_variant(
+                    f"dark_text_{scale:.2f}x".replace(".", "_"),
+                    build_dark_text_variant(contrast_resized),
+                    scale=scale,
+                    phase=RETRY_VARIANT_PHASE,
+                )
+                add_variant(
+                    f"blue_text_{scale:.2f}x".replace(".", "_"),
+                    build_color_text_variant(contrast_resized, lower_hsv=(88, 45, 35), upper_hsv=(132, 255, 255)),
+                    scale=scale,
+                    phase=RETRY_VARIANT_PHASE,
+                )
+                add_variant(
+                    f"green_text_{scale:.2f}x".replace(".", "_"),
+                    build_color_text_variant(contrast_resized, lower_hsv=(34, 35, 30), upper_hsv=(92, 255, 255)),
+                    scale=scale,
+                    phase=RETRY_VARIANT_PHASE,
+                )
+
+    if include_retry_variants and max_side >= PADDLEOCR_UPSCALE_TARGET_MAX_SIDE:
+        retry_scale = min(1.35, PADDLEOCR_MAX_UPSCALE_FACTOR)
+        if retry_scale > 1.05:
+            resized_retry = cv2.resize(cleaned, None, fx=retry_scale, fy=retry_scale, interpolation=cv2.INTER_CUBIC)
+            add_variant(
+                f"retry_upscaled_{retry_scale:.2f}x".replace(".", "_"),
+                resized_retry,
+                scale=retry_scale,
+                phase=RETRY_VARIANT_PHASE,
+            )
+            add_variant(
+                f"retry_threshold_{retry_scale:.2f}x".replace(".", "_"),
+                build_threshold_variant(resized_retry),
+                scale=retry_scale,
+                phase=RETRY_VARIANT_PHASE,
+            )
 
     return variants
 
@@ -369,6 +496,7 @@ def run_ocr_variant(ocr_instance: Any, variant: dict[str, Any]) -> dict[str, Any
     return {
         "label": variant["label"],
         "scale": variant["scale"],
+        "retry_phase": str(variant.get("retry_phase", BASE_VARIANT_PHASE)),
         "image": image_bgr,
         "raw_result": raw_result,
         "raw_line_count": len(texts),
@@ -389,9 +517,15 @@ def save_debug_artifacts(
     *,
     selected_variant_label: str,
     selected_transcript: dict[str, Any],
+    variant_analyses: list[dict[str, Any]] | None = None,
 ) -> Path:
     ensure_debug_dir()
     debug_json_path = DEBUG_DIR / f"{image_path.stem}.json"
+    analysis_by_label: dict[str, dict[str, Any]] = {}
+    for analysis in variant_analyses or []:
+        label = str(analysis.get("label", "")).strip()
+        if label:
+            analysis_by_label[label] = analysis
     debug_payload = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "source_image": str(image_path),
@@ -405,6 +539,7 @@ def save_debug_artifacts(
         debug_variant = {
             "label": variant_run["label"],
             "scale": variant_run["scale"],
+            "retry_phase": variant_run.get("retry_phase", BASE_VARIANT_PHASE),
             "image_size": variant_run["image_size"],
             "det_side_len": variant_run["det_side_len"],
             "det_limit_type": variant_run["det_limit_type"],
@@ -414,6 +549,10 @@ def save_debug_artifacts(
             "texts": variant_run["texts"],
             "payload": summarize_payload(variant_run["payload"]),
         }
+        analysis = analysis_by_label.get(str(variant_run["label"]))
+        if analysis:
+            debug_variant["selection_score"] = list(analysis.get("selection_score", ()))
+            debug_variant["selected_transcript"] = make_json_safe(analysis.get("selected_transcript", {}))
         debug_image_path = DEBUG_DIR / f"{image_path.stem}__{variant_run['label']}.png"
         cv2.imwrite(str(debug_image_path), variant_run["image"])
         debug_variant["debug_image"] = str(debug_image_path)
@@ -435,6 +574,14 @@ def choose_best_variant(variant_runs: list[dict[str, Any]]) -> dict[str, Any]:
         )
 
     return max(variant_runs, key=score)
+
+
+def line_count_distance_from_expected(line_count: int) -> int:
+    if 3 <= line_count <= 6:
+        return 0
+    if line_count < 3:
+        return 3 - line_count
+    return line_count - 6
 
 
 def ocr_text_region(image_bgr: Any) -> dict[str, Any]:
@@ -687,6 +834,113 @@ def build_row_lines(raw_result: Any, *, analysis_width: int, analysis_height: in
     return [item for item in row_lines if item["text"]]
 
 
+def is_price_like_line(text: str) -> bool:
+    normalized = normalize_token_text(text)
+    return bool(normalized and PRICE_LIKE_PATTERN.search(normalized))
+
+
+def is_retailer_like_line(text: str) -> bool:
+    normalized = normalize_token_text(text)
+    if not normalized or is_price_like_line(normalized) or not re.search(r"[A-Za-z]", normalized):
+        return False
+
+    token_count = len(normalized.split())
+    return token_count <= 4 or "." in normalized or normalized.isupper()
+
+
+def analyze_line_color_hint(line: dict[str, Any], source_image_bgr: Any | None) -> dict[str, Any]:
+    if source_image_bgr is None:
+        return {"dominant": "unknown", "ratios": {}, "ink_pixel_count": 0}
+
+    bbox = line.get("bbox")
+    if not isinstance(bbox, list) or not bbox:
+        return {"dominant": "unknown", "ratios": {}, "ink_pixel_count": 0}
+
+    metrics = bbox_metrics(bbox)
+    min_x = max(0, int(np.floor(metrics["min_x"])))
+    max_x = min(int(source_image_bgr.shape[1]), int(np.ceil(metrics["max_x"])))
+    min_y = max(0, int(np.floor(metrics["min_y"])))
+    max_y = min(int(source_image_bgr.shape[0]), int(np.ceil(metrics["max_y"])))
+    if max_x <= min_x or max_y <= min_y:
+        return {"dominant": "unknown", "ratios": {}, "ink_pixel_count": 0}
+
+    crop = source_image_bgr[min_y:max_y, min_x:max_x]
+    if crop.size == 0:
+        return {"dominant": "unknown", "ratios": {}, "ink_pixel_count": 0}
+
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    ink_mask = gray < 245
+    ink_pixel_count = int(np.count_nonzero(ink_mask))
+    if ink_pixel_count <= 0:
+        return {"dominant": "unknown", "ratios": {}, "ink_pixel_count": 0}
+
+    blue_mask = ink_mask & (hsv[..., 0] >= 88) & (hsv[..., 0] <= 132) & (hsv[..., 1] >= 40)
+    green_mask = ink_mask & (hsv[..., 0] >= 34) & (hsv[..., 0] <= 92) & (hsv[..., 1] >= 35)
+    dark_mask = ink_mask & (hsv[..., 1] <= 80) & (hsv[..., 2] <= 165)
+
+    ratios = {
+        "blue": round(float(np.count_nonzero(blue_mask)) / ink_pixel_count, 3),
+        "green": round(float(np.count_nonzero(green_mask)) / ink_pixel_count, 3),
+        "dark": round(float(np.count_nonzero(dark_mask)) / ink_pixel_count, 3),
+    }
+    dominant = max(ratios, key=ratios.get)
+    dominant_ratio = ratios[dominant]
+    if dominant_ratio < 0.22:
+        dominant = "other"
+
+    return {
+        "dominant": dominant,
+        "dominant_ratio": dominant_ratio,
+        "ratios": ratios,
+        "ink_pixel_count": ink_pixel_count,
+    }
+
+
+def analyze_product_signature(bottom_block_lines: list[dict[str, Any]], *, source_image_bgr: Any | None = None) -> dict[str, Any]:
+    normalized_lines = [normalize_token_text(str(line.get("text", ""))) for line in bottom_block_lines if isinstance(line, dict)]
+    normalized_lines = [line for line in normalized_lines if line]
+    line_color_hints = [analyze_line_color_hint(line, source_image_bgr) for line in bottom_block_lines if isinstance(line, dict)]
+
+    price_line_indexes = [index for index, line in enumerate(normalized_lines) if is_price_like_line(line)]
+    has_title_like_first_line = bool(
+        normalized_lines
+        and len(normalized_lines[0]) >= 8
+        and not is_price_like_line(normalized_lines[0])
+        and re.search(r"[A-Za-z]", normalized_lines[0])
+    )
+    has_retailer_like_bottom_line = bool(normalized_lines and is_retailer_like_line(normalized_lines[-1]))
+    has_blue_like_title_line = bool(line_color_hints and line_color_hints[0].get("dominant") == "blue")
+    has_dark_like_price_line = bool(
+        price_line_indexes and any(line_color_hints[index].get("dominant") == "dark" for index in price_line_indexes if index < len(line_color_hints))
+    )
+    has_green_like_retailer_line = bool(line_color_hints and line_color_hints[-1].get("dominant") == "green")
+
+    reasons: list[str] = []
+    line_count = len(normalized_lines)
+    if line_count < 3 or line_count > 6:
+        reasons.append(f"expected 3-6 product lines, got {line_count}")
+    if not has_title_like_first_line:
+        reasons.append("missing title-like first line")
+    if not price_line_indexes:
+        reasons.append("missing price-like line")
+    if not has_retailer_like_bottom_line:
+        reasons.append("missing retailer-like bottom line")
+
+    return {
+        "is_complete_like": not reasons,
+        "line_count": line_count,
+        "price_line_indexes": price_line_indexes,
+        "has_title_like_first_line": has_title_like_first_line,
+        "has_retailer_like_bottom_line": has_retailer_like_bottom_line,
+        "has_blue_like_title_line": has_blue_like_title_line,
+        "has_dark_like_price_line": has_dark_like_price_line,
+        "has_green_like_retailer_line": has_green_like_retailer_line,
+        "line_color_hints": line_color_hints,
+        "reasons": reasons,
+    }
+
+
 def build_selected_transcript(
     raw_result: Any,
     *,
@@ -694,6 +948,7 @@ def build_selected_transcript(
     analysis_height: int,
     x_offset: int,
     y_offset: int,
+    source_image_bgr: Any | None = None,
 ) -> dict[str, Any]:
     row_lines = build_row_lines(
         raw_result,
@@ -729,10 +984,15 @@ def build_selected_transcript(
 
     selected_bottom_block: list[dict[str, Any]] = [rows_with_metrics[-1]]
     current_top = rows_with_metrics[-1]["metrics"]["min_y"]
+    first_excluded_above_bottom_block: dict[str, Any] | None = None
 
     for candidate in reversed(rows_with_metrics[:-1]):
         gap_to_current = current_top - candidate["metrics"]["max_y"]
         if gap_to_current > BOTTOM_BLOCK_VERTICAL_GAP_PX:
+            first_excluded_above_bottom_block = {
+                "line": candidate["line"],
+                "gap_px": round_point(gap_to_current),
+            }
             break
         selected_bottom_block.insert(0, candidate)
         current_top = candidate["metrics"]["min_y"]
@@ -753,6 +1013,7 @@ def build_selected_transcript(
 
     selected_lines = [item["line"] for item in selected_items]
     bottom_block_lines = [item["line"] for item in selected_bottom_block]
+    product_signature = analyze_product_signature(bottom_block_lines, source_image_bgr=source_image_bgr)
 
     return {
         "strategy": "bottom_block_plus_query",
@@ -763,8 +1024,74 @@ def build_selected_transcript(
         "bottom_block_text": "\n".join(line["text"] for line in bottom_block_lines if line["text"]).strip(),
         "selected_lines": selected_lines,
         "bottom_block_lines": bottom_block_lines,
+        "product_signature": product_signature,
+        "first_excluded_above_bottom_block": first_excluded_above_bottom_block,
         "row_lines": ordered_rows,
     }
+
+
+def score_capture_attempt(variant_run: dict[str, Any], selected_transcript: dict[str, Any]) -> tuple[float, ...]:
+    product_signature = selected_transcript.get("product_signature", {})
+    line_count = int(product_signature.get("line_count", 0) or 0) if isinstance(product_signature, dict) else 0
+    return (
+        1.0 if bool(product_signature.get("is_complete_like", False)) else 0.0,
+        1.0 if selected_transcript.get("query_line") else 0.0,
+        1.0 if bool(product_signature.get("has_title_like_first_line", False)) else 0.0,
+        1.0 if bool(product_signature.get("price_line_indexes", [])) else 0.0,
+        1.0 if bool(product_signature.get("has_retailer_like_bottom_line", False)) else 0.0,
+        1.0 if bool(product_signature.get("has_blue_like_title_line", False)) else 0.0,
+        1.0 if bool(product_signature.get("has_dark_like_price_line", False)) else 0.0,
+        1.0 if bool(product_signature.get("has_green_like_retailer_line", False)) else 0.0,
+        -float(line_count_distance_from_expected(line_count)),
+        float(line_count),
+        float(len(str(selected_transcript.get("bottom_block_text", "")))),
+        float(variant_run.get("average_confidence", 0.0)),
+        float(variant_run.get("total_text_length", 0)),
+        -float(variant_run.get("raw_line_count", 0)),
+    )
+
+
+def evaluate_capture_variant(
+    variant_run: dict[str, Any],
+    *,
+    analysis_width: int,
+    analysis_height: int,
+    x_offset: int,
+    y_offset: int,
+    source_image_bgr: Any,
+) -> dict[str, Any]:
+    selected_transcript = build_selected_transcript(
+        variant_run["raw_result"],
+        analysis_width=analysis_width,
+        analysis_height=analysis_height,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        source_image_bgr=source_image_bgr,
+    )
+    selection_score = score_capture_attempt(variant_run, selected_transcript)
+    return {
+        "label": variant_run["label"],
+        "retry_phase": variant_run.get("retry_phase", BASE_VARIANT_PHASE),
+        "variant_run": variant_run,
+        "selected_transcript": selected_transcript,
+        "selection_score": selection_score,
+    }
+
+
+def choose_best_capture_attempt(variant_analyses: list[dict[str, Any]]) -> dict[str, Any]:
+    return max(variant_analyses, key=lambda item: tuple(float(value) for value in item.get("selection_score", ())))
+
+
+def should_retry_capture_attempt(best_attempt: dict[str, Any]) -> bool:
+    selected_transcript = best_attempt.get("selected_transcript", {})
+    product_signature = selected_transcript.get("product_signature", {}) if isinstance(selected_transcript, dict) else {}
+    if not isinstance(product_signature, dict):
+        return True
+    if not selected_transcript.get("query_line"):
+        return True
+    if not str(selected_transcript.get("bottom_block_text", "")).strip():
+        return True
+    return not bool(product_signature.get("is_complete_like", False))
 
 
 def build_entry(
@@ -871,20 +1198,53 @@ def process_image_path(
         source_image_bgr = image_bgr
 
     variant_runs = [run_ocr_variant(ocr_instance, variant) for variant in build_ocr_variants(focus_image_bgr)]
-    best_variant = choose_best_variant(variant_runs)
-    selected_transcript = build_selected_transcript(
-        best_variant["raw_result"],
-        analysis_width=focus_region["width"],
-        analysis_height=focus_region["height"],
-        x_offset=focus_region["left"],
-        y_offset=focus_region["top"],
-    )
+    variant_analyses = [
+        evaluate_capture_variant(
+            variant_run,
+            analysis_width=focus_region["width"],
+            analysis_height=focus_region["height"],
+            x_offset=focus_region["left"],
+            y_offset=focus_region["top"],
+            source_image_bgr=source_image_bgr,
+        )
+        for variant_run in variant_runs
+    ]
+    best_attempt = choose_best_capture_attempt(variant_analyses)
+    retry_attempted = False
+    if should_retry_capture_attempt(best_attempt):
+        retry_attempted = True
+        existing_labels = {str(variant_run["label"]) for variant_run in variant_runs}
+        retry_variants = [
+            variant
+            for variant in build_ocr_variants(focus_image_bgr, include_retry_variants=True)
+            if str(variant["label"]) not in existing_labels
+        ]
+        retry_runs = [run_ocr_variant(ocr_instance, variant) for variant in retry_variants]
+        variant_runs.extend(retry_runs)
+        variant_analyses.extend(
+            evaluate_capture_variant(
+                variant_run,
+                analysis_width=focus_region["width"],
+                analysis_height=focus_region["height"],
+                x_offset=focus_region["left"],
+                y_offset=focus_region["top"],
+                source_image_bgr=source_image_bgr,
+            )
+            for variant_run in retry_runs
+        )
+        best_attempt = choose_best_capture_attempt(variant_analyses)
+
+    best_variant = best_attempt["variant_run"]
+    selected_transcript = dict(best_attempt["selected_transcript"])
+    selected_transcript["retry_attempted"] = retry_attempted
+    selected_transcript["selected_variant_retry_phase"] = str(best_variant.get("retry_phase", BASE_VARIANT_PHASE))
     debug_json_path = save_debug_artifacts(
         image_path,
         focus_region,
         variant_runs,
         selected_variant_label=best_variant["label"],
         selected_transcript=selected_transcript,
+        variant_analyses=variant_analyses,
     )
     entry = build_entry(
         image_path,

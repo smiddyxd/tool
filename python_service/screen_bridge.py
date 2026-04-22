@@ -35,10 +35,13 @@ OCR_LANGUAGE = "deu+eng"
 COUNTER_OCR_LANGUAGE = "eng"
 XOR_KEY = 0x5A
 TEXT_TASK_EVENT_TYPE = "text_task"
+ALERT_TASK_EVENT_TYPE = "alert_task"
 TEXT_TASK_QUERY_PREFIX = "query:"
 TEXT_TASK_INPUT_HEADER = "Task input below is provided as labeled OCR text instead of a screenshot."
 TEXT_TASK_QUERY_LABEL = "Query:"
 TEXT_TASK_PRODUCT_LABEL = "Product Text:"
+TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
+TEXT_TASK_ABORT_HEADER = "OCR abort:"
 
 
 @dataclass(frozen=True)
@@ -363,6 +366,20 @@ class SharedState:
                 }
             )
 
+    def publish_alert_payload(
+        self,
+        task_count: int,
+        alerts: list[str] | tuple[str, ...],
+    ) -> None:
+        with self.lock:
+            self.pending_events.append(
+                {
+                    "type": ALERT_TASK_EVENT_TYPE,
+                    "task_count": task_count,
+                    "alerts": list(alerts),
+                }
+            )
+
     def publish_scroll(self, direction: str, steps: int = 1) -> None:
         with self.lock:
             self.pending_events.append(
@@ -410,6 +427,20 @@ class SharedState:
                 "b": "",
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex(TEXT_TASK_EVENT_TYPE, XOR_KEY),
+            }
+
+        if event_type == ALERT_TASK_EVENT_TYPE:
+            task_count = int(event["task_count"])
+            alerts = [str(alert_text) for alert_text in event.get("alerts", [])]
+            print(
+                f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)}",
+                flush=True,
+            )
+            return {
+                "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
+                "b": "",
+                "c": xor_encrypt_string_to_base64(json.dumps(alerts, ensure_ascii=False), XOR_KEY),
+                "d": xor_encrypt_to_hex(ALERT_TASK_EVENT_TYPE, XOR_KEY),
             }
 
         if event_type == "scroll":
@@ -757,10 +788,65 @@ def extract_text_task_parts(entry: dict[str, Any]) -> tuple[str, str]:
     return query_text, product_text
 
 
-def build_text_task_input(query_text: str, product_text: str) -> str:
-    return "\n".join(
+def build_text_task_ocr_warning(entry: dict[str, Any]) -> str:
+    selected_transcript = entry.get("selected_transcript", {})
+    if not isinstance(selected_transcript, dict):
+        return ""
+
+    product_signature = selected_transcript.get("product_signature", {})
+    if not isinstance(product_signature, dict) or bool(product_signature.get("is_complete_like", False)):
+        return ""
+
+    line_count = int(product_signature.get("line_count", 0) or 0)
+    reasons = [str(reason).strip() for reason in product_signature.get("reasons", []) if str(reason).strip()]
+    retry_attempted = bool(selected_transcript.get("retry_attempted", False))
+    warning_lines = [
+        (
+            f"{TEXT_TASK_OCR_WARNING_HEADER} selected product text still appears incomplete after OCR retries."
+            if retry_attempted
+            else f"{TEXT_TASK_OCR_WARNING_HEADER} selected product text may be incomplete."
+        ),
+        f"Observed {line_count} selected product line{'s' if line_count != 1 else ''}.",
+    ]
+    if reasons:
+        warning_lines.append("Signature check: " + "; ".join(reasons) + ".")
+
+    excluded_above = selected_transcript.get("first_excluded_above_bottom_block")
+    if isinstance(excluded_above, dict):
+        excluded_line = excluded_above.get("line")
+        excluded_text = ""
+        if isinstance(excluded_line, dict):
+            excluded_text = clean_multiline_ocr_text(str(excluded_line.get("text", "")))
+        gap_px = excluded_above.get("gap_px")
+        if excluded_text:
+            gap_label = f"{gap_px}px" if isinstance(gap_px, (int, float)) else "more than the current gap threshold"
+            warning_lines.append(f"Nearest excluded row above the selected block was {gap_label} away: {excluded_text}")
+
+    warning_lines.append("Use caution and avoid overconfident conclusions if the product text appears truncated.")
+    return "\n".join(warning_lines)
+
+
+def get_text_task_abort_reasons(entry: dict[str, Any], query_text: str, product_text: str) -> list[str]:
+    reasons: list[str] = []
+    if not query_text.strip():
+        reasons.append("missing query text")
+    if not product_text.strip():
+        reasons.append("missing product text")
+
+    selected_transcript = entry.get("selected_transcript", {})
+    product_signature = selected_transcript.get("product_signature", {}) if isinstance(selected_transcript, dict) else {}
+    if isinstance(product_signature, dict) and not bool(product_signature.get("is_complete_like", False)):
+        reasons.append("product signature incomplete after OCR retries")
+
+    return reasons
+
+
+def build_text_task_input(query_text: str, product_text: str, *, ocr_warning: str = "") -> str:
+    sections = [TEXT_TASK_INPUT_HEADER]
+    if ocr_warning.strip():
+        sections.extend(["", ocr_warning.strip()])
+    sections.extend(
         [
-            TEXT_TASK_INPUT_HEADER,
             "",
             TEXT_TASK_QUERY_LABEL,
             query_text,
@@ -768,12 +854,41 @@ def build_text_task_input(query_text: str, product_text: str) -> str:
             TEXT_TASK_PRODUCT_LABEL,
             product_text,
         ]
-    ).strip()
+    )
+    return "\n".join(sections).strip()
 
 
-def build_text_task_prompts(prompts: tuple[str, ...], query_text: str, product_text: str) -> tuple[str, ...]:
-    task_input_text = build_text_task_input(query_text, product_text)
+def build_text_task_prompts(prompts: tuple[str, ...], query_text: str, product_text: str, *, ocr_warning: str = "") -> tuple[str, ...]:
+    task_input_text = build_text_task_input(query_text, product_text, ocr_warning=ocr_warning)
     return tuple(f"{prompt}\n\n{task_input_text}".strip() for prompt in prompts if str(prompt).strip())
+
+
+def build_text_task_abort_alerts(
+    query_text: str,
+    product_text: str,
+    *,
+    abort_reasons: list[str],
+    ocr_warning: str = "",
+) -> tuple[str, ...]:
+    sections = [
+        f"{TEXT_TASK_ABORT_HEADER} the OCR-based text capture is incomplete.",
+    ]
+    if abort_reasons:
+        sections.extend(["", "Reason: " + "; ".join(reason.strip() for reason in abort_reasons if reason.strip()) + "."])
+    if ocr_warning.strip():
+        sections.extend(["", ocr_warning.strip()])
+    if query_text.strip() or product_text.strip():
+        sections.extend(
+            [
+                "",
+                TEXT_TASK_QUERY_LABEL,
+                query_text or "[missing]",
+                "",
+                TEXT_TASK_PRODUCT_LABEL,
+                product_text or "[missing]",
+            ]
+        )
+    return ("\n".join(sections).strip(),)
 
 
 def ocr_single_line(image: np.ndarray, *, language: str, config: str) -> str:
@@ -1139,14 +1254,29 @@ def monitor_screen() -> None:
                             )
                         else:
                             query_text, product_text = extract_text_task_parts(entry)
-                            if not query_text or not product_text:
-                                print(
-                                    f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} missing-query-or-product-text",
-                                    flush=True,
+                            effective_task_count = task_count if task_count is not None else 0
+                            ocr_warning = build_text_task_ocr_warning(entry)
+                            abort_reasons = get_text_task_abort_reasons(entry, query_text, product_text)
+                            if abort_reasons:
+                                abort_alerts = build_text_task_abort_alerts(
+                                    query_text,
+                                    product_text,
+                                    abort_reasons=abort_reasons,
+                                    ocr_warning=ocr_warning,
                                 )
+                                if abort_alerts:
+                                    STATE.publish_alert_payload(effective_task_count, abort_alerts)
+                                    print(
+                                        f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} queued-alert type={test_settings.task_type}",
+                                        flush=True,
+                                    )
                             else:
-                                effective_task_count = task_count if task_count is not None else 0
-                                text_prompts = build_text_task_prompts(test_settings.prompts, query_text, product_text)
+                                text_prompts = build_text_task_prompts(
+                                    test_settings.prompts,
+                                    query_text,
+                                    product_text,
+                                    ocr_warning=ocr_warning,
+                                )
                                 if text_prompts:
                                     STATE.publish_text_payload(effective_task_count, text_prompts)
                                     print(

@@ -26,6 +26,7 @@ Base everything strictly on the screenshot attachment.`;
   // Content-script timing settings for DOM availability, upload settling, and send-button activation.
   const MESSAGE_TYPE = "submitScreenshot";
   const SUBMIT_TEXT_PROMPT_MESSAGE_TYPE = "submitTextPrompt";
+  const SHOW_ALERT_MESSAGE_TYPE = "showBridgeAlert";
   const QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE = "queueRepeatScreenshot";
   const SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE = "submitRepeatDraft";
   const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
@@ -634,6 +635,13 @@ Base everything strictly on the screenshot attachment.`;
     await submitPromptOnly(taskCount, promptText);
   }
 
+  function showNativeAlert(taskCount, alertText) {
+    const normalizedAlertText = typeof alertText === "string" && alertText.trim().length > 0
+      ? alertText.trim()
+      : `Local Query Bridge alert for task ${taskCount}`;
+    window.alert(normalizedAlertText);
+  }
+
   async function submitScreenshot(imageDataUrls, taskCount, promptText) {
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
     console.log("Local Query Bridge received submit request", {
@@ -734,6 +742,25 @@ Base everything strictly on the screenshot attachment.`;
       ).catch((error) => {
         console.error("Local Query Bridge text prompt submit failed", error);
       });
+      return false;
+    }
+
+    if (message?.type === SHOW_ALERT_MESSAGE_TYPE) {
+      console.log("Local Query Bridge content script got alert message", {
+        taskCount: message.taskCount ?? 0,
+        alertLength: typeof message.alertText === "string" ? message.alertText.length : 0,
+      });
+      sendResponse({ ok: true });
+      window.setTimeout(() => {
+        try {
+          showNativeAlert(
+            message.taskCount ?? 0,
+            typeof message.alertText === "string" ? message.alertText : "",
+          );
+        } catch (error) {
+          console.error("Local Query Bridge alert display failed", error);
+        }
+      }, 0);
       return false;
     }
 
