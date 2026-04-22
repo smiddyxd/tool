@@ -628,6 +628,1697 @@
           ]
         }
       ]
+    },
+    "2026-04-22": {
+      "11": [
+        {
+          "timestamp": "2026-04-22T11:06:42",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260422_110642_206300.png",
+          "image_size": {
+            "width": 960,
+            "height": 30
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 960,
+            "height": 30,
+            "right": 960,
+            "bottom": 30,
+            "source_screen_region": {
+              "left": 250,
+              "top": 160,
+              "width": 960,
+              "height": 30,
+              "right": 1210,
+              "bottom": 190
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260422_110642_206300.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 0,
+              "total_text_length": 0,
+              "average_confidence": 0.0,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 0,
+              "total_text_length": 0,
+              "average_confidence": 0.0,
+              "image_size": {
+                "width": 960,
+                "height": 30
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 0,
+          "summary_by_region": {},
+          "lines": []
+        },
+        {
+          "timestamp": "2026-04-22T11:08:09",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260422_110806_670907.png",
+          "image_size": {
+            "width": 1770,
+            "height": 745
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 1770,
+            "height": 745,
+            "right": 1770,
+            "bottom": 745,
+            "source_screen_region": {
+              "left": 450,
+              "top": 230,
+              "width": 1770,
+              "height": 745,
+              "right": 2220,
+              "bottom": 975
+            }
+          },
+          "ocr_variant": "red_cleaned",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260422_110806_670907.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 8,
+              "total_text_length": 142,
+              "average_confidence": 0.8221,
+              "image_size": {
+                "width": 1770,
+                "height": 745
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 7,
+              "total_text_length": 136,
+              "average_confidence": 0.7729,
+              "image_size": {
+                "width": 1770,
+                "height": 745
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 7,
+          "summary_by_region": {
+            "top-left": [
+              "Query: ceiling grid spray paint home depot"
+            ],
+            "mid-left": [
+              "RUST-OLEUM"
+            ],
+            "bottom-left": [
+              "Rust-Oleum Inverted Striping Paint - Wite - Rust-Oluem- Qty of 6 -\n$60.00 S-21133W\nULINE"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9815,
+              "bbox": [
+                [
+                  245.0,
+                  113.0
+                ],
+                [
+                  710.0,
+                  113.0
+                ],
+                [
+                  710.0,
+                  154.0
+                ],
+                [
+                  245.0,
+                  154.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 477.5,
+                  "y": 133.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "RUST-OLEUM",
+              "confidence": 0.944,
+              "bbox": [
+                [
+                  426.0,
+                  269.0
+                ],
+                [
+                  503.0,
+                  269.0
+                ],
+                [
+                  503.0,
+                  295.0
+                ],
+                [
+                  426.0,
+                  295.0
+                ]
+              ],
+              "position": {
+                "label": "mid-left",
+                "vertical_band": "mid",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 464.5,
+                  "y": 282.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Rust-Oleum Inverted Striping Paint - Wite - Rust-Oluem- Qty of 6 -\n$60.00 S-21133W\nULINE",
+              "confidence": 0.8516,
+              "bbox": [
+                [
+                  342.0,
+                  512.0
+                ],
+                [
+                  560.0,
+                  512.0
+                ],
+                [
+                  560.0,
+                  601.0
+                ],
+                [
+                  342.0,
+                  601.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-left",
+                "vertical_band": "bottom",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 451.0,
+                  "y": 556.5
+                }
+              },
+              "raw_item_count": 5
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-04-22T11:24:13",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260422_112409_939253.png",
+          "image_size": {
+            "width": 2180,
+            "height": 845
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 2180,
+            "height": 845,
+            "right": 2180,
+            "bottom": 845,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 2180,
+              "height": 845,
+              "right": 2510,
+              "bottom": 1015
+            }
+          },
+          "ocr_variant": "red_cleaned",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260422_112409_939253.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 18,
+              "total_text_length": 195,
+              "average_confidence": 0.818,
+              "image_size": {
+                "width": 2180,
+                "height": 845
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 17,
+              "total_text_length": 205,
+              "average_confidence": 0.8439,
+              "image_size": {
+                "width": 2180,
+                "height": 845
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 15,
+          "summary_by_region": {
+            "top-left": [
+              "Query: ceiling grid spray paint home depot"
+            ],
+            "top-right": [
+              "Opacity"
+            ],
+            "mid-left": [
+              "RUST-OLEUM INTIAU"
+            ],
+            "mid-right": [
+              "Gradient Overla"
+            ],
+            "bottom-left": [
+              "Rust-Oleum Inverted Striping Paint - White - t - Quy of -\nS-21133W\n$60.00 ULINE"
+            ],
+            "bottom-right": [
+              "TransformNavigator History\n0 pt W: 0 pt\n0 pt H: 0 pt"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9869,
+              "bbox": [
+                [
+                  350.0,
+                  86.0
+                ],
+                [
+                  924.0,
+                  86.0
+                ],
+                [
+                  924.0,
+                  134.0
+                ],
+                [
+                  350.0,
+                  134.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 637.0,
+                  "y": 110.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Opacity",
+              "confidence": 0.9999,
+              "bbox": [
+                [
+                  1978.0,
+                  172.0
+                ],
+                [
+                  2010.0,
+                  172.0
+                ],
+                [
+                  2010.0,
+                  189.0
+                ],
+                [
+                  1978.0,
+                  189.0
+                ]
+              ],
+              "position": {
+                "label": "top-right",
+                "vertical_band": "top",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1994.0,
+                  "y": 180.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "RUST-OLEUM INTIAU",
+              "confidence": 0.7185,
+              "bbox": [
+                [
+                  572.0,
+                  279.0
+                ],
+                [
+                  671.0,
+                  279.0
+                ],
+                [
+                  671.0,
+                  328.0
+                ],
+                [
+                  572.0,
+                  328.0
+                ]
+              ],
+              "position": {
+                "label": "mid-left",
+                "vertical_band": "mid",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 621.5,
+                  "y": 303.5
+                }
+              },
+              "raw_item_count": 2
+            },
+            {
+              "text": "Gradient Overla",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  2003.0,
+                  495.0
+                ],
+                [
+                  2078.0,
+                  495.0
+                ],
+                [
+                  2078.0,
+                  511.0
+                ],
+                [
+                  2003.0,
+                  511.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 2040.5,
+                  "y": 503.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Rust-Oleum Inverted Striping Paint - White - t - Quy of -\nS-21133W\n$60.00 ULINE",
+              "confidence": 0.9092,
+              "bbox": [
+                [
+                  477.0,
+                  585.0
+                ],
+                [
+                  740.0,
+                  585.0
+                ],
+                [
+                  740.0,
+                  689.0
+                ],
+                [
+                  477.0,
+                  689.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-left",
+                "vertical_band": "bottom",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 608.5,
+                  "y": 637.0
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "TransformNavigator History\n0 pt W: 0 pt\n0 pt H: 0 pt",
+              "confidence": 0.9652,
+              "bbox": [
+                [
+                  1982.0,
+                  689.0
+                ],
+                [
+                  2170.0,
+                  689.0
+                ],
+                [
+                  2170.0,
+                  771.0
+                ],
+                [
+                  1982.0,
+                  771.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-right",
+                "vertical_band": "bottom",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 2076.0,
+                  "y": 730.0
+                }
+              },
+              "raw_item_count": 5
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-04-22T11:27:47",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260422_112743_358127.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260422_112743_358127.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 14,
+              "total_text_length": 216,
+              "average_confidence": 0.9389,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 12,
+              "total_text_length": 176,
+              "average_confidence": 0.93,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 14,
+          "summary_by_region": {
+            "top-mid": [
+              "Query: ceiling grid spray paint home depot"
+            ],
+            "mid-mid": [
+              "RUST-OLEUM CHOICE OUSTRIAL\nStriping Paint",
+              "CENCRETE - PAVEMENT - GASS\nPinstura paro llandet Part"
+            ],
+            "bottom-mid": [
+              "Rust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9979,
+              "bbox": [
+                [
+                  124.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  174.0
+                ],
+                [
+                  124.0,
+                  174.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 407.0,
+                  "y": 156.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "RUST-OLEUM CHOICE OUSTRIAL\nStriping Paint",
+              "confidence": 0.943,
+              "bbox": [
+                [
+                  349.0,
+                  330.0
+                ],
+                [
+                  437.0,
+                  330.0
+                ],
+                [
+                  437.0,
+                  408.0
+                ],
+                [
+                  349.0,
+                  408.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 393.0,
+                  "y": 369.0
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "CENCRETE - PAVEMENT - GASS\nPinstura paro llandet Part",
+              "confidence": 0.822,
+              "bbox": [
+                [
+                  350.0,
+                  442.0
+                ],
+                [
+                  436.0,
+                  442.0
+                ],
+                [
+                  436.0,
+                  498.0
+                ],
+                [
+                  350.0,
+                  498.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 393.0,
+                  "y": 470.0
+                }
+              },
+              "raw_item_count": 3
+            },
+            {
+              "text": "Rust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE",
+              "confidence": 0.9932,
+              "bbox": [
+                [
+                  248.0,
+                  633.0
+                ],
+                [
+                  507.0,
+                  633.0
+                ],
+                [
+                  507.0,
+                  730.0
+                ],
+                [
+                  248.0,
+                  730.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 377.5,
+                  "y": 681.5
+                }
+              },
+              "raw_item_count": 5
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-04-22T11:31:37",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260422_113133_441147.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260422_113133_441147.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 14,
+              "total_text_length": 216,
+              "average_confidence": 0.9389,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 12,
+              "total_text_length": 176,
+              "average_confidence": 0.93,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 14,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: ceiling grid spray paint home depot\nRust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE",
+            "query_line": {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9979,
+              "bbox": [
+                [
+                  124.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  174.0
+                ],
+                [
+                  124.0,
+                  174.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 407.0,
+                  "y": 156.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Rust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE",
+            "selected_lines": [
+              {
+                "text": "Query: ceiling grid spray paint home depot",
+                "confidence": 0.9979,
+                "bbox": [
+                  [
+                    124.0,
+                    139.0
+                  ],
+                  [
+                    690.0,
+                    139.0
+                  ],
+                  [
+                    690.0,
+                    174.0
+                  ],
+                  [
+                    124.0,
+                    174.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 407.0,
+                    "y": 156.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Rust-Oleum Inverted Striping Paint -",
+                "confidence": 0.9971,
+                "bbox": [
+                  [
+                    250.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    651.0
+                  ],
+                  [
+                    250.0,
+                    651.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 642.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluem - Qty of 6 -",
+                "confidence": 0.9693,
+                "bbox": [
+                  [
+                    250.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    669.0
+                  ],
+                  [
+                    250.0,
+                    669.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 359.5,
+                    "y": 661.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    690.0
+                  ],
+                  [
+                    249.0,
+                    690.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 288.0,
+                    "y": 681.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    249.0,
+                    708.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 275.0,
+                    "y": 700.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "ULINE",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    248.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    730.0
+                  ],
+                  [
+                    248.0,
+                    730.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 274.5,
+                    "y": 719.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Rust-Oleum Inverted Striping Paint -",
+                "confidence": 0.9971,
+                "bbox": [
+                  [
+                    250.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    651.0
+                  ],
+                  [
+                    250.0,
+                    651.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 642.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluem - Qty of 6 -",
+                "confidence": 0.9693,
+                "bbox": [
+                  [
+                    250.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    669.0
+                  ],
+                  [
+                    250.0,
+                    669.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 359.5,
+                    "y": 661.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    690.0
+                  ],
+                  [
+                    249.0,
+                    690.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 288.0,
+                    "y": 681.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    249.0,
+                    708.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 275.0,
+                    "y": 700.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "ULINE",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    248.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    730.0
+                  ],
+                  [
+                    248.0,
+                    730.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 274.5,
+                    "y": 719.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "row_lines": [
+              {
+                "text": "Query: ceiling grid spray paint home depot",
+                "confidence": 0.9979,
+                "bbox": [
+                  [
+                    124.0,
+                    139.0
+                  ],
+                  [
+                    690.0,
+                    139.0
+                  ],
+                  [
+                    690.0,
+                    174.0
+                  ],
+                  [
+                    124.0,
+                    174.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 407.0,
+                    "y": 156.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "RUST-OLEUM",
+                "confidence": 0.9947,
+                "bbox": [
+                  [
+                    349.0,
+                    330.0
+                  ],
+                  [
+                    437.0,
+                    330.0
+                  ],
+                  [
+                    437.0,
+                    349.0
+                  ],
+                  [
+                    349.0,
+                    349.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 393.0,
+                    "y": 339.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "OUSTRIAL",
+                "confidence": 0.9353,
+                "bbox": [
+                  [
+                    375.0,
+                    348.0
+                  ],
+                  [
+                    424.0,
+                    348.0
+                  ],
+                  [
+                    424.0,
+                    362.0
+                  ],
+                  [
+                    375.0,
+                    362.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 399.5,
+                    "y": 355.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "CHOICE",
+                "confidence": 0.9995,
+                "bbox": [
+                  [
+                    373.0,
+                    358.0
+                  ],
+                  [
+                    414.0,
+                    358.0
+                  ],
+                  [
+                    414.0,
+                    370.0
+                  ],
+                  [
+                    373.0,
+                    370.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 393.5,
+                    "y": 364.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Striping Paint",
+                "confidence": 0.8927,
+                "bbox": [
+                  [
+                    364.0,
+                    379.0
+                  ],
+                  [
+                    421.0,
+                    379.0
+                  ],
+                  [
+                    421.0,
+                    408.0
+                  ],
+                  [
+                    364.0,
+                    408.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 392.5,
+                    "y": 393.5
+                  }
+                },
+                "raw_item_count": 2
+              },
+              {
+                "text": "CENCRETE - PAVEMENT - GASS",
+                "confidence": 0.8487,
+                "bbox": [
+                  [
+                    350.0,
+                    442.0
+                  ],
+                  [
+                    436.0,
+                    442.0
+                  ],
+                  [
+                    436.0,
+                    456.0
+                  ],
+                  [
+                    350.0,
+                    456.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 393.0,
+                    "y": 449.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Part",
+                "confidence": 0.831,
+                "bbox": [
+                  [
+                    409.0,
+                    476.0
+                  ],
+                  [
+                    429.0,
+                    476.0
+                  ],
+                  [
+                    429.0,
+                    486.0
+                  ],
+                  [
+                    409.0,
+                    486.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 419.0,
+                    "y": 481.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Pinstura paro llandet",
+                "confidence": 0.7865,
+                "bbox": [
+                  [
+                    358.0,
+                    485.0
+                  ],
+                  [
+                    426.0,
+                    485.0
+                  ],
+                  [
+                    426.0,
+                    498.0
+                  ],
+                  [
+                    358.0,
+                    498.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 392.0,
+                    "y": 491.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Rust-Oleum Inverted Striping Paint -",
+                "confidence": 0.9971,
+                "bbox": [
+                  [
+                    250.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    633.0
+                  ],
+                  [
+                    507.0,
+                    651.0
+                  ],
+                  [
+                    250.0,
+                    651.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 642.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluem - Qty of 6 -",
+                "confidence": 0.9693,
+                "bbox": [
+                  [
+                    250.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    654.0
+                  ],
+                  [
+                    469.0,
+                    669.0
+                  ],
+                  [
+                    250.0,
+                    669.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 359.5,
+                    "y": 661.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    672.0
+                  ],
+                  [
+                    327.0,
+                    690.0
+                  ],
+                  [
+                    249.0,
+                    690.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 288.0,
+                    "y": 681.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    249.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    692.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    249.0,
+                    708.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 275.0,
+                    "y": 700.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "ULINE",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    248.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    708.0
+                  ],
+                  [
+                    301.0,
+                    730.0
+                  ],
+                  [
+                    248.0,
+                    730.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 274.5,
+                    "y": 719.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ]
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: ceiling grid spray paint home depot"
+            ],
+            "mid-mid": [
+              "RUST-OLEUM CHOICE OUSTRIAL\nStriping Paint",
+              "CENCRETE - PAVEMENT - GASS\nPinstura paro llandet Part"
+            ],
+            "bottom-mid": [
+              "Rust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9979,
+              "bbox": [
+                [
+                  124.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  139.0
+                ],
+                [
+                  690.0,
+                  174.0
+                ],
+                [
+                  124.0,
+                  174.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 407.0,
+                  "y": 156.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "RUST-OLEUM CHOICE OUSTRIAL\nStriping Paint",
+              "confidence": 0.943,
+              "bbox": [
+                [
+                  349.0,
+                  330.0
+                ],
+                [
+                  437.0,
+                  330.0
+                ],
+                [
+                  437.0,
+                  408.0
+                ],
+                [
+                  349.0,
+                  408.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 393.0,
+                  "y": 369.0
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "CENCRETE - PAVEMENT - GASS\nPinstura paro llandet Part",
+              "confidence": 0.822,
+              "bbox": [
+                [
+                  350.0,
+                  442.0
+                ],
+                [
+                  436.0,
+                  442.0
+                ],
+                [
+                  436.0,
+                  498.0
+                ],
+                [
+                  350.0,
+                  498.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 393.0,
+                  "y": 470.0
+                }
+              },
+              "raw_item_count": 3
+            },
+            {
+              "text": "Rust-Oleum Inverted Striping Paint -\nWhite - Rust-Oluem - Qty of 6 -\nS-21133W\n$60.00\nULINE",
+              "confidence": 0.9932,
+              "bbox": [
+                [
+                  248.0,
+                  633.0
+                ],
+                [
+                  507.0,
+                  633.0
+                ],
+                [
+                  507.0,
+                  730.0
+                ],
+                [
+                  248.0,
+                  730.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 377.5,
+                  "y": 681.5
+                }
+              },
+              "raw_item_count": 5
+            }
+          ]
+        }
+      ]
     }
   }
 }

@@ -15,6 +15,7 @@ const HANDSHAKE_LOG_INTERVAL_MS = 10000;
 
 // Event types emitted by the Python service.
 const EVENT_TYPE_TASK = "task";
+const EVENT_TYPE_TEXT_TASK = "text_task";
 const EVENT_TYPE_SCROLL = "scroll";
 const EVENT_TYPE_REPEAT = "repeat";
 
@@ -30,6 +31,7 @@ const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 const CHATGPT_URL_PATTERNS = ["https://chat.openai.com/*", "https://chatgpt.com/*"];
 const CONTENT_SCRIPT_FILE = "content_script.js";
 const CONTENT_SCRIPT_PING_TYPE = "localQueryBridgePing";
+const CONTENT_SCRIPT_SUBMIT_TEXT_TYPE = "submitTextPrompt";
 const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
 const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
@@ -433,6 +435,18 @@ async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText) {
   return response?.ok === true;
 }
 
+async function sendTextPromptToChatGpt(tabId, taskCount, promptText) {
+  await ensureContentScript(tabId);
+
+  const response = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_SUBMIT_TEXT_TYPE,
+    taskCount,
+    promptText,
+  });
+
+  return response?.ok === true;
+}
+
 async function queueRepeatScreenshot(tabId, imageDataUrls, taskCount) {
   await ensureContentScript(tabId);
 
@@ -668,14 +682,19 @@ async function deliverPendingSubmission() {
     return;
   }
 
-  const { imageDataUrls, taskCount } = state.pendingSubmission;
-  console.log("Local Query Bridge delivering screenshot", {
+  const { imageDataUrls, taskCount, submissionMode } = state.pendingSubmission;
+  const isTextSubmission = submissionMode === EVENT_TYPE_TEXT_TASK;
+  console.log(`Local Query Bridge delivering ${isTextSubmission ? "text prompt" : "screenshot"}`, {
     taskCount,
     screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
     targets: targets.map((target) => target.tabId),
   });
   const results = await Promise.allSettled(
-    targets.map((target) => sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText)),
+    targets.map((target) => (
+      isTextSubmission
+        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText)
+        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText)
+    )),
   );
 
   const failedTargets = [];
@@ -695,7 +714,7 @@ async function deliverPendingSubmission() {
   }
 
   if (failedTargets.length === 0) {
-    console.log(`Local Query Bridge submitted screenshot to ChatGPT in ${successfulCount} tab(s)`);
+    console.log(`Local Query Bridge submitted ${isTextSubmission ? "text prompt" : "screenshot"} to ChatGPT in ${successfulCount} tab(s)`);
     state.pendingSubmission = null;
     return;
   }
@@ -943,6 +962,42 @@ async function pollLocalBridge() {
         return;
       }
 
+      if (eventType === EVENT_TYPE_TEXT_TASK) {
+        if (!payload?.a) {
+          return;
+        }
+
+        const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
+        const taskCount = Number.parseInt(taskText, 10);
+        const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
+        let promptTexts = [];
+        if (promptPayload) {
+          try {
+            promptTexts = normalizePromptTexts(JSON.parse(promptPayload));
+          } catch (_error) {
+            promptTexts = normalizePromptTexts(promptPayload);
+          }
+        }
+        if (Number.isNaN(taskCount) || promptTexts.length === 0) {
+          return;
+        }
+
+        console.log("Local Query Bridge retrieved new task text prompt", {
+          taskCount,
+          promptCount: promptTexts.length,
+        });
+        state.pendingRepeatDraft = null;
+        state.pendingSubmission = {
+          taskCount,
+          promptTexts,
+          targets: null,
+          submissionMode: EVENT_TYPE_TEXT_TASK,
+        };
+
+        await deliverPendingSubmission();
+        return;
+      }
+
       if (!payload?.a || !payload?.b) {
         return;
       }
@@ -982,6 +1037,7 @@ async function pollLocalBridge() {
         imageDataUrls,
         promptTexts,
         targets: null,
+        submissionMode: EVENT_TYPE_TASK,
       };
 
       await deliverPendingSubmission();

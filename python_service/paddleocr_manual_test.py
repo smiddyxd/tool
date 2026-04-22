@@ -27,10 +27,10 @@ PADDLEOCR_MIN_DET_SIDE_LEN = 256
 PADDLEOCR_UPSCALE_TARGET_MAX_SIDE = 960
 PADDLEOCR_MAX_UPSCALE_FACTOR = 4.0
 PADDLEOCR_TEXT_DET_LIMIT_TYPE = "max"
-OCR_FOCUS_LEFT = 250
-OCR_FOCUS_TOP = 160
-OCR_FOCUS_RIGHT = 990
-OCR_FOCUS_BOTTOM = 190
+OCR_FOCUS_LEFT = 330
+OCR_FOCUS_TOP = 170
+OCR_FOCUS_RIGHT = 1090
+OCR_FOCUS_BOTTOM = 970
 OCR_FOCUS_PADDING_LEFT = 0
 OCR_FOCUS_PADDING_TOP = 0
 OCR_FOCUS_PADDING_RIGHT = 220
@@ -38,6 +38,8 @@ OCR_FOCUS_PADDING_BOTTOM = 0
 BLOCK_HORIZONTAL_GAP_PX = 72
 BLOCK_VERTICAL_GAP_PX = 28
 BLOCK_ROW_ALIGNMENT_PX = 18
+BOTTOM_BLOCK_VERTICAL_GAP_PX = 10
+QUERY_LINE_PREFIX = "query:"
 JSON_INDENT = 2
 DEFAULT_CAPTURE_PREFIX = "manual"
 
@@ -380,13 +382,22 @@ def run_ocr_variant(ocr_instance: Any, variant: dict[str, Any]) -> dict[str, Any
     }
 
 
-def save_debug_artifacts(image_path: Path, focus_region: dict[str, int], variant_runs: list[dict[str, Any]]) -> Path:
+def save_debug_artifacts(
+    image_path: Path,
+    focus_region: dict[str, int],
+    variant_runs: list[dict[str, Any]],
+    *,
+    selected_variant_label: str,
+    selected_transcript: dict[str, Any],
+) -> Path:
     ensure_debug_dir()
     debug_json_path = DEBUG_DIR / f"{image_path.stem}.json"
     debug_payload = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "source_image": str(image_path),
         "focus_region": focus_region,
+        "selected_variant": selected_variant_label,
+        "selected_transcript": make_json_safe(selected_transcript),
         "variants": [],
     }
 
@@ -506,6 +517,18 @@ def should_merge_segments(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return close_horizontally or close_vertically
 
 
+def should_merge_row_segments(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_box = left["metrics"]
+    right_box = right["metrics"]
+    horizontal_gap = interval_gap(left_box["min_x"], left_box["max_x"], right_box["min_x"], right_box["max_x"])
+    vertical_overlap = interval_overlap(left_box["min_y"], left_box["max_y"], right_box["min_y"], right_box["max_y"])
+    min_height = min(left_box["height"], right_box["height"])
+    row_alignment = max(6.0, min_height * 0.35)
+    required_vertical_overlap = min_height * 0.35
+    same_row = vertical_overlap >= required_vertical_overlap or abs(left_box["center_y"] - right_box["center_y"]) <= row_alignment
+    return same_row and horizontal_gap <= max(BLOCK_HORIZONTAL_GAP_PX, min_height * 3.0)
+
+
 def group_segments(segments: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     if not segments:
         return []
@@ -527,6 +550,42 @@ def group_segments(segments: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
     for left_index in range(len(segments)):
         for right_index in range(left_index + 1, len(segments)):
             if should_merge_segments(segments[left_index], segments[right_index]):
+                union(left_index, right_index)
+
+    grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for index, segment in enumerate(segments):
+        grouped[find(index)].append(segment)
+
+    return sorted(
+        grouped.values(),
+        key=lambda cluster: (
+            min(item["metrics"]["min_y"] for item in cluster),
+            min(item["metrics"]["min_x"] for item in cluster),
+        ),
+    )
+
+
+def group_row_segments(segments: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    if not segments:
+        return []
+
+    parent = list(range(len(segments)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(a_index: int, b_index: int) -> None:
+        a_root = find(a_index)
+        b_root = find(b_index)
+        if a_root != b_root:
+            parent[b_root] = a_root
+
+    for left_index in range(len(segments)):
+        for right_index in range(left_index + 1, len(segments)):
+            if should_merge_row_segments(segments[left_index], segments[right_index]):
                 union(left_index, right_index)
 
     grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -609,6 +668,105 @@ def build_grouped_lines(raw_result: Any, *, analysis_width: int, analysis_height
     return grouped_lines, len(segments)
 
 
+def build_row_lines(raw_result: Any, *, analysis_width: int, analysis_height: int, x_offset: int, y_offset: int) -> list[dict[str, Any]]:
+    raw_lines = normalize_ocr_lines(raw_result)
+    segments: list[dict[str, Any]] = []
+
+    for raw_box, text_info in raw_lines:
+        bbox = to_bbox_points(raw_box)
+        if not bbox:
+            continue
+        text = normalize_token_text(str(text_info[0]))
+        confidence = float(text_info[1])
+        if is_noise_token(text, confidence):
+            continue
+        metrics = bbox_metrics(bbox)
+        segments.append({"text": text, "confidence": confidence, "bbox": bbox, "metrics": metrics})
+
+    row_lines = [merge_cluster(cluster, analysis_width, analysis_height, x_offset, y_offset) for cluster in group_row_segments(segments)]
+    return [item for item in row_lines if item["text"]]
+
+
+def build_selected_transcript(
+    raw_result: Any,
+    *,
+    analysis_width: int,
+    analysis_height: int,
+    x_offset: int,
+    y_offset: int,
+) -> dict[str, Any]:
+    row_lines = build_row_lines(
+        raw_result,
+        analysis_width=analysis_width,
+        analysis_height=analysis_height,
+        x_offset=x_offset,
+        y_offset=y_offset,
+    )
+    if not row_lines:
+        return {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": BOTTOM_BLOCK_VERTICAL_GAP_PX,
+            "query_prefix": QUERY_LINE_PREFIX,
+            "text": "",
+            "query_line": None,
+            "bottom_block_text": "",
+            "selected_lines": [],
+            "bottom_block_lines": [],
+            "row_lines": [],
+        }
+
+    def line_metrics(line: dict[str, Any]) -> dict[str, float]:
+        return bbox_metrics(line["bbox"])
+
+    ordered_rows = sorted(
+        row_lines,
+        key=lambda line: (
+            line_metrics(line)["min_y"],
+            line_metrics(line)["min_x"],
+        ),
+    )
+    rows_with_metrics = [{"line": line, "metrics": line_metrics(line)} for line in ordered_rows]
+
+    selected_bottom_block: list[dict[str, Any]] = [rows_with_metrics[-1]]
+    current_top = rows_with_metrics[-1]["metrics"]["min_y"]
+
+    for candidate in reversed(rows_with_metrics[:-1]):
+        gap_to_current = current_top - candidate["metrics"]["max_y"]
+        if gap_to_current > BOTTOM_BLOCK_VERTICAL_GAP_PX:
+            break
+        selected_bottom_block.insert(0, candidate)
+        current_top = candidate["metrics"]["min_y"]
+
+    query_match = next(
+        (
+            item
+            for item in rows_with_metrics
+            if normalize_token_text(item["line"]["text"]).casefold().startswith(QUERY_LINE_PREFIX)
+        ),
+        None,
+    )
+
+    selected_items = list(selected_bottom_block)
+    if query_match is not None and all(query_match["line"] is not item["line"] for item in selected_items):
+        selected_items.insert(0, query_match)
+        selected_items = sorted(selected_items, key=lambda item: (item["metrics"]["min_y"], item["metrics"]["min_x"]))
+
+    selected_lines = [item["line"] for item in selected_items]
+    bottom_block_lines = [item["line"] for item in selected_bottom_block]
+
+    return {
+        "strategy": "bottom_block_plus_query",
+        "gap_threshold_px": BOTTOM_BLOCK_VERTICAL_GAP_PX,
+        "query_prefix": QUERY_LINE_PREFIX,
+        "text": "\n".join(line["text"] for line in selected_lines if line["text"]).strip(),
+        "query_line": query_match["line"] if query_match is not None else None,
+        "bottom_block_text": "\n".join(line["text"] for line in bottom_block_lines if line["text"]).strip(),
+        "selected_lines": selected_lines,
+        "bottom_block_lines": bottom_block_lines,
+        "row_lines": ordered_rows,
+    }
+
+
 def build_entry(
     image_path: Path,
     full_image_bgr: Any,
@@ -618,6 +776,7 @@ def build_entry(
     variant_label: str,
     variant_runs: list[dict[str, Any]],
     debug_json_path: Path,
+    selected_transcript: dict[str, Any],
 ) -> dict[str, Any]:
     analysis_width = focus_region["width"]
     analysis_height = focus_region["height"]
@@ -668,6 +827,7 @@ def build_entry(
             for variant_run in variant_runs
         ],
         "raw_line_count": raw_line_count,
+        "selected_transcript": selected_transcript,
         "summary_by_region": ordered_summary,
         "lines": grouped_lines,
     }
@@ -712,7 +872,20 @@ def process_image_path(
 
     variant_runs = [run_ocr_variant(ocr_instance, variant) for variant in build_ocr_variants(focus_image_bgr)]
     best_variant = choose_best_variant(variant_runs)
-    debug_json_path = save_debug_artifacts(image_path, focus_region, variant_runs)
+    selected_transcript = build_selected_transcript(
+        best_variant["raw_result"],
+        analysis_width=focus_region["width"],
+        analysis_height=focus_region["height"],
+        x_offset=focus_region["left"],
+        y_offset=focus_region["top"],
+    )
+    debug_json_path = save_debug_artifacts(
+        image_path,
+        focus_region,
+        variant_runs,
+        selected_variant_label=best_variant["label"],
+        selected_transcript=selected_transcript,
+    )
     entry = build_entry(
         image_path,
         source_image_bgr,
@@ -721,6 +894,7 @@ def process_image_path(
         variant_label=best_variant["label"],
         variant_runs=variant_runs,
         debug_json_path=debug_json_path,
+        selected_transcript=selected_transcript,
     )
     append_entry(result_store, entry)
     if results is None:

@@ -34,6 +34,11 @@ TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 OCR_LANGUAGE = "deu+eng"
 COUNTER_OCR_LANGUAGE = "eng"
 XOR_KEY = 0x5A
+TEXT_TASK_EVENT_TYPE = "text_task"
+TEXT_TASK_QUERY_PREFIX = "query:"
+TEXT_TASK_INPUT_HEADER = "Task input below is provided as labeled OCR text instead of a screenshot."
+TEXT_TASK_QUERY_LABEL = "Query:"
+TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 
 
 @dataclass(frozen=True)
@@ -344,6 +349,20 @@ class SharedState:
                 }
             )
 
+    def publish_text_payload(
+        self,
+        task_count: int,
+        prompts: list[str] | tuple[str, ...],
+    ) -> None:
+        with self.lock:
+            self.pending_events.append(
+                {
+                    "type": TEXT_TASK_EVENT_TYPE,
+                    "task_count": task_count,
+                    "prompts": list(prompts),
+                }
+            )
+
     def publish_scroll(self, direction: str, steps: int = 1) -> None:
         with self.lock:
             self.pending_events.append(
@@ -377,6 +396,20 @@ class SharedState:
                 "b": xor_encrypt_string_to_base64(json.dumps(encoded_screenshots, ensure_ascii=False), XOR_KEY),
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
+            }
+
+        if event_type == TEXT_TASK_EVENT_TYPE:
+            task_count = int(event["task_count"])
+            prompts = [str(prompt) for prompt in event.get("prompts", [])]
+            print(
+                f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)}",
+                flush=True,
+            )
+            return {
+                "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
+                "b": "",
+                "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
+                "d": xor_encrypt_to_hex(TEXT_TASK_EVENT_TYPE, XOR_KEY),
             }
 
         if event_type == "scroll":
@@ -688,6 +721,59 @@ def clean_ocr_text(text: str) -> str:
     text = text.replace("\r", " ").replace("\n", " ")
     text = " ".join(text.split())
     return text.strip(" |:-")
+
+
+def clean_multiline_ocr_text(text: str) -> str:
+    normalized_lines: list[str] = []
+    for raw_line in str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        cleaned_line = " ".join(str(raw_line).split()).strip(" |")
+        if cleaned_line:
+            normalized_lines.append(cleaned_line)
+    return "\n".join(normalized_lines)
+
+
+def extract_text_task_parts(entry: dict[str, Any]) -> tuple[str, str]:
+    selected_transcript = entry.get("selected_transcript", {})
+    query_line = selected_transcript.get("query_line") if isinstance(selected_transcript, dict) else None
+    query_text = ""
+    if isinstance(query_line, dict):
+        query_text = clean_multiline_ocr_text(str(query_line.get("text", "")))
+    if query_text.casefold().startswith(TEXT_TASK_QUERY_PREFIX):
+        query_text = query_text.split(":", 1)[1].strip()
+
+    product_text = ""
+    if isinstance(selected_transcript, dict):
+        product_text = clean_multiline_ocr_text(str(selected_transcript.get("bottom_block_text", "")))
+        if not product_text:
+            product_lines: list[str] = []
+            for line in selected_transcript.get("bottom_block_lines", []):
+                if not isinstance(line, dict):
+                    continue
+                cleaned_line = clean_multiline_ocr_text(str(line.get("text", "")))
+                if cleaned_line:
+                    product_lines.append(cleaned_line)
+            product_text = "\n".join(product_lines)
+
+    return query_text, product_text
+
+
+def build_text_task_input(query_text: str, product_text: str) -> str:
+    return "\n".join(
+        [
+            TEXT_TASK_INPUT_HEADER,
+            "",
+            TEXT_TASK_QUERY_LABEL,
+            query_text,
+            "",
+            TEXT_TASK_PRODUCT_LABEL,
+            product_text,
+        ]
+    ).strip()
+
+
+def build_text_task_prompts(prompts: tuple[str, ...], query_text: str, product_text: str) -> tuple[str, ...]:
+    task_input_text = build_text_task_input(query_text, product_text)
+    return tuple(f"{prompt}\n\n{task_input_text}".strip() for prompt in prompts if str(prompt).strip())
 
 
 def ocr_single_line(image: np.ndarray, *, language: str, config: str) -> str:
@@ -1039,10 +1125,34 @@ def monitor_screen() -> None:
                         image_path = result["image_path"]
                         entry = result["entry"]
                         debug_name = Path(entry.get("ocr_debug_path", "")).name if entry.get("ocr_debug_path") else ""
+                        selected_transcript = entry.get("selected_transcript", {})
+                        selected_line_count = len(selected_transcript.get("selected_lines", []))
+                        test_settings = resolve_test_task_settings(CONFIG_CACHE.load())
                         print(
-                            f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} saved={image_path.name} lines={len(entry.get('lines', []))} variant={entry.get('ocr_variant', 'unknown')} debug={debug_name}",
+                            f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} saved={image_path.name} lines={len(entry.get('lines', []))} selected_lines={selected_line_count} variant={entry.get('ocr_variant', 'unknown')} debug={debug_name}",
                             flush=True,
                         )
+                        if test_settings is None:
+                            print(
+                                f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} no-test-trigger-configured",
+                                flush=True,
+                            )
+                        else:
+                            query_text, product_text = extract_text_task_parts(entry)
+                            if not query_text or not product_text:
+                                print(
+                                    f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} missing-query-or-product-text",
+                                    flush=True,
+                                )
+                            else:
+                                effective_task_count = task_count if task_count is not None else 0
+                                text_prompts = build_text_task_prompts(test_settings.prompts, query_text, product_text)
+                                if text_prompts:
+                                    STATE.publish_text_payload(effective_task_count, text_prompts)
+                                    print(
+                                        f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} queued-text type={test_settings.task_type}",
+                                        flush=True,
+                                    )
 
                 if task_count is not None and STATE.is_new_task(task_count):
                     task_type = clean_ocr_text(extract_task_type(frame_bgr, task_type_icon_template)) or "Unknown"

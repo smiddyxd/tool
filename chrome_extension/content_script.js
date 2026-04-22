@@ -25,6 +25,7 @@ Base everything strictly on the screenshot attachment.`;
 
   // Content-script timing settings for DOM availability, upload settling, and send-button activation.
   const MESSAGE_TYPE = "submitScreenshot";
+  const SUBMIT_TEXT_PROMPT_MESSAGE_TYPE = "submitTextPrompt";
   const QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE = "queueRepeatScreenshot";
   const SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE = "submitRepeatDraft";
   const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
@@ -613,8 +614,8 @@ Base everything strictly on the screenshot attachment.`;
     });
   }
 
-  async function submitRepeatDraft(taskCount, promptText) {
-    console.log("Local Query Bridge received repeat confirm request", {
+  async function submitPromptOnly(taskCount, promptText) {
+    console.log("Local Query Bridge received prompt-only submit request", {
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
     });
@@ -627,6 +628,10 @@ Base everything strictly on the screenshot attachment.`;
     await ensureWebSearchEnabled();
     populatePromptEditor(editor, prompt);
     await clickSendWhenReady(taskCount);
+  }
+
+  async function submitRepeatDraft(taskCount, promptText) {
+    await submitPromptOnly(taskCount, promptText);
   }
 
   async function submitScreenshot(imageDataUrls, taskCount, promptText) {
@@ -713,6 +718,21 @@ Base everything strictly on the screenshot attachment.`;
         typeof message.promptText === "string" ? message.promptText : "",
       ).catch((error) => {
         console.error("Local Query Bridge repeat draft submit failed", error);
+      });
+      return false;
+    }
+
+    if (message?.type === SUBMIT_TEXT_PROMPT_MESSAGE_TYPE) {
+      console.log("Local Query Bridge content script got text prompt message", {
+        taskCount: message.taskCount ?? 0,
+        promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
+      });
+      sendResponse({ ok: true });
+      void submitPromptOnly(
+        message.taskCount ?? 0,
+        typeof message.promptText === "string" ? message.promptText : "",
+      ).catch((error) => {
+        console.error("Local Query Bridge text prompt submit failed", error);
       });
       return false;
     }
