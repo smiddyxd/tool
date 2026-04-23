@@ -124,13 +124,13 @@
 <body>
   <main>
     <h1>Local Query Bridge</h1>
-    <p class="lead">Set the project-specific new-chat URL and the prompt cap per chat. When the cap is reached, the next screenshot submission opens a fresh chat on the configured start page.</p>
+    <p class="lead">Set the project-specific base URL and the prompt cap per chat. When the cap is reached, the next screenshot submission opens a fresh chat on the configured start page.</p>
 
     <form id="options-form">
       <label for="default-start-page-url">
         Default start page
         <input id="default-start-page-url" name="defaultStartPageUrl" type="url" required>
-        <p class="hint">Use the exact ChatGPT project/new-chat URL you want fresh tabs to open on.</p>
+        <p class="hint">Use the ChatGPT project base URL. Any tab whose URL starts with that base will be treated as a valid target.</p>
       </label>
 
       <label for="reset-limit">

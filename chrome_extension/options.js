@@ -1,7 +1,26 @@
-const DEFAULT_START_PAGE_URL = "https://chatgpt.com/g/g-p-69bc1388b0588191bd1c176e83f018e4-rating/project";
+const DEFAULT_START_PAGE_URL = "https://chatgpt.com/g/g-p-69bc1388b0588191bd1c176e83f018e4";
 const DEFAULT_RESET_LIMIT = 0;
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
+
+function normalizeProjectUrlPrefix(value) {
+  const rawValue = typeof value === "string" ? value.trim() : "";
+  if (!rawValue) {
+    return DEFAULT_START_PAGE_URL;
+  }
+
+  const directProjectMatch = rawValue.match(/https:\/\/chatgpt\.com\/g\/g-p-[0-9a-f]{32}/i);
+  if (directProjectMatch?.[0]) {
+    return directProjectMatch[0].replace(/\/+$/, "");
+  }
+
+  try {
+    const parsedUrl = new URL(rawValue);
+    return `${parsedUrl.origin}${parsedUrl.pathname}`.replace(/\/+$/, "");
+  } catch (_error) {
+    return DEFAULT_START_PAGE_URL;
+  }
+}
 
 function sanitizeStartPageUrl(value) {
   const rawValue = typeof value === "string" ? value.trim() : "";
@@ -11,7 +30,7 @@ function sanitizeStartPageUrl(value) {
 
   try {
     const parsedUrl = new URL(rawValue);
-    return parsedUrl.toString();
+    return normalizeProjectUrlPrefix(parsedUrl.toString());
   } catch (_error) {
     return DEFAULT_START_PAGE_URL;
   }

@@ -250,7 +250,42 @@ Base everything strictly on the screenshot attachment.`;
     dispatchEditorEvents(textarea, value);
   }
 
-  function setContentEditableValue(editor, value) {
+  function normalizeEditorText(value) {
+    return (typeof value === "string" ? value : "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\n+$/g, "");
+  }
+
+  function compactEditorText(value) {
+    return normalizeEditorText(value).replace(/\s+/g, " ").trim();
+  }
+
+  function getEditorText(editor) {
+    if (editor instanceof HTMLTextAreaElement) {
+      return editor.value;
+    }
+
+    return editor.innerText ?? editor.textContent ?? "";
+  }
+
+  function selectEditorContents(editor) {
+    editor.focus();
+
+    const selection = window.getSelection();
+    if (!selection) {
+      return false;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  }
+
+  function setContentEditableDomValue(editor, value) {
     editor.innerHTML = "";
 
     for (const line of value.split("\n")) {
@@ -264,6 +299,49 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     dispatchEditorEvents(editor, value);
+  }
+
+  function pasteContentEditableText(editor, value, expectedText) {
+    if (!selectEditorContents(editor)) {
+      return false;
+    }
+
+    try {
+      const pasteData = new DataTransfer();
+      pasteData.setData("text/plain", value);
+      const pasteEvent = typeof ClipboardEvent === "function"
+        ? new ClipboardEvent("paste", { bubbles: true, cancelable: true, composed: true })
+        : new Event("paste", { bubbles: true, cancelable: true, composed: true });
+      Object.defineProperty(pasteEvent, "clipboardData", { value: pasteData });
+      editor.dispatchEvent(pasteEvent);
+      dispatchEditorEvents(editor, value);
+      return compactEditorText(getEditorText(editor)) === expectedText;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function setContentEditableValue(editor, value) {
+    const expectedText = compactEditorText(value);
+
+    if (selectEditorContents(editor)) {
+      try {
+        if (document.execCommand("insertText", false, value)) {
+          dispatchEditorEvents(editor, value);
+          if (compactEditorText(getEditorText(editor)) === expectedText) {
+            return;
+          }
+        }
+      } catch (_error) {
+        // Fall back to direct DOM replacement below.
+      }
+    }
+
+    if (pasteContentEditableText(editor, value, expectedText)) {
+      return;
+    }
+
+    setContentEditableDomValue(editor, value);
   }
 
   function populatePromptEditor(editor, value) {
@@ -620,13 +698,13 @@ Base everything strictly on the screenshot attachment.`;
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
     });
-    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
       : BOILERPLATE_PROMPT;
 
-    editor.focus();
     await ensureWebSearchEnabled();
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    editor.focus();
     populatePromptEditor(editor, prompt);
     await clickSendWhenReady(taskCount);
   }
@@ -649,7 +727,6 @@ Base everything strictly on the screenshot attachment.`;
       promptLength: typeof promptText === "string" ? promptText.length : 0,
       screenshotCount: normalizedImageDataUrls.length,
     });
-    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     const screenshotFiles = normalizedImageDataUrls.map((imageDataUrl, screenshotIndex) => (
       dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
     ));
@@ -657,13 +734,14 @@ Base everything strictly on the screenshot attachment.`;
       ? promptText
       : BOILERPLATE_PROMPT;
 
-    editor.focus();
     console.log("Local Query Bridge ensuring web search before inserting prompt", {
       taskCount,
       promptSettleMs: PROMPT_SETTLE_MS,
       screenshotCount: screenshotFiles.length,
     });
     await ensureWebSearchEnabled();
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    editor.focus();
     populatePromptEditor(editor, prompt);
     await attachScreenshotFiles(screenshotFiles, editor);
 
