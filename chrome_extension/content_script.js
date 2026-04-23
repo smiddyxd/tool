@@ -46,6 +46,9 @@ Base everything strictly on the screenshot attachment.`;
   const SCROLL_EXECUTION_INTERVAL_MS = 180;
   const SEND_BUTTON_RETRY_COUNT = 20;
   const SEND_BUTTON_RETRY_DELAY_MS = 250;
+  const AUTO_SCROLL_MARKDOWN_CLASS = "markdown";
+  const AUTO_SCROLL_TARGET_TEXT = "position rationale:";
+  const AUTO_SCROLL_TARGET_OFFSET_PX = 0;
 
   function delay(milliseconds) {
     return new Promise((resolve) => {
@@ -439,25 +442,94 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function scrollToBottomNow() {
-    const target = getScrollTarget();
-    if (target instanceof HTMLElement) {
-      const nextScrollTop = Math.max(0, target.scrollHeight - target.clientHeight);
-      target.scrollTop = nextScrollTop;
-      console.log("Local Query Bridge auto-scrolled to bottom", {
-        target: target.tagName,
-        nextScrollTop,
+  function normalizeSearchText(value) {
+    return (typeof value === "string" ? value : "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function getNextAutoScrollTarget() {
+    const markdownRoot = document.getElementsByClassName(AUTO_SCROLL_MARKDOWN_CLASS)[0];
+    if (!(markdownRoot instanceof HTMLElement)) {
+      return null;
+    }
+
+    const targetText = normalizeSearchText(AUTO_SCROLL_TARGET_TEXT);
+    const candidates = Array.from(markdownRoot.querySelectorAll("*")).filter((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+
+      const elementText = normalizeSearchText(element.innerText || element.textContent || "");
+      if (!elementText.includes(targetText)) {
+        return false;
+      }
+
+      return !Array.from(element.children).some((child) => {
+        if (!(child instanceof HTMLElement)) {
+          return false;
+        }
+
+        const childText = normalizeSearchText(child.innerText || child.textContent || "");
+        return childText.includes(targetText);
       });
+    });
+
+    let nextTarget = null;
+    let nextTop = Number.POSITIVE_INFINITY;
+    for (const candidate of candidates) {
+      const rect = candidate.getBoundingClientRect();
+      if (rect.top <= 0) {
+        continue;
+      }
+
+      if (rect.top < nextTop) {
+        nextTop = rect.top;
+        nextTarget = candidate;
+      }
+    }
+
+    return nextTarget;
+  }
+
+  function applyAutoScrollOffset(offsetPx) {
+    if (!Number.isFinite(offsetPx) || offsetPx === 0) {
       return;
     }
 
-    const root = document.scrollingElement || document.documentElement || document.body;
-    const maxScrollTop = root ? Math.max(0, root.scrollHeight - root.clientHeight) : window.scrollY;
-    window.scrollTo({ top: maxScrollTop, left: 0, behavior: "auto" });
-    console.log("Local Query Bridge auto-scrolled to bottom", {
-      target: "window",
-      nextScrollTop: maxScrollTop,
+    const target = getScrollTarget();
+    if (target instanceof HTMLElement) {
+      target.scrollTop += offsetPx;
+      return;
+    }
+
+    window.scrollBy({ top: offsetPx, left: 0, behavior: "auto" });
+  }
+
+  function scrollToNextPositionRationaleNow() {
+    const nextTarget = getNextAutoScrollTarget();
+    if (!(nextTarget instanceof HTMLElement)) {
+      console.log("Local Query Bridge found no auto-scroll target", {
+        rootClass: AUTO_SCROLL_MARKDOWN_CLASS,
+        targetText: AUTO_SCROLL_TARGET_TEXT,
+      });
+      return false;
+    }
+
+    nextTarget.scrollIntoView({
+      block: "start",
+      inline: "nearest",
+      behavior: "auto",
     });
+    applyAutoScrollOffset(AUTO_SCROLL_TARGET_OFFSET_PX);
+
+    console.log("Local Query Bridge auto-scrolled to target text", {
+      tagName: nextTarget.tagName,
+      targetText: AUTO_SCROLL_TARGET_TEXT,
+      textSnippet: normalizeSearchText(nextTarget.innerText || nextTarget.textContent || "").slice(0, 80),
+    });
+    return true;
   }
 
   async function watchResponseCompletionAndAutoScroll(runId) {
@@ -470,7 +542,7 @@ Base everything strictly on the screenshot attachment.`;
         sawGenerating = true;
       } else if (sawGenerating && isResponseIdle()) {
         if (!autoScrollState.userScrolled) {
-          scrollToBottomNow();
+          scrollToNextPositionRationaleNow();
         } else {
           console.log("Local Query Bridge skipped auto-scroll after completion", { runId });
         }

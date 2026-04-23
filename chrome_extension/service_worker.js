@@ -191,6 +191,14 @@ function isEligibleProjectUrl(url, startPageUrl) {
   return normalizedUrl.startsWith(normalizeProjectUrlPrefix(startPageUrl));
 }
 
+function preferEligibleProjectTabs(tabs, startPageUrl) {
+  const chatGptTabs = Array.isArray(tabs)
+    ? tabs.filter((tab) => tab?.id && isChatGptUrl(tab.url))
+    : [];
+  const eligibleTabs = chatGptTabs.filter((tab) => isEligibleProjectUrl(tab.url, startPageUrl));
+  return eligibleTabs.length > 0 ? eligibleTabs : chatGptTabs;
+}
+
 function isFreshProjectStartUrl(url, startPageUrl) {
   const normalizedUrl = typeof url === "string" ? url.trim() : "";
   const prefix = normalizeProjectUrlPrefix(startPageUrl);
@@ -337,7 +345,7 @@ async function getPreferredChatGptTab(startPageUrl = DEFAULT_START_PAGE_URL) {
   if (Number.isInteger(state.lastChatGptTabId)) {
     try {
       const knownTab = await chrome.tabs.get(state.lastChatGptTabId);
-      if (knownTab?.id && isEligibleProjectUrl(knownTab.url, startPageUrl)) {
+      if (knownTab?.id && isChatGptUrl(knownTab.url)) {
         return knownTab;
       }
     } catch (_error) {
@@ -349,17 +357,16 @@ async function getPreferredChatGptTab(startPageUrl = DEFAULT_START_PAGE_URL) {
     url: CHATGPT_URL_PATTERNS,
   });
 
-  const eligibleTabs = tabs.filter((tab) => tab?.id && isEligibleProjectUrl(tab.url, startPageUrl));
-  eligibleTabs.sort((left, right) => {
+  tabs.sort((left, right) => {
     const leftScore = (left.active ? 4 : 0) + (left.lastAccessed ?? 0);
     const rightScore = (right.active ? 4 : 0) + (right.lastAccessed ?? 0);
     return rightScore - leftScore;
   });
 
-  const eligibleTab = eligibleTabs[0] ?? null;
-  if (eligibleTab?.id) {
-    state.lastChatGptTabId = eligibleTab.id;
-    return eligibleTab;
+  const preferredTab = preferEligibleProjectTabs(tabs, startPageUrl)[0] ?? null;
+  if (preferredTab?.id) {
+    state.lastChatGptTabId = preferredTab.id;
+    return preferredTab;
   }
 
   return null;
@@ -387,7 +394,7 @@ async function getActiveChatGptTabsAcrossWindows(startPageUrl = DEFAULT_START_PA
     return (left.id ?? Number.MAX_SAFE_INTEGER) - (right.id ?? Number.MAX_SAFE_INTEGER);
   });
 
-  return tabs.filter((tab) => tab?.id && isEligibleProjectUrl(tab.url, startPageUrl));
+  return preferEligibleProjectTabs(tabs, startPageUrl);
 }
 
 async function waitForChatGptTabReady(tabId, startPageUrl = DEFAULT_START_PAGE_URL) {
@@ -717,8 +724,7 @@ async function buildRepeatTargets(promptTexts) {
     }
   }
 
-  const resolvedTabs = baseTabs.filter((tab) => tab?.id && isEligibleProjectUrl(tab.url, settings.defaultStartPageUrl));
-  return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved repeat targets");
+  return assignPromptTargets(baseTabs, promptTexts, "Local Query Bridge resolved repeat targets");
 }
 
 async function buildAlertTargets(alertTexts) {
@@ -749,7 +755,7 @@ async function validateSubmissionTargets(targets) {
 
     try {
       const tab = await chrome.tabs.get(target.tabId);
-      if (tab?.id && isEligibleProjectUrl(tab.url, settings.defaultStartPageUrl)) {
+      if (tab?.id && isChatGptUrl(tab.url)) {
         validTargets.push({
           tabId: tab.id,
           promptText: typeof target.promptText === "string" ? target.promptText : "",
