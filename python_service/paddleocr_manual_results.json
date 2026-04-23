@@ -89044,6 +89044,2110 @@
             }
           ]
         }
+      ],
+      "17": [
+        {
+          "timestamp": "2026-04-23T17:05:38",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260423_170531_017290.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "red_cleaned",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260423_170531_017290.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.8305,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 6,
+              "total_text_length": 107,
+              "average_confidence": 0.8838,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.8166,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 92,
+              "average_confidence": 0.6138,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 1669066903\nDodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "query_line": {
+              "text": "Query: 1669066903",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  170.0,
+                  122.0
+                ],
+                [
+                  431.0,
+                  122.0
+                ],
+                [
+                  431.0,
+                  165.0
+                ],
+                [
+                  170.0,
+                  165.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 300.5,
+                  "y": 143.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "selected_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    170.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    165.0
+                  ],
+                  [
+                    170.0,
+                    165.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 300.5,
+                    "y": 143.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9939,
+                "bbox": [
+                  [
+                    274.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    630.0
+                  ],
+                  [
+                    274.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.5,
+                    "y": 621.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    273.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    648.0
+                  ],
+                  [
+                    273.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 339.5,
+                    "y": 638.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    278.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    665.0
+                  ],
+                  [
+                    278.0,
+                    665.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 305.0,
+                    "y": 657.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    275.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    685.0
+                  ],
+                  [
+                    275.0,
+                    685.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 355.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9939,
+                "bbox": [
+                  [
+                    274.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    630.0
+                  ],
+                  [
+                    274.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.5,
+                    "y": 621.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    273.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    648.0
+                  ],
+                  [
+                    273.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 339.5,
+                    "y": 638.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    278.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    665.0
+                  ],
+                  [
+                    278.0,
+                    665.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 305.0,
+                    "y": 657.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    275.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    685.0
+                  ],
+                  [
+                    275.0,
+                    685.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 355.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "has_title_like_first_line": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.671,
+                  "ratios": {
+                    "blue": 0.671,
+                    "green": 0.003,
+                    "dark": 0.008
+                  },
+                  "ink_pixel_count": 3381
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.657,
+                  "ratios": {
+                    "blue": 0.657,
+                    "green": 0.002,
+                    "dark": 0.005
+                  },
+                  "ink_pixel_count": 1292
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.545,
+                  "ratios": {
+                    "blue": 0.026,
+                    "green": 0.029,
+                    "dark": 0.545
+                  },
+                  "ink_pixel_count": 615
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.351,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.351,
+                    "dark": 0.199
+                  },
+                  "ink_pixel_count": 1442
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 1669066903",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    170.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    165.0
+                  ],
+                  [
+                    170.0,
+                    165.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 300.5,
+                    "y": 143.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 447.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    170.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    122.0
+                  ],
+                  [
+                    431.0,
+                    165.0
+                  ],
+                  [
+                    170.0,
+                    165.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 300.5,
+                    "y": 143.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9939,
+                "bbox": [
+                  [
+                    274.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    612.0
+                  ],
+                  [
+                    629.0,
+                    630.0
+                  ],
+                  [
+                    274.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.5,
+                    "y": 621.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    273.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    629.0
+                  ],
+                  [
+                    406.0,
+                    648.0
+                  ],
+                  [
+                    273.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 339.5,
+                    "y": 638.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    278.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    650.0
+                  ],
+                  [
+                    332.0,
+                    665.0
+                  ],
+                  [
+                    278.0,
+                    665.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 305.0,
+                    "y": 657.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    275.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    668.0
+                  ],
+                  [
+                    435.0,
+                    685.0
+                  ],
+                  [
+                    275.0,
+                    685.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 355.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-left": [
+              "Query: 1669066903"
+            ],
+            "bottom-mid": [
+              "Heated LED Lights Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99\nTopGearAutosport.com"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 1669066903",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  170.0,
+                  122.0
+                ],
+                [
+                  431.0,
+                  122.0
+                ],
+                [
+                  431.0,
+                  165.0
+                ],
+                [
+                  170.0,
+                  165.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 300.5,
+                  "y": 143.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Heated LED Lights Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99\nTopGearAutosport.com",
+              "confidence": 0.9954,
+              "bbox": [
+                [
+                  273.0,
+                  612.0
+                ],
+                [
+                  629.0,
+                  612.0
+                ],
+                [
+                  629.0,
+                  685.0
+                ],
+                [
+                  273.0,
+                  685.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 451.0,
+                  "y": 648.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-04-23T17:08:31",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260423_170824_365185.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "original",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260423_170824_365185.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.8325,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.8325,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.8288,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 6,
+              "total_text_length": 90,
+              "average_confidence": 0.6708,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 1669066903\nDodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "query_line": {
+              "text": "Query: 1669066903",
+              "confidence": 0.9989,
+              "bbox": [
+                [
+                  172.0,
+                  89.0
+                ],
+                [
+                  430.0,
+                  89.0
+                ],
+                [
+                  430.0,
+                  134.0
+                ],
+                [
+                  172.0,
+                  134.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 301.0,
+                  "y": 111.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "selected_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9989,
+                "bbox": [
+                  [
+                    172.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    134.0
+                  ],
+                  [
+                    172.0,
+                    134.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 301.0,
+                    "y": 111.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    271.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    602.0
+                  ],
+                  [
+                    271.0,
+                    602.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.0,
+                    "y": 590.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    278.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    617.0
+                  ],
+                  [
+                    278.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 341.0,
+                    "y": 609.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    274.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    636.0
+                  ],
+                  [
+                    274.0,
+                    636.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 303.5,
+                    "y": 627.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9966,
+                "bbox": [
+                  [
+                    273.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    656.0
+                  ],
+                  [
+                    273.0,
+                    656.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 354.5,
+                    "y": 645.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    271.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    602.0
+                  ],
+                  [
+                    271.0,
+                    602.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.0,
+                    "y": 590.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    278.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    617.0
+                  ],
+                  [
+                    278.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 341.0,
+                    "y": 609.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    274.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    636.0
+                  ],
+                  [
+                    274.0,
+                    636.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 303.5,
+                    "y": 627.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9966,
+                "bbox": [
+                  [
+                    273.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    656.0
+                  ],
+                  [
+                    273.0,
+                    656.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 354.5,
+                    "y": 645.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "has_title_like_first_line": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.664,
+                  "ratios": {
+                    "blue": 0.664,
+                    "green": 0.003,
+                    "dark": 0.008
+                  },
+                  "ink_pixel_count": 3415
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.666,
+                  "ratios": {
+                    "blue": 0.666,
+                    "green": 0.002,
+                    "dark": 0.005
+                  },
+                  "ink_pixel_count": 1217
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.541,
+                  "ratios": {
+                    "blue": 0.025,
+                    "green": 0.029,
+                    "dark": 0.541
+                  },
+                  "ink_pixel_count": 649
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.347,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.347,
+                    "dark": 0.197
+                  },
+                  "ink_pixel_count": 1458
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 1669066903",
+                "confidence": 0.9989,
+                "bbox": [
+                  [
+                    172.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    134.0
+                  ],
+                  [
+                    172.0,
+                    134.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 301.0,
+                    "y": 111.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 445.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9989,
+                "bbox": [
+                  [
+                    172.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    89.0
+                  ],
+                  [
+                    430.0,
+                    134.0
+                  ],
+                  [
+                    172.0,
+                    134.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 301.0,
+                    "y": 111.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    271.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    579.0
+                  ],
+                  [
+                    631.0,
+                    602.0
+                  ],
+                  [
+                    271.0,
+                    602.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 451.0,
+                    "y": 590.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    278.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    602.0
+                  ],
+                  [
+                    404.0,
+                    617.0
+                  ],
+                  [
+                    278.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 341.0,
+                    "y": 609.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    274.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    619.0
+                  ],
+                  [
+                    333.0,
+                    636.0
+                  ],
+                  [
+                    274.0,
+                    636.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 303.5,
+                    "y": 627.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9966,
+                "bbox": [
+                  [
+                    273.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    635.0
+                  ],
+                  [
+                    436.0,
+                    656.0
+                  ],
+                  [
+                    273.0,
+                    656.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 354.5,
+                    "y": 645.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-left": [
+              "Query: 1669066903"
+            ],
+            "bottom-mid": [
+              "Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99 Heated LED Lights\nTopGearAutosport.com"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 1669066903",
+              "confidence": 0.9989,
+              "bbox": [
+                [
+                  172.0,
+                  89.0
+                ],
+                [
+                  430.0,
+                  89.0
+                ],
+                [
+                  430.0,
+                  134.0
+                ],
+                [
+                  172.0,
+                  134.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 301.0,
+                  "y": 111.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99 Heated LED Lights\nTopGearAutosport.com",
+              "confidence": 0.999,
+              "bbox": [
+                [
+                  271.0,
+                  579.0
+                ],
+                [
+                  631.0,
+                  579.0
+                ],
+                [
+                  631.0,
+                  656.0
+                ],
+                [
+                  271.0,
+                  656.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 451.0,
+                  "y": 617.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-04-23T17:09:38",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260423_170932_023640.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260423_170932_023640.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 4,
+              "total_text_length": 61,
+              "average_confidence": 0.9707,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 4,
+              "total_text_length": 61,
+              "average_confidence": 0.9707,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 67,
+              "average_confidence": 0.9019,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 8,
+              "total_text_length": 76,
+              "average_confidence": 0.6634,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 4,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: safari alto\nSea to Summit Alto TR 2 Plus Tent Gray\n$449.00\nREI",
+            "query_line": {
+              "text": "Query: safari alto",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  242.0,
+                  127.0
+                ],
+                [
+                  478.0,
+                  127.0
+                ],
+                [
+                  478.0,
+                  169.0
+                ],
+                [
+                  242.0,
+                  169.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 360.0,
+                  "y": 148.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Sea to Summit Alto TR 2 Plus Tent Gray\n$449.00\nREI",
+            "selected_lines": [
+              {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    242.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    169.0
+                  ],
+                  [
+                    242.0,
+                    169.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 360.0,
+                    "y": 148.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9767,
+                "bbox": [
+                  [
+                    297.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    571.0
+                  ],
+                  [
+                    297.0,
+                    571.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 471.5,
+                    "y": 554.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    302.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    590.0
+                  ],
+                  [
+                    302.0,
+                    590.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 340.0,
+                    "y": 578.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9946,
+                "bbox": [
+                  [
+                    296.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    617.0
+                  ],
+                  [
+                    296.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 316.5,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9767,
+                "bbox": [
+                  [
+                    297.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    571.0
+                  ],
+                  [
+                    297.0,
+                    571.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 471.5,
+                    "y": 554.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    302.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    590.0
+                  ],
+                  [
+                    302.0,
+                    590.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 340.0,
+                    "y": 578.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9946,
+                "bbox": [
+                  [
+                    296.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    617.0
+                  ],
+                  [
+                    296.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 316.5,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 3,
+              "price_line_indexes": [
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.703,
+                  "ratios": {
+                    "blue": 0.703,
+                    "green": 0.009,
+                    "dark": 0.001
+                  },
+                  "ink_pixel_count": 3168
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.621,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.021,
+                    "dark": 0.621
+                  },
+                  "ink_pixel_count": 817
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.485,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.485,
+                    "dark": 0.173
+                  },
+                  "ink_pixel_count": 371
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    242.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    169.0
+                  ],
+                  [
+                    242.0,
+                    169.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 360.0,
+                    "y": 148.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 368.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    242.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    127.0
+                  ],
+                  [
+                    478.0,
+                    169.0
+                  ],
+                  [
+                    242.0,
+                    169.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 360.0,
+                    "y": 148.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9767,
+                "bbox": [
+                  [
+                    297.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    537.0
+                  ],
+                  [
+                    646.0,
+                    571.0
+                  ],
+                  [
+                    297.0,
+                    571.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 471.5,
+                    "y": 554.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    302.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    567.0
+                  ],
+                  [
+                    378.0,
+                    590.0
+                  ],
+                  [
+                    302.0,
+                    590.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 340.0,
+                    "y": 578.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9946,
+                "bbox": [
+                  [
+                    296.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    588.0
+                  ],
+                  [
+                    337.0,
+                    617.0
+                  ],
+                  [
+                    296.0,
+                    617.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-left",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 316.5,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: safari alto"
+            ],
+            "bottom-mid": [
+              "Sea to Summit Alto TR 2 Plus Tent Gray $449.00\nREI"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: safari alto",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  242.0,
+                  127.0
+                ],
+                [
+                  478.0,
+                  127.0
+                ],
+                [
+                  478.0,
+                  169.0
+                ],
+                [
+                  242.0,
+                  169.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 360.0,
+                  "y": 148.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Sea to Summit Alto TR 2 Plus Tent Gray $449.00\nREI",
+              "confidence": 0.9904,
+              "bbox": [
+                [
+                  296.0,
+                  537.0
+                ],
+                [
+                  646.0,
+                  537.0
+                ],
+                [
+                  646.0,
+                  617.0
+                ],
+                [
+                  296.0,
+                  617.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 471.0,
+                  "y": 577.0
+                }
+              },
+              "raw_item_count": 3
+            }
+          ]
+        }
       ]
     }
   }

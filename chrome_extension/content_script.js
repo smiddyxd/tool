@@ -11,7 +11,7 @@
   const ATTACHMENT_INPUT_SELECTOR = 'input[type="file"]';
   const STOP_STREAMING_BUTTON_SELECTOR = '[data-testid="stop-button"], #composer-submit-button[aria-label="Stop streaming"]';
   const START_VOICE_BUTTON_SELECTOR = '[data-testid="composer-speech-button"][aria-label="Start Voice"]';
-  const WEB_SEARCH_PILL_SELECTOR = 'button[aria-label^="Search"], button.__composer-pill';
+  const WEB_SEARCH_CHIP_SELECTOR = "button.__composer-pill";
   const WEB_SEARCH_MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitemcheckbox"], [role="menuitem"]';
   const WEB_SEARCH_PILL_LABEL = "Search";
   const WEB_SEARCH_MENU_LABEL = "Web search";
@@ -38,6 +38,7 @@ Base everything strictly on the screenshot attachment.`;
   const ATTACHMENT_INPUT_WAIT_TIMEOUT_MS = 4000;
   const WEB_SEARCH_WAIT_POLL_MS = 500;
   const WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS = 2500;
+  const WEB_SEARCH_POST_ENABLE_SETTLE_MS = 250;
   const ATTACHMENT_SETTLE_MS = 1500;
   const PROMPT_SETTLE_MS = 2000;
   const RESPONSE_STATE_POLL_MS = 250;
@@ -47,7 +48,7 @@ Base everything strictly on the screenshot attachment.`;
   const SEND_BUTTON_RETRY_COUNT = 20;
   const SEND_BUTTON_RETRY_DELAY_MS = 250;
   const AUTO_SCROLL_MARKDOWN_CLASS = "markdown";
-  const AUTO_SCROLL_TARGET_TEXT = "position rationale:";
+  const AUTO_SCROLL_TARGET_TEXT = "Rating: ";
   const AUTO_SCROLL_TARGET_OFFSET_PX = 0;
 
   function delay(milliseconds) {
@@ -141,16 +142,34 @@ Base everything strictly on the screenshot attachment.`;
     webSearchState.ensuredForRoute = true;
   }
 
-  function isWebSearchEnabled() {
-    return Array.from(document.querySelectorAll(WEB_SEARCH_PILL_SELECTOR)).some((element) => {
-      if (!(element instanceof HTMLElement)) {
+  function isElementVisible(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function findVisibleWebSearchChip() {
+    return Array.from(document.querySelectorAll(WEB_SEARCH_CHIP_SELECTOR)).find((element) => {
+      if (!(element instanceof HTMLElement) || !isElementVisible(element)) {
         return false;
       }
 
       const labelText = element.textContent?.trim() ?? "";
       const ariaLabel = element.getAttribute("aria-label") ?? "";
       return labelText.includes(WEB_SEARCH_PILL_LABEL) || ariaLabel.includes(WEB_SEARCH_PILL_LABEL);
-    });
+    }) ?? null;
+  }
+
+  function isWebSearchEnabled() {
+    return findVisibleWebSearchChip() instanceof HTMLElement;
   }
 
   function isResponseGenerating() {
@@ -172,7 +191,7 @@ Base everything strictly on the screenshot attachment.`;
 
   function findVisibleWebSearchMenuItem() {
     return Array.from(document.querySelectorAll(WEB_SEARCH_MENU_ITEM_SELECTOR)).find((element) => {
-      if (!(element instanceof HTMLElement)) {
+      if (!(element instanceof HTMLElement) || !isElementVisible(element)) {
         return false;
       }
 
@@ -197,6 +216,8 @@ Base everything strictly on the screenshot attachment.`;
     while (!isWebSearchEnabled()) {
       await delay(WEB_SEARCH_WAIT_POLL_MS);
     }
+
+    await delay(WEB_SEARCH_POST_ENABLE_SETTLE_MS);
   }
 
   async function waitForWebSearchEnabledWithTimeout(timeoutMs) {
@@ -207,7 +228,13 @@ Base everything strictly on the screenshot attachment.`;
       }
       await delay(WEB_SEARCH_WAIT_POLL_MS);
     }
-    return isWebSearchEnabled();
+
+    if (!isWebSearchEnabled()) {
+      return false;
+    }
+
+    await delay(WEB_SEARCH_POST_ENABLE_SETTLE_MS);
+    return true;
   }
 
   async function tryEnableWebSearchFromVisibleMenu() {
@@ -394,7 +421,7 @@ Base everything strictly on the screenshot attachment.`;
 
   async function ensureWebSearchEnabled() {
     syncWebSearchStateWithRoute();
-    if (webSearchState.ensuredForRoute) {
+    if (webSearchState.ensuredForRoute && isWebSearchEnabled()) {
       return;
     }
 
