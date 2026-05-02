@@ -836,7 +836,28 @@ def build_row_lines(raw_result: Any, *, analysis_width: int, analysis_height: in
 
 def is_price_like_line(text: str) -> bool:
     normalized = normalize_token_text(text)
-    return bool(normalized and PRICE_LIKE_PATTERN.search(normalized))
+    if not normalized:
+        return False
+    if PRICE_LIKE_PATTERN.search(normalized):
+        return True
+
+    digit_count = len(re.findall(r"\d", normalized))
+    if digit_count < 2:
+        return False
+
+    token_count = len(normalized.split())
+    if token_count > 4:
+        return False
+
+    alpha_count = len(re.findall(r"[A-Za-z]", normalized))
+    if alpha_count > 1 and not re.search(r"[.,]", normalized):
+        if not (
+            re.search(r"[A-Za-z]{1,4}\s+\d", normalized)
+            or re.search(r"\d\s+[A-Za-z]{1,4}\b", normalized)
+        ):
+            return False
+
+    return True
 
 
 def is_retailer_like_line(text: str) -> bool:
@@ -846,6 +867,10 @@ def is_retailer_like_line(text: str) -> bool:
 
     token_count = len(normalized.split())
     return token_count <= 4 or "." in normalized or normalized.isupper()
+
+
+def has_letter_character(text: str) -> bool:
+    return bool(re.search(r"[A-Za-z]", normalize_token_text(text)))
 
 
 def analyze_line_color_hint(line: dict[str, Any], source_image_bgr: Any | None) -> dict[str, Any]:
@@ -910,30 +935,67 @@ def analyze_product_signature(bottom_block_lines: list[dict[str, Any]], *, sourc
         and re.search(r"[A-Za-z]", normalized_lines[0])
     )
     has_retailer_like_bottom_line = bool(normalized_lines and is_retailer_like_line(normalized_lines[-1]))
-    has_blue_like_title_line = bool(line_color_hints and line_color_hints[0].get("dominant") == "blue")
-    has_dark_like_price_line = bool(
-        price_line_indexes and any(line_color_hints[index].get("dominant") == "dark" for index in price_line_indexes if index < len(line_color_hints))
-    )
     has_green_like_retailer_line = bool(line_color_hints and line_color_hints[-1].get("dominant") == "green")
+    retailer_index = len(normalized_lines) - 1 if normalized_lines else None
+
+    dark_price_line_indexes = [
+        index
+        for index in price_line_indexes
+        if retailer_index is not None
+        and index < retailer_index
+        and index < len(line_color_hints)
+        and line_color_hints[index].get("dominant") == "dark"
+    ]
+    price_anchor_index = dark_price_line_indexes[-1] if dark_price_line_indexes else None
+    if price_anchor_index is None and retailer_index is not None:
+        fallback_price_indexes = [index for index in price_line_indexes if index < retailer_index]
+        price_anchor_index = fallback_price_indexes[-1] if fallback_price_indexes else None
+
+    has_price_like_line_above_retailer = bool(price_anchor_index is not None and retailer_index is not None and price_anchor_index < retailer_index)
+    has_dark_like_price_line = bool(
+        price_anchor_index is not None
+        and price_anchor_index < len(line_color_hints)
+        and line_color_hints[price_anchor_index].get("dominant") == "dark"
+    )
+    blue_title_line_indexes = [
+        index
+        for index in range(price_anchor_index if price_anchor_index is not None else 0)
+        if index < len(line_color_hints) and line_color_hints[index].get("dominant") == "blue"
+    ]
+    has_blue_like_title_line = bool(blue_title_line_indexes)
+    has_lettered_blue_title_line = any(
+        index < len(normalized_lines) and has_letter_character(normalized_lines[index]) for index in blue_title_line_indexes
+    )
 
     reasons: list[str] = []
     line_count = len(normalized_lines)
     if line_count < 3 or line_count > 6:
         reasons.append(f"expected 3-6 product lines, got {line_count}")
-    if not has_title_like_first_line:
-        reasons.append("missing title-like first line")
-    if not price_line_indexes:
-        reasons.append("missing price-like line")
+    if not has_price_like_line_above_retailer:
+        reasons.append("missing price-like line above retailer")
+    if not has_dark_like_price_line:
+        reasons.append("missing dark price-like line above retailer")
     if not has_retailer_like_bottom_line:
         reasons.append("missing retailer-like bottom line")
+    if not has_green_like_retailer_line:
+        reasons.append("missing green retailer line")
+    if not has_blue_like_title_line:
+        reasons.append("missing blue title line above price")
+    if not has_lettered_blue_title_line:
+        reasons.append("missing letters in blue title lines")
 
     return {
         "is_complete_like": not reasons,
         "line_count": line_count,
         "price_line_indexes": price_line_indexes,
+        "dark_price_line_indexes": dark_price_line_indexes,
+        "price_anchor_index": price_anchor_index,
+        "blue_title_line_indexes": blue_title_line_indexes,
         "has_title_like_first_line": has_title_like_first_line,
+        "has_price_like_line_above_retailer": has_price_like_line_above_retailer,
         "has_retailer_like_bottom_line": has_retailer_like_bottom_line,
         "has_blue_like_title_line": has_blue_like_title_line,
+        "has_lettered_blue_title_line": has_lettered_blue_title_line,
         "has_dark_like_price_line": has_dark_like_price_line,
         "has_green_like_retailer_line": has_green_like_retailer_line,
         "line_color_hints": line_color_hints,
@@ -1037,9 +1099,10 @@ def score_capture_attempt(variant_run: dict[str, Any], selected_transcript: dict
         1.0 if bool(product_signature.get("is_complete_like", False)) else 0.0,
         1.0 if selected_transcript.get("query_line") else 0.0,
         1.0 if bool(product_signature.get("has_title_like_first_line", False)) else 0.0,
-        1.0 if bool(product_signature.get("price_line_indexes", [])) else 0.0,
+        1.0 if bool(product_signature.get("has_price_like_line_above_retailer", False)) else 0.0,
         1.0 if bool(product_signature.get("has_retailer_like_bottom_line", False)) else 0.0,
         1.0 if bool(product_signature.get("has_blue_like_title_line", False)) else 0.0,
+        1.0 if bool(product_signature.get("has_lettered_blue_title_line", False)) else 0.0,
         1.0 if bool(product_signature.get("has_dark_like_price_line", False)) else 0.0,
         1.0 if bool(product_signature.get("has_green_like_retailer_line", False)) else 0.0,
         -float(line_count_distance_from_expected(line_count)),

@@ -7,13 +7,16 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f2eb;
-      --panel: #fffdf7;
-      --ink: #1f1f1a;
-      --muted: #6b665d;
-      --line: #d7d2c7;
-      --accent: #1f5eff;
-      --accent-soft: #dfe8ff;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #5f6775;
+      --line: #d8dee8;
+      --line-strong: #b9c2d0;
+      --accent: #2563eb;
+      --accent-soft: #e7efff;
+      --danger: #b42318;
+      --danger-soft: #fff1f0;
     }
 
     * {
@@ -23,61 +26,99 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(31, 94, 255, 0.12), transparent 28%),
-        linear-gradient(180deg, #f7f4ed 0%, var(--bg) 100%);
+      background: var(--bg);
       color: var(--ink);
       font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
     }
 
     main {
-      max-width: 820px;
+      max-width: 980px;
       margin: 0 auto;
-      padding: 48px 24px 64px;
+      padding: 40px 24px 56px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
     }
 
     h1 {
-      margin: 0 0 10px;
-      font-size: 34px;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      font-size: 32px;
+      line-height: 1.15;
+    }
+
+    h2 {
+      margin-bottom: 6px;
+      font-size: 20px;
+    }
+
+    h3 {
+      margin-bottom: 4px;
+      font-size: 15px;
     }
 
     .lead {
-      margin: 0 0 28px;
+      margin-bottom: 24px;
       color: var(--muted);
-      max-width: 70ch;
+      max-width: 78ch;
     }
 
     form {
       display: grid;
-      gap: 20px;
-      padding: 24px;
+      gap: 18px;
+    }
+
+    .settings-section {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
       border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: 8px;
       background: var(--panel);
-      box-shadow: 0 14px 36px rgba(43, 36, 19, 0.08);
+      box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+    }
+
+    .section-heading {
+      display: grid;
+      gap: 4px;
     }
 
     label {
       display: grid;
       gap: 8px;
-      font-weight: 600;
+      font-weight: 650;
     }
 
-    input {
+    input,
+    textarea {
       width: 100%;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
       background: #ffffff;
       color: var(--ink);
       font: inherit;
     }
 
-    input:focus {
-      outline: 2px solid var(--accent-soft);
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: 3px solid var(--accent-soft);
       border-color: var(--accent);
+    }
+
+    input[type="color"] {
+      width: 72px;
+      min-height: 42px;
+      padding: 4px;
+      cursor: pointer;
     }
 
     .hint {
@@ -87,19 +128,48 @@
       font-weight: 400;
     }
 
-    .actions {
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .rule-editor {
+      display: grid;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .checkbox-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
+      align-items: center;
+      font-weight: 650;
+    }
+
+    .checkbox-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .actions,
+    .rule-actions {
+      display: flex;
+      gap: 10px;
       flex-wrap: wrap;
       align-items: center;
     }
 
     button {
-      border: 0;
-      border-radius: 999px;
-      padding: 12px 18px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 14px;
       font: inherit;
-      font-weight: 600;
+      font-weight: 650;
       cursor: pointer;
     }
 
@@ -109,35 +179,168 @@
     }
 
     button[type="button"] {
-      background: #ebe6db;
+      background: #eef1f6;
       color: var(--ink);
+    }
+
+    button.primary-button {
+      background: var(--accent);
+      color: white;
+    }
+
+    .danger-button {
+      background: var(--danger-soft) !important;
+      color: var(--danger) !important;
+      border-color: #ffd0cc;
+    }
+
+    .rules-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .rule-row {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .rule-swatch {
+      width: 18px;
+      height: 42px;
+      border: 1px solid rgba(17, 24, 39, 0.18);
+      border-radius: 5px;
+    }
+
+    .rule-body p {
+      margin-bottom: 0;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    .rule-state {
+      margin-top: 3px;
+      font-size: 13px;
+    }
+
+    .empty-state {
+      margin: 0;
+      padding: 14px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      color: var(--muted);
+      background: #ffffff;
     }
 
     #status {
       min-height: 24px;
       margin: 0;
       color: var(--muted);
-      font-weight: 600;
+      font-weight: 650;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 28px 16px 44px;
+      }
+
+      .grid-2,
+      .rule-row {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-swatch {
+        width: 100%;
+        height: 10px;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <h1>Local Query Bridge</h1>
-    <p class="lead">Set the project-specific base URL and the prompt cap per chat. When the cap is reached, the next screenshot submission opens a fresh chat on the configured start page.</p>
+    <p class="lead">Configure the ChatGPT target, reset behavior, and response keyword highlighting.</p>
 
     <form id="options-form">
-      <label for="default-start-page-url">
-        Default start page
-        <input id="default-start-page-url" name="defaultStartPageUrl" type="url" required>
-        <p class="hint">Use the ChatGPT project base URL. Any tab whose URL starts with that base will be treated as a valid target.</p>
-      </label>
+      <section class="settings-section" aria-labelledby="bridge-settings-heading">
+        <div class="section-heading">
+          <h2 id="bridge-settings-heading">Bridge Settings</h2>
+        </div>
 
-      <label for="reset-limit">
-        Reset limit
-        <input id="reset-limit" name="resetLimit" type="number" min="0" step="1" inputmode="numeric">
-        <p class="hint">`0` disables auto-reset. Any positive number means the next prompt after that many extension submissions opens a fresh chat.</p>
-      </label>
+        <label for="default-start-page-url">
+          Default start page
+          <input id="default-start-page-url" name="defaultStartPageUrl" type="url" required>
+          <p class="hint">Use the ChatGPT project base URL. Matching ChatGPT tabs are reused before a new tab is opened.</p>
+        </label>
+
+        <label for="reset-limit">
+          Reset limit
+          <input id="reset-limit" name="resetLimit" type="number" min="0" step="1" inputmode="numeric">
+          <p class="hint">Use 0 to disable auto-reset. Positive values open a fresh chat after that many extension submissions.</p>
+        </label>
+      </section>
+
+      <section class="settings-section" aria-labelledby="highlight-settings-heading">
+        <div class="section-heading">
+          <h2 id="highlight-settings-heading">Keyword Highlights</h2>
+          <p class="hint">Matched strings are highlighted in ChatGPT messages. Prefix words are included when they appear before the match within the selected gap; punctuation and hyphens are ignored.</p>
+        </div>
+
+        <div class="rule-editor" aria-label="Highlight rule editor">
+          <input id="highlight-rule-id" type="hidden">
+
+          <div class="grid-2">
+            <label for="highlight-rule-label">
+              Rule name
+              <input id="highlight-rule-label" type="text" autocomplete="off" placeholder="Poor">
+            </label>
+
+            <label for="highlight-rule-color">
+              Color
+              <input id="highlight-rule-color" type="color" value="#facc15">
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <label for="highlight-rule-matches">
+              Matched strings
+              <textarea id="highlight-rule-matches" placeholder="poor"></textarea>
+              <p class="hint">Add one target per line, such as poor or not useful.</p>
+            </label>
+
+            <label for="highlight-rule-companions">
+              Words before match
+              <textarea id="highlight-rule-companions" placeholder="low&#10;mid&#10;high"></textarea>
+              <p class="hint">These words are included in the same highlight when they appear before a matched string.</p>
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <label for="highlight-rule-distance">
+              Gap distance
+              <input id="highlight-rule-distance" type="number" min="0" max="20" step="1" inputmode="numeric" value="0">
+              <p class="hint">0 means adjacent words only. 1 allows one word between each included prefix word and the match.</p>
+            </label>
+
+            <label class="checkbox-row" for="highlight-rule-enabled">
+              <input id="highlight-rule-enabled" type="checkbox" checked>
+              Enabled
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="save-highlight-rule" class="primary-button" type="button">Create rule</button>
+            <button id="clear-highlight-rule" type="button">New rule</button>
+          </div>
+        </div>
+
+        <div id="highlight-rules-list" class="rules-list" aria-live="polite"></div>
+      </section>
 
       <div class="actions">
         <button type="submit">Save settings</button>
@@ -151,4 +354,3 @@
   <script src="options.js"></script>
 </body>
 </html>
-

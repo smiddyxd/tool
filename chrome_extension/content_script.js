@@ -50,6 +50,49 @@ Base everything strictly on the screenshot attachment.`;
   const AUTO_SCROLL_MARKDOWN_CLASS = "markdown";
   const AUTO_SCROLL_TARGET_TEXT = "Rating: ";
   const AUTO_SCROLL_TARGET_OFFSET_PX = 0;
+  const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
+  const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
+  const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
+  const HIGHLIGHT_DEBOUNCE_MS = 250;
+  const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
+  const DEFAULT_HIGHLIGHT_RULES = [
+    {
+      id: "default-egregious",
+      label: "Egregious",
+      color: "#ef4444",
+      matchStrings: ["egregious"],
+      companionWords: ["low", "mid", "high"],
+      companionDistance: 0,
+      enabled: true,
+    },
+    {
+      id: "default-poor",
+      label: "Poor",
+      color: "#facc15",
+      matchStrings: ["poor"],
+      companionWords: ["low", "mid", "high"],
+      companionDistance: 0,
+      enabled: true,
+    },
+    {
+      id: "default-okay",
+      label: "Okay",
+      color: "#22c55e",
+      matchStrings: ["okay"],
+      companionWords: ["low", "mid", "high"],
+      companionDistance: 0,
+      enabled: true,
+    },
+    {
+      id: "default-good",
+      label: "Good",
+      color: "#3b82f6",
+      matchStrings: ["good"],
+      companionWords: ["low", "mid", "high"],
+      companionDistance: 0,
+      enabled: true,
+    },
+  ];
 
   function delay(milliseconds) {
     return new Promise((resolve) => {
@@ -73,6 +116,17 @@ Base everything strictly on the screenshot attachment.`;
     userScrolled: false,
   };
 
+  const highlightState = {
+    rules: [],
+    observer: null,
+    timerId: null,
+    applying: false,
+  };
+
+  const hotkeyState = {
+    enabled: false,
+  };
+
   const MANUAL_SCROLL_KEYS = new Set([
     "ArrowUp",
     "ArrowDown",
@@ -83,6 +137,448 @@ Base everything strictly on the screenshot attachment.`;
     " ",
     "Spacebar",
   ]);
+
+  function cloneDefaultHighlightRules() {
+    return DEFAULT_HIGHLIGHT_RULES.map((rule) => ({
+      ...rule,
+      matchStrings: [...rule.matchStrings],
+      companionWords: [...rule.companionWords],
+    }));
+  }
+
+  function normalizeToken(value) {
+    return value.toLocaleLowerCase();
+  }
+
+  function extractWordTokens(value) {
+    const text = typeof value === "string" ? value : "";
+    const tokens = [];
+    WORD_TOKEN_PATTERN.lastIndex = 0;
+
+    for (const match of text.matchAll(WORD_TOKEN_PATTERN)) {
+      tokens.push({
+        value: match[0],
+        normalized: normalizeToken(match[0]),
+        start: match.index,
+        end: match.index + match[0].length,
+      });
+    }
+
+    return tokens;
+  }
+
+  function normalizeStringList(value) {
+    const rawValues = Array.isArray(value)
+      ? value
+      : (typeof value === "string" ? value.split(/\r?\n|,/) : []);
+    const seenValues = new Set();
+
+    return rawValues
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean)
+      .filter((item) => {
+        const key = item.toLocaleLowerCase();
+        if (seenValues.has(key)) {
+          return false;
+        }
+
+        seenValues.add(key);
+        return true;
+      });
+  }
+
+  function sanitizeColor(value, fallback = "#facc15") {
+    const rawValue = typeof value === "string" ? value.trim() : "";
+    const shortHexMatch = rawValue.match(/^#([0-9a-f]{3})$/i);
+    if (shortHexMatch) {
+      return `#${shortHexMatch[1].split("").map((character) => `${character}${character}`).join("")}`.toLocaleLowerCase();
+    }
+
+    if (/^#[0-9a-f]{6}$/i.test(rawValue)) {
+      return rawValue.toLocaleLowerCase();
+    }
+
+    return fallback;
+  }
+
+  function getReadableTextColor(backgroundColor) {
+    const normalizedColor = sanitizeColor(backgroundColor, "#facc15");
+    const red = Number.parseInt(normalizedColor.slice(1, 3), 16) / 255;
+    const green = Number.parseInt(normalizedColor.slice(3, 5), 16) / 255;
+    const blue = Number.parseInt(normalizedColor.slice(5, 7), 16) / 255;
+    const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    return luminance > 0.58 ? "#111827" : "#ffffff";
+  }
+
+  function compileHighlightRule(rawRule, index = 0) {
+    const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
+    const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
+    const targetTokenSequences = matchStrings
+      .map((matchString) => extractWordTokens(matchString).map((token) => token.normalized))
+      .filter((tokens) => tokens.length > 0);
+
+    if (targetTokenSequences.length === 0) {
+      return null;
+    }
+
+    const companionWords = normalizeStringList(rawRule?.companionWords ?? rawRule?.prefixWords ?? rawRule?.nearbyWords);
+    const companionTokenSet = new Set(
+      companionWords
+        .flatMap((word) => extractWordTokens(word).map((token) => token.normalized))
+        .filter(Boolean),
+    );
+    const parsedDistance = Number.parseInt(`${rawRule?.companionDistance ?? rawRule?.distance ?? 0}`, 10);
+    const companionDistance = Number.isFinite(parsedDistance) && parsedDistance > 0
+      ? Math.min(parsedDistance, 20)
+      : 0;
+    const color = sanitizeColor(rawRule?.color, fallbackRule.color);
+
+    return {
+      id: typeof rawRule?.id === "string" && rawRule.id.trim() ? rawRule.id.trim() : fallbackRule.id,
+      label: typeof rawRule?.label === "string" && rawRule.label.trim() ? rawRule.label.trim() : matchStrings[0],
+      color,
+      textColor: getReadableTextColor(color),
+      enabled: rawRule?.enabled !== false,
+      targetTokenSequences,
+      companionTokenSet,
+      companionDistance,
+    };
+  }
+
+  function compileHighlightRules(rawRules) {
+    const sourceRules = Array.isArray(rawRules) ? rawRules : cloneDefaultHighlightRules();
+    return sourceRules
+      .map((rule, index) => compileHighlightRule(rule, index))
+      .filter(Boolean);
+  }
+
+  function ensureHighlightStyles() {
+    if (document.getElementById(HIGHLIGHT_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = HIGHLIGHT_STYLE_ID;
+    style.textContent = `
+      .${HIGHLIGHT_CLASS} {
+        border-radius: 3px;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+        padding: 0 0.12em;
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function isHighlightSkippedElement(element) {
+    if (!(element instanceof Element)) {
+      return true;
+    }
+
+    return Boolean(element.closest([
+      `.${HIGHLIGHT_CLASS}`,
+      "script",
+      "style",
+      "noscript",
+      "textarea",
+      "input",
+      "select",
+      "option",
+      "pre",
+      "code",
+      "svg",
+      "canvas",
+      "button",
+      "nav",
+      "aside",
+      "header",
+      "footer",
+      "[contenteditable]",
+      PROMPT_TEXTAREA_SELECTOR,
+    ].join(",")));
+  }
+
+  function getHighlightRoots() {
+    const selectors = [
+      'main [data-message-author-role]',
+      "main article",
+      "main .markdown",
+    ];
+
+    for (const selector of selectors) {
+      const roots = Array.from(document.querySelectorAll(selector))
+        .filter((element) => element instanceof HTMLElement && !isHighlightSkippedElement(element));
+      if (roots.length > 0) {
+        return roots;
+      }
+    }
+
+    return [];
+  }
+
+  function removeExistingHighlights() {
+    const parents = new Set();
+    for (const highlight of Array.from(document.querySelectorAll(`.${HIGHLIGHT_CLASS}`))) {
+      const parent = highlight.parentNode;
+      if (!parent) {
+        continue;
+      }
+
+      parents.add(parent);
+      highlight.replaceWith(document.createTextNode(highlight.textContent ?? ""));
+    }
+
+    for (const parent of parents) {
+      parent.normalize();
+    }
+  }
+
+  function doesTargetMatchAt(tokens, startIndex, targetTokens) {
+    if (startIndex + targetTokens.length > tokens.length) {
+      return false;
+    }
+
+    for (let offset = 0; offset < targetTokens.length; offset += 1) {
+      if (tokens[startIndex + offset].normalized !== targetTokens[offset]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function findHighlightStartTokenIndex(tokens, targetStartIndex, companionTokenSet, companionDistance) {
+    if (!(companionTokenSet instanceof Set) || companionTokenSet.size === 0) {
+      return targetStartIndex;
+    }
+
+    let highlightStartIndex = targetStartIndex;
+    let anchorIndex = targetStartIndex;
+    const maxDistance = Math.max(0, Number.parseInt(`${companionDistance}`, 10) || 0);
+
+    while (anchorIndex > 0) {
+      const earliestCandidateIndex = Math.max(0, anchorIndex - maxDistance - 1);
+      let foundIndex = -1;
+
+      for (let candidateIndex = anchorIndex - 1; candidateIndex >= earliestCandidateIndex; candidateIndex -= 1) {
+        if (companionTokenSet.has(tokens[candidateIndex].normalized)) {
+          foundIndex = candidateIndex;
+          break;
+        }
+      }
+
+      if (foundIndex < 0) {
+        break;
+      }
+
+      highlightStartIndex = foundIndex;
+      anchorIndex = foundIndex;
+    }
+
+    return highlightStartIndex;
+  }
+
+  function collectHighlightRanges(text, rules) {
+    const tokens = extractWordTokens(text);
+    const ranges = [];
+
+    if (tokens.length === 0) {
+      return ranges;
+    }
+
+    rules.forEach((rule, ruleIndex) => {
+      if (!rule.enabled) {
+        return;
+      }
+
+      for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        for (const targetTokens of rule.targetTokenSequences) {
+          if (!doesTargetMatchAt(tokens, tokenIndex, targetTokens)) {
+            continue;
+          }
+
+          const targetEndIndex = tokenIndex + targetTokens.length - 1;
+          const highlightStartIndex = findHighlightStartTokenIndex(
+            tokens,
+            tokenIndex,
+            rule.companionTokenSet,
+            rule.companionDistance,
+          );
+
+          ranges.push({
+            start: tokens[highlightStartIndex].start,
+            end: tokens[targetEndIndex].end,
+            color: rule.color,
+            textColor: rule.textColor,
+            ruleIndex,
+          });
+        }
+      }
+    });
+
+    return ranges
+      .sort((left, right) => (
+        left.start - right.start
+        || (right.end - right.start) - (left.end - left.start)
+        || left.ruleIndex - right.ruleIndex
+      ))
+      .reduce((selectedRanges, range) => {
+        const previousRange = selectedRanges[selectedRanges.length - 1];
+        if (previousRange && range.start < previousRange.end) {
+          return selectedRanges;
+        }
+
+        selectedRanges.push(range);
+        return selectedRanges;
+      }, []);
+  }
+
+  function applyHighlightsToTextNode(textNode, rules) {
+    const text = textNode.nodeValue ?? "";
+    const ranges = collectHighlightRanges(text, rules);
+    if (ranges.length === 0) {
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    let currentOffset = 0;
+
+    for (const range of ranges) {
+      if (range.start > currentOffset) {
+        fragment.append(document.createTextNode(text.slice(currentOffset, range.start)));
+      }
+
+      const highlight = document.createElement("span");
+      highlight.className = HIGHLIGHT_CLASS;
+      highlight.dataset.localQueryBridgeHighlight = "true";
+      highlight.style.backgroundColor = range.color;
+      highlight.style.color = range.textColor;
+      highlight.textContent = text.slice(range.start, range.end);
+      fragment.append(highlight);
+      currentOffset = range.end;
+    }
+
+    if (currentOffset < text.length) {
+      fragment.append(document.createTextNode(text.slice(currentOffset)));
+    }
+
+    textNode.replaceWith(fragment);
+  }
+
+  function collectHighlightTextNodes(root) {
+    if (!(root instanceof Node)) {
+      return [];
+    }
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        const parentElement = node.parentElement;
+        if (!parentElement || isHighlightSkippedElement(parentElement)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const textNodes = [];
+    let currentNode = walker.nextNode();
+
+    while (currentNode) {
+      textNodes.push(currentNode);
+      currentNode = walker.nextNode();
+    }
+
+    return textNodes;
+  }
+
+  function runHighlightPass() {
+    if (highlightState.applying) {
+      return;
+    }
+
+    highlightState.timerId = null;
+    highlightState.applying = true;
+
+    try {
+      ensureHighlightStyles();
+      removeExistingHighlights();
+
+      if (highlightState.rules.length === 0) {
+        return;
+      }
+
+      for (const root of getHighlightRoots()) {
+        for (const textNode of collectHighlightTextNodes(root)) {
+          applyHighlightsToTextNode(textNode, highlightState.rules);
+        }
+      }
+    } finally {
+      highlightState.applying = false;
+    }
+  }
+
+  function scheduleHighlightPass() {
+    if (highlightState.applying) {
+      return;
+    }
+
+    if (highlightState.timerId !== null) {
+      window.clearTimeout(highlightState.timerId);
+    }
+
+    highlightState.timerId = window.setTimeout(runHighlightPass, HIGHLIGHT_DEBOUNCE_MS);
+  }
+
+  function observeHighlightChanges() {
+    if (!document.body || highlightState.observer) {
+      return;
+    }
+
+    highlightState.observer = new MutationObserver(() => {
+      if (!highlightState.applying) {
+        scheduleHighlightPass();
+      }
+    });
+    highlightState.observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+  }
+
+  async function loadHighlightRules() {
+    const stored = await chrome.storage.sync.get({
+      [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+    });
+
+    highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
+    scheduleHighlightPass();
+  }
+
+  function initializeHighlighting() {
+    if (document.body) {
+      observeHighlightChanges();
+    } else {
+      document.addEventListener("DOMContentLoaded", observeHighlightChanges, { once: true });
+    }
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "sync" || !changes[STORAGE_KEY_HIGHLIGHT_RULES]) {
+        return;
+      }
+
+      highlightState.rules = compileHighlightRules(changes[STORAGE_KEY_HIGHLIGHT_RULES].newValue);
+      scheduleHighlightPass();
+    });
+
+    void loadHighlightRules().catch((error) => {
+      console.error("Local Query Bridge highlight rule load failed", error);
+    });
+  }
 
   function isEditableTarget(target) {
     if (!(target instanceof HTMLElement)) {
@@ -607,14 +1103,14 @@ Base everything strictly on the screenshot attachment.`;
       return;
     }
 
-    if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space") {
+    if (hotkeyState.enabled && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space") {
       event.preventDefault();
       event.stopPropagation();
       void chrome.runtime.sendMessage({ type: REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE });
       return;
     }
 
-    if (!event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space" && !isEditableTarget(event.target)) {
+    if (hotkeyState.enabled && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && event.code === "Space" && !isEditableTarget(event.target)) {
       event.preventDefault();
       event.stopPropagation();
       void chrome.runtime.sendMessage({ type: REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE });
@@ -870,6 +1366,8 @@ Base everything strictly on the screenshot attachment.`;
     throw new Error("Send button did not become clickable");
   }
 
+  initializeHighlighting();
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === PING_MESSAGE_TYPE) {
       sendResponse({ ok: true });
@@ -883,6 +1381,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (message?.type === QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE) {
+      hotkeyState.enabled = true;
       const imageDataUrls = normalizeImageDataUrls(message?.imageDataUrls ?? message?.imageDataUrl);
       if (imageDataUrls.length === 0) {
         sendResponse({ ok: false });
@@ -897,6 +1396,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (message?.type === SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE) {
+      hotkeyState.enabled = true;
       sendResponse({ ok: true });
       void submitRepeatDraft(
         message.taskCount ?? 0,
@@ -908,6 +1408,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (message?.type === SUBMIT_TEXT_PROMPT_MESSAGE_TYPE) {
+      hotkeyState.enabled = true;
       console.log("Local Query Bridge content script got text prompt message", {
         taskCount: message.taskCount ?? 0,
         promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
@@ -923,6 +1424,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (message?.type === SHOW_ALERT_MESSAGE_TYPE) {
+      hotkeyState.enabled = true;
       console.log("Local Query Bridge content script got alert message", {
         taskCount: message.taskCount ?? 0,
         alertLength: typeof message.alertText === "string" ? message.alertText.length : 0,
@@ -946,6 +1448,7 @@ Base everything strictly on the screenshot attachment.`;
       return false;
     }
 
+    hotkeyState.enabled = true;
     console.log("Local Query Bridge content script got screenshot message", {
       taskCount: message.taskCount ?? 0,
       promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
