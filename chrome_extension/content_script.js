@@ -625,6 +625,69 @@ Base everything strictly on the screenshot attachment.`;
     };
   }
 
+  function compareHighlightRangePreference(left, right) {
+    return (
+      Number(right.priority) - Number(left.priority)
+      || (right.end - right.start) - (left.end - left.start)
+      || left.start - right.start
+      || left.ruleIndex - right.ruleIndex
+    );
+  }
+
+  function canMergeHighlightSegments(left, right) {
+    return Boolean(
+      left
+      && right
+      && left.end === right.start
+      && left.color === right.color
+      && left.textColor === right.textColor
+    );
+  }
+
+  function resolveHighlightRangeOverlaps(ranges) {
+    const validRanges = ranges.filter((range) => (
+      Number.isFinite(range.start)
+      && Number.isFinite(range.end)
+      && range.start < range.end
+    ));
+    if (validRanges.length <= 1) {
+      return validRanges.sort((left, right) => left.start - right.start);
+    }
+
+    const boundaries = Array.from(new Set(
+      validRanges.flatMap((range) => [range.start, range.end]),
+    )).sort((left, right) => left - right);
+    const selectedSegments = [];
+
+    for (let index = 0; index < boundaries.length - 1; index += 1) {
+      const start = boundaries[index];
+      const end = boundaries[index + 1];
+      const candidates = validRanges
+        .filter((range) => range.start <= start && range.end >= end)
+        .sort(compareHighlightRangePreference);
+
+      if (candidates.length === 0) {
+        continue;
+      }
+
+      const selectedRange = {
+        ...candidates[0],
+        start,
+        end,
+      };
+      const previousSegment = selectedSegments[selectedSegments.length - 1];
+      if (canMergeHighlightSegments(previousSegment, selectedRange)) {
+        previousSegment.end = selectedRange.end;
+        previousSegment.priority = previousSegment.priority || selectedRange.priority;
+        continue;
+      }
+
+      selectedSegments.push(selectedRange);
+    }
+
+    return selectedSegments;
+  }
+
   function collectHighlightRanges(text, rules) {
     const tokens = extractWordTokens(text);
     const ranges = [];
@@ -660,25 +723,7 @@ Base everything strictly on the screenshot attachment.`;
       }
     });
 
-    const selectedRanges = ranges
-      .sort((left, right) => (
-        Number(right.priority) - Number(left.priority)
-        || (right.end - right.start) - (left.end - left.start)
-        || left.start - right.start
-        || left.ruleIndex - right.ruleIndex
-      ))
-      .reduce((selected, range) => {
-        const overlapsSelectedRange = selected.some((selectedRange) => (
-          range.start < selectedRange.end && range.end > selectedRange.start
-        ));
-        if (!overlapsSelectedRange) {
-          selected.push(range);
-        }
-
-        return selected;
-      }, []);
-
-    return selectedRanges.sort((left, right) => left.start - right.start);
+    return resolveHighlightRangeOverlaps(ranges);
   }
 
   function applyHighlightsToTextNode(textNode, rules) {
