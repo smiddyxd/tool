@@ -214,16 +214,10 @@ Base everything strictly on the screenshot attachment.`;
       .filter((patterns) => patterns.length > 0);
   }
 
-  function compileSingleTokenPatterns(values) {
-    return values
-      .flatMap((value) => parseTermPattern(value))
-      .filter(Boolean);
-  }
-
   function normalizeStringList(value) {
     const rawValues = Array.isArray(value)
       ? value
-      : (typeof value === "string" ? value.split(/\r?\n|,/) : []);
+      : (typeof value === "string" ? value.split(/\r?\n/) : []);
     const seenValues = new Set();
 
     return rawValues
@@ -273,7 +267,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     const companionWords = normalizeStringList(rawRule?.companionWords ?? rawRule?.prefixWords ?? rawRule?.nearbyWords);
-    const companionTermPatterns = compileSingleTokenPatterns(companionWords);
+    const companionTermPatterns = compileTermPatterns(companionWords);
     const parsedDistance = Number.parseInt(`${rawRule?.companionDistance ?? rawRule?.distance ?? 0}`, 10);
     const companionDistance = Number.isFinite(parsedDistance) && parsedDistance > 0
       ? Math.min(parsedDistance, 20)
@@ -414,10 +408,6 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  function doesTokenMatchAnyPattern(token, patterns) {
-    return Array.isArray(patterns) && patterns.some((pattern) => doesTokenMatchPattern(token, pattern));
-  }
-
   function findAdjacentHighlightBounds(tokens, targetStartIndex, targetEndIndex, companionTermPatterns, companionDistance) {
     if (!Array.isArray(companionTermPatterns) || companionTermPatterns.length === 0) {
       return {
@@ -431,39 +421,73 @@ Base everything strictly on the screenshot attachment.`;
     let endIndex = targetEndIndex;
 
     while (startIndex > 0) {
-      const earliestCandidateIndex = Math.max(0, startIndex - maxOffset);
-      let foundIndex = -1;
+      const earliestCandidateEndIndex = Math.max(0, startIndex - maxOffset);
+      let foundMatch = null;
 
-      for (let candidateIndex = startIndex - 1; candidateIndex >= earliestCandidateIndex; candidateIndex -= 1) {
-        if (doesTokenMatchAnyPattern(tokens[candidateIndex], companionTermPatterns)) {
-          foundIndex = candidateIndex;
+      for (let candidateEndIndex = startIndex - 1; candidateEndIndex >= earliestCandidateEndIndex; candidateEndIndex -= 1) {
+        for (const companionPatterns of companionTermPatterns) {
+          const candidateStartIndex = candidateEndIndex - companionPatterns.length + 1;
+          if (candidateStartIndex < 0) {
+            continue;
+          }
+
+          if (!doesPatternSequenceMatchAt(tokens, candidateStartIndex, companionPatterns)) {
+            continue;
+          }
+
+          if (!foundMatch || candidateStartIndex < foundMatch.startIndex) {
+            foundMatch = {
+              startIndex: candidateStartIndex,
+              endIndex: candidateEndIndex,
+            };
+          }
+        }
+
+        if (foundMatch) {
           break;
         }
       }
 
-      if (foundIndex < 0) {
+      if (!foundMatch) {
         break;
       }
 
-      startIndex = foundIndex;
+      startIndex = foundMatch.startIndex;
     }
 
     while (endIndex < tokens.length - 1) {
-      const latestCandidateIndex = Math.min(tokens.length - 1, endIndex + maxOffset);
-      let foundIndex = -1;
+      const latestCandidateStartIndex = Math.min(tokens.length - 1, endIndex + maxOffset);
+      let foundMatch = null;
 
-      for (let candidateIndex = endIndex + 1; candidateIndex <= latestCandidateIndex; candidateIndex += 1) {
-        if (doesTokenMatchAnyPattern(tokens[candidateIndex], companionTermPatterns)) {
-          foundIndex = candidateIndex;
+      for (let candidateStartIndex = endIndex + 1; candidateStartIndex <= latestCandidateStartIndex; candidateStartIndex += 1) {
+        for (const companionPatterns of companionTermPatterns) {
+          const candidateEndIndex = candidateStartIndex + companionPatterns.length - 1;
+          if (candidateEndIndex >= tokens.length) {
+            continue;
+          }
+
+          if (!doesPatternSequenceMatchAt(tokens, candidateStartIndex, companionPatterns)) {
+            continue;
+          }
+
+          if (!foundMatch || candidateEndIndex > foundMatch.endIndex) {
+            foundMatch = {
+              startIndex: candidateStartIndex,
+              endIndex: candidateEndIndex,
+            };
+          }
+        }
+
+        if (foundMatch) {
           break;
         }
       }
 
-      if (foundIndex < 0) {
+      if (!foundMatch) {
         break;
       }
 
-      endIndex = foundIndex;
+      endIndex = foundMatch.endIndex;
     }
 
     return {

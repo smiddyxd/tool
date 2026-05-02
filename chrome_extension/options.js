@@ -104,7 +104,7 @@ function sanitizeResetLimit(value) {
 function normalizeStringList(value) {
   const rawValues = Array.isArray(value)
     ? value
-    : (typeof value === "string" ? value.split(/\r?\n|,/) : []);
+    : (typeof value === "string" ? value.split(/\r?\n/) : []);
   const seenValues = new Set();
 
   return rawValues
