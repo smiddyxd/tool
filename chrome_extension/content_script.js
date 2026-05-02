@@ -187,12 +187,31 @@ Base everything strictly on the screenshot attachment.`;
     return "exact";
   }
 
-  function parseTermPattern(value) {
+  function parseTermLine(value) {
     const rawText = typeof value === "string" ? value.trim() : "";
     const isPriority = rawText.startsWith("!");
     const text = isPriority ? rawText.slice(1).trimStart() : rawText;
+    const isRegex = text.startsWith("r-");
+
+    if (isRegex) {
+      const patternText = text.slice(2).trim();
+      if (!patternText) {
+        return null;
+      }
+
+      try {
+        return {
+          type: "regex",
+          regex: new RegExp(patternText, "giu"),
+          priority: isPriority,
+        };
+      } catch (error) {
+        console.warn("Local Query Bridge ignored invalid highlight regex", { patternText, error });
+        return null;
+      }
+    }
+
     const patterns = [];
-    patterns.priority = isPriority;
     TERM_PATTERN_PART_PATTERN.lastIndex = 0;
 
     for (const match of text.matchAll(TERM_PATTERN_PART_PATTERN)) {
@@ -208,13 +227,21 @@ Base everything strictly on the screenshot attachment.`;
       });
     }
 
-    return patterns;
+    if (patterns.length === 0) {
+      return null;
+    }
+
+    return {
+      type: "sequence",
+      patterns,
+      priority: isPriority,
+    };
   }
 
-  function compileTermPatterns(values) {
+  function compileTermEntries(values) {
     return values
-      .map((value) => parseTermPattern(value))
-      .filter((patterns) => patterns.length > 0);
+      .map((value) => parseTermLine(value))
+      .filter(Boolean);
   }
 
   function normalizeStringList(value) {
@@ -263,14 +290,14 @@ Base everything strictly on the screenshot attachment.`;
   function compileHighlightRule(rawRule, index = 0) {
     const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
     const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
-    const targetTermPatterns = compileTermPatterns(matchStrings);
+    const targetTermEntries = compileTermEntries(matchStrings);
 
-    if (targetTermPatterns.length === 0) {
+    if (targetTermEntries.length === 0) {
       return null;
     }
 
     const companionWords = normalizeStringList(rawRule?.companionWords ?? rawRule?.prefixWords ?? rawRule?.nearbyWords);
-    const companionTermPatterns = compileTermPatterns(companionWords);
+    const companionTermEntries = compileTermEntries(companionWords);
     const parsedDistance = Number.parseInt(`${rawRule?.companionDistance ?? rawRule?.distance ?? 0}`, 10);
     const companionDistance = Number.isFinite(parsedDistance) && parsedDistance > 0
       ? Math.min(parsedDistance, 20)
@@ -283,8 +310,8 @@ Base everything strictly on the screenshot attachment.`;
       color,
       textColor: getReadableTextColor(color),
       enabled: rawRule?.enabled !== false,
-      targetTermPatterns,
-      companionTermPatterns,
+      targetTermEntries,
+      companionTermEntries,
       companionDistance,
     };
   }
@@ -411,11 +438,151 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  function findAdjacentHighlightBounds(tokens, targetStartIndex, targetEndIndex, companionTermPatterns, companionDistance) {
-    if (!Array.isArray(companionTermPatterns) || companionTermPatterns.length === 0) {
+  function mapRawMatchToTokenBounds(tokens, matchStart, matchEnd) {
+    if (!Array.isArray(tokens) || matchEnd <= matchStart) {
+      return null;
+    }
+
+    let startIndex = -1;
+    let endIndex = -1;
+
+    tokens.forEach((token, index) => {
+      if (matchStart < token.end && matchEnd > token.start) {
+        if (startIndex < 0) {
+          startIndex = index;
+        }
+
+        endIndex = index;
+      }
+    });
+
+    if (startIndex < 0 || endIndex < 0) {
+      return null;
+    }
+
+    return {
+      startIndex,
+      endIndex,
+    };
+  }
+
+  function collectRegexEntryMatches(text, tokens, entry) {
+    if (typeof text !== "string" || !(entry?.regex instanceof RegExp)) {
+      return [];
+    }
+
+    const matches = [];
+    entry.regex.lastIndex = 0;
+
+    let match = entry.regex.exec(text);
+    while (match) {
+      const matchText = match[0] ?? "";
+      if (matchText.length > 0) {
+        const bounds = mapRawMatchToTokenBounds(
+          tokens,
+          match.index,
+          match.index + matchText.length,
+        );
+        if (bounds) {
+          matches.push({
+            ...bounds,
+            start: match.index,
+            end: match.index + matchText.length,
+            priority: Boolean(entry.priority),
+          });
+        }
+      } else {
+        entry.regex.lastIndex += 1;
+      }
+
+      match = entry.regex.exec(text);
+    }
+
+    return matches;
+  }
+
+  function collectTermEntryMatches(text, tokens, entry) {
+    if (entry?.type === "regex") {
+      return collectRegexEntryMatches(text, tokens, entry);
+    }
+
+    if (entry?.type !== "sequence" || !Array.isArray(entry.patterns) || entry.patterns.length === 0) {
+      return [];
+    }
+
+    const matches = [];
+    for (let startIndex = 0; startIndex <= tokens.length - entry.patterns.length; startIndex += 1) {
+      if (!doesPatternSequenceMatchAt(tokens, startIndex, entry.patterns)) {
+        continue;
+      }
+
+      matches.push({
+        startIndex,
+        endIndex: startIndex + entry.patterns.length - 1,
+        start: tokens[startIndex].start,
+        end: tokens[startIndex + entry.patterns.length - 1].end,
+        priority: Boolean(entry.priority),
+      });
+    }
+
+    return matches;
+  }
+
+  function findPreviousAdjacentMatch(text, tokens, anchorStartIndex, companionTermEntries, maxOffset) {
+    const earliestEndIndex = Math.max(0, anchorStartIndex - maxOffset);
+    let bestMatch = null;
+
+    for (const companionEntry of companionTermEntries) {
+      for (const match of collectTermEntryMatches(text, tokens, companionEntry)) {
+        if (match.endIndex >= anchorStartIndex || match.endIndex < earliestEndIndex) {
+          continue;
+        }
+
+        if (
+          !bestMatch
+          || match.endIndex > bestMatch.endIndex
+          || (match.endIndex === bestMatch.endIndex && match.startIndex < bestMatch.startIndex)
+        ) {
+          bestMatch = match;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  function findNextAdjacentMatch(text, tokens, anchorEndIndex, companionTermEntries, maxOffset) {
+    const latestStartIndex = Math.min(tokens.length - 1, anchorEndIndex + maxOffset);
+    let bestMatch = null;
+
+    for (const companionEntry of companionTermEntries) {
+      for (const match of collectTermEntryMatches(text, tokens, companionEntry)) {
+        if (match.startIndex <= anchorEndIndex || match.startIndex > latestStartIndex) {
+          continue;
+        }
+
+        if (
+          !bestMatch
+          || match.startIndex < bestMatch.startIndex
+          || (match.startIndex === bestMatch.startIndex && match.endIndex > bestMatch.endIndex)
+        ) {
+          bestMatch = match;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  function findAdjacentHighlightBounds(text, tokens, targetMatch, companionTermEntries, companionDistance) {
+    const targetStartIndex = targetMatch.startIndex;
+    const targetEndIndex = targetMatch.endIndex;
+    if (!Array.isArray(companionTermEntries) || companionTermEntries.length === 0) {
       return {
         startIndex: targetStartIndex,
         endIndex: targetEndIndex,
+        start: targetMatch.start,
+        end: targetMatch.end,
         priority: false,
       };
     }
@@ -423,85 +590,37 @@ Base everything strictly on the screenshot attachment.`;
     const maxOffset = Math.max(1, (Number.parseInt(`${companionDistance}`, 10) || 0) + 1);
     let startIndex = targetStartIndex;
     let endIndex = targetEndIndex;
+    let start = targetMatch.start;
+    let end = targetMatch.end;
     let priority = false;
 
     while (startIndex > 0) {
-      const earliestCandidateEndIndex = Math.max(0, startIndex - maxOffset);
-      let foundMatch = null;
-
-      for (let candidateEndIndex = startIndex - 1; candidateEndIndex >= earliestCandidateEndIndex; candidateEndIndex -= 1) {
-        for (const companionPatterns of companionTermPatterns) {
-          const candidateStartIndex = candidateEndIndex - companionPatterns.length + 1;
-          if (candidateStartIndex < 0) {
-            continue;
-          }
-
-          if (!doesPatternSequenceMatchAt(tokens, candidateStartIndex, companionPatterns)) {
-            continue;
-          }
-
-          if (!foundMatch || candidateStartIndex < foundMatch.startIndex) {
-            foundMatch = {
-              startIndex: candidateStartIndex,
-              endIndex: candidateEndIndex,
-              priority: Boolean(companionPatterns.priority),
-            };
-          }
-        }
-
-        if (foundMatch) {
-          break;
-        }
-      }
-
+      const foundMatch = findPreviousAdjacentMatch(text, tokens, startIndex, companionTermEntries, maxOffset);
       if (!foundMatch) {
         break;
       }
 
       startIndex = foundMatch.startIndex;
+      start = foundMatch.start;
       priority = priority || foundMatch.priority;
     }
 
     while (endIndex < tokens.length - 1) {
-      const latestCandidateStartIndex = Math.min(tokens.length - 1, endIndex + maxOffset);
-      let foundMatch = null;
-
-      for (let candidateStartIndex = endIndex + 1; candidateStartIndex <= latestCandidateStartIndex; candidateStartIndex += 1) {
-        for (const companionPatterns of companionTermPatterns) {
-          const candidateEndIndex = candidateStartIndex + companionPatterns.length - 1;
-          if (candidateEndIndex >= tokens.length) {
-            continue;
-          }
-
-          if (!doesPatternSequenceMatchAt(tokens, candidateStartIndex, companionPatterns)) {
-            continue;
-          }
-
-          if (!foundMatch || candidateEndIndex > foundMatch.endIndex) {
-            foundMatch = {
-              startIndex: candidateStartIndex,
-              endIndex: candidateEndIndex,
-              priority: Boolean(companionPatterns.priority),
-            };
-          }
-        }
-
-        if (foundMatch) {
-          break;
-        }
-      }
-
+      const foundMatch = findNextAdjacentMatch(text, tokens, endIndex, companionTermEntries, maxOffset);
       if (!foundMatch) {
         break;
       }
 
       endIndex = foundMatch.endIndex;
+      end = foundMatch.end;
       priority = priority || foundMatch.priority;
     }
 
     return {
       startIndex,
       endIndex,
+      start,
+      end,
       priority,
     };
   }
@@ -519,27 +638,22 @@ Base everything strictly on the screenshot attachment.`;
         return;
       }
 
-      for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
-        for (const targetPatterns of rule.targetTermPatterns) {
-          if (!doesPatternSequenceMatchAt(tokens, tokenIndex, targetPatterns)) {
-            continue;
-          }
-
-          const targetEndIndex = tokenIndex + targetPatterns.length - 1;
+      for (const targetEntry of rule.targetTermEntries) {
+        for (const targetMatch of collectTermEntryMatches(text, tokens, targetEntry)) {
           const highlightBounds = findAdjacentHighlightBounds(
+            text,
             tokens,
-            tokenIndex,
-            targetEndIndex,
-            rule.companionTermPatterns,
+            targetMatch,
+            rule.companionTermEntries,
             rule.companionDistance,
           );
 
           ranges.push({
-            start: tokens[highlightBounds.startIndex].start,
-            end: tokens[highlightBounds.endIndex].end,
+            start: highlightBounds.start,
+            end: highlightBounds.end,
             color: rule.color,
             textColor: rule.textColor,
-            priority: Boolean(targetPatterns.priority || highlightBounds.priority),
+            priority: Boolean(targetMatch.priority || highlightBounds.priority),
             ruleIndex,
           });
         }

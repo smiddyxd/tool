@@ -1,0 +1,1 @@
+(?<![\w])(?:(?:[$€£¥₹₩₽₺₪₫₦₱฿₴₡₲₵₭₮₸₼₾]|USD|EUR|GBP|JPY|CNY|RMB|CHF|CAD|AUD|NZD|INR|KRW|BRL|MXN|ZAR|SEK|NOK|DKK|PLN|CZK|HUF|TRY|AED|SAR|ILS|THB|MYR|IDR|PHP|VND)\s*)?-?(?:\d{1,3}(?:[.,\s]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*(?:[$€£¥₹₩₽₺₪₫₦₱฿₴₡₲₵₭₮₸₼₾]|USD|EUR|GBP|JPY|CNY|RMB|CHF|CAD|AUD|NZD|INR|KRW|BRL|MXN|ZAR|SEK|NOK|DKK|PLN|CZK|HUF|TRY|AED|SAR|ILS|THB|MYR|IDR|PHP|VND)?(?![\w])
