@@ -55,6 +55,7 @@ Base everything strictly on the screenshot attachment.`;
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
   const HIGHLIGHT_DEBOUNCE_MS = 250;
   const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
+  const TERM_PATTERN_PART_PATTERN = /\.{3}[\p{L}\p{N}]+\.{3}|\.{3}[\p{L}\p{N}]+|[\p{L}\p{N}]+\.{3}|[\p{L}\p{N}]+/gu;
   const DEFAULT_HIGHLIGHT_RULES = [
     {
       id: "default-egregious",
@@ -167,6 +168,58 @@ Base everything strictly on the screenshot attachment.`;
     return tokens;
   }
 
+  function getTermPatternMode(rawPart) {
+    const hasLeadingWildcard = rawPart.startsWith("...");
+    const hasTrailingWildcard = rawPart.endsWith("...");
+
+    if (hasLeadingWildcard && hasTrailingWildcard) {
+      return "contains";
+    }
+
+    if (hasLeadingWildcard) {
+      return "endsWith";
+    }
+
+    if (hasTrailingWildcard) {
+      return "startsWith";
+    }
+
+    return "exact";
+  }
+
+  function parseTermPattern(value) {
+    const text = typeof value === "string" ? value : "";
+    const patterns = [];
+    TERM_PATTERN_PART_PATTERN.lastIndex = 0;
+
+    for (const match of text.matchAll(TERM_PATTERN_PART_PATTERN)) {
+      const rawPart = match[0];
+      const normalizedValue = normalizeToken(rawPart.replace(/^\.{3}/, "").replace(/\.{3}$/, ""));
+      if (!normalizedValue) {
+        continue;
+      }
+
+      patterns.push({
+        value: normalizedValue,
+        mode: getTermPatternMode(rawPart),
+      });
+    }
+
+    return patterns;
+  }
+
+  function compileTermPatterns(values) {
+    return values
+      .map((value) => parseTermPattern(value))
+      .filter((patterns) => patterns.length > 0);
+  }
+
+  function compileSingleTokenPatterns(values) {
+    return values
+      .flatMap((value) => parseTermPattern(value))
+      .filter(Boolean);
+  }
+
   function normalizeStringList(value) {
     const rawValues = Array.isArray(value)
       ? value
@@ -213,20 +266,14 @@ Base everything strictly on the screenshot attachment.`;
   function compileHighlightRule(rawRule, index = 0) {
     const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
     const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
-    const targetTokenSequences = matchStrings
-      .map((matchString) => extractWordTokens(matchString).map((token) => token.normalized))
-      .filter((tokens) => tokens.length > 0);
+    const targetTermPatterns = compileTermPatterns(matchStrings);
 
-    if (targetTokenSequences.length === 0) {
+    if (targetTermPatterns.length === 0) {
       return null;
     }
 
     const companionWords = normalizeStringList(rawRule?.companionWords ?? rawRule?.prefixWords ?? rawRule?.nearbyWords);
-    const companionTokenSet = new Set(
-      companionWords
-        .flatMap((word) => extractWordTokens(word).map((token) => token.normalized))
-        .filter(Boolean),
-    );
+    const companionTermPatterns = compileSingleTokenPatterns(companionWords);
     const parsedDistance = Number.parseInt(`${rawRule?.companionDistance ?? rawRule?.distance ?? 0}`, 10);
     const companionDistance = Number.isFinite(parsedDistance) && parsedDistance > 0
       ? Math.min(parsedDistance, 20)
@@ -239,8 +286,8 @@ Base everything strictly on the screenshot attachment.`;
       color,
       textColor: getReadableTextColor(color),
       enabled: rawRule?.enabled !== false,
-      targetTokenSequences,
-      companionTokenSet,
+      targetTermPatterns,
+      companionTermPatterns,
       companionDistance,
     };
   }
@@ -333,13 +380,33 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function doesTargetMatchAt(tokens, startIndex, targetTokens) {
-    if (startIndex + targetTokens.length > tokens.length) {
+  function doesTokenMatchPattern(token, pattern) {
+    if (!token?.normalized || !pattern?.value) {
       return false;
     }
 
-    for (let offset = 0; offset < targetTokens.length; offset += 1) {
-      if (tokens[startIndex + offset].normalized !== targetTokens[offset]) {
+    if (pattern.mode === "contains") {
+      return token.normalized.includes(pattern.value);
+    }
+
+    if (pattern.mode === "startsWith") {
+      return token.normalized.startsWith(pattern.value);
+    }
+
+    if (pattern.mode === "endsWith") {
+      return token.normalized.endsWith(pattern.value);
+    }
+
+    return token.normalized === pattern.value;
+  }
+
+  function doesPatternSequenceMatchAt(tokens, startIndex, targetPatterns) {
+    if (startIndex + targetPatterns.length > tokens.length) {
+      return false;
+    }
+
+    for (let offset = 0; offset < targetPatterns.length; offset += 1) {
+      if (!doesTokenMatchPattern(tokens[startIndex + offset], targetPatterns[offset])) {
         return false;
       }
     }
@@ -347,21 +414,28 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  function findHighlightStartTokenIndex(tokens, targetStartIndex, companionTokenSet, companionDistance) {
-    if (!(companionTokenSet instanceof Set) || companionTokenSet.size === 0) {
-      return targetStartIndex;
+  function doesTokenMatchAnyPattern(token, patterns) {
+    return Array.isArray(patterns) && patterns.some((pattern) => doesTokenMatchPattern(token, pattern));
+  }
+
+  function findAdjacentHighlightBounds(tokens, targetStartIndex, targetEndIndex, companionTermPatterns, companionDistance) {
+    if (!Array.isArray(companionTermPatterns) || companionTermPatterns.length === 0) {
+      return {
+        startIndex: targetStartIndex,
+        endIndex: targetEndIndex,
+      };
     }
 
-    let highlightStartIndex = targetStartIndex;
-    let anchorIndex = targetStartIndex;
-    const maxDistance = Math.max(0, Number.parseInt(`${companionDistance}`, 10) || 0);
+    const maxOffset = Math.max(1, (Number.parseInt(`${companionDistance}`, 10) || 0) + 1);
+    let startIndex = targetStartIndex;
+    let endIndex = targetEndIndex;
 
-    while (anchorIndex > 0) {
-      const earliestCandidateIndex = Math.max(0, anchorIndex - maxDistance - 1);
+    while (startIndex > 0) {
+      const earliestCandidateIndex = Math.max(0, startIndex - maxOffset);
       let foundIndex = -1;
 
-      for (let candidateIndex = anchorIndex - 1; candidateIndex >= earliestCandidateIndex; candidateIndex -= 1) {
-        if (companionTokenSet.has(tokens[candidateIndex].normalized)) {
+      for (let candidateIndex = startIndex - 1; candidateIndex >= earliestCandidateIndex; candidateIndex -= 1) {
+        if (doesTokenMatchAnyPattern(tokens[candidateIndex], companionTermPatterns)) {
           foundIndex = candidateIndex;
           break;
         }
@@ -371,11 +445,31 @@ Base everything strictly on the screenshot attachment.`;
         break;
       }
 
-      highlightStartIndex = foundIndex;
-      anchorIndex = foundIndex;
+      startIndex = foundIndex;
     }
 
-    return highlightStartIndex;
+    while (endIndex < tokens.length - 1) {
+      const latestCandidateIndex = Math.min(tokens.length - 1, endIndex + maxOffset);
+      let foundIndex = -1;
+
+      for (let candidateIndex = endIndex + 1; candidateIndex <= latestCandidateIndex; candidateIndex += 1) {
+        if (doesTokenMatchAnyPattern(tokens[candidateIndex], companionTermPatterns)) {
+          foundIndex = candidateIndex;
+          break;
+        }
+      }
+
+      if (foundIndex < 0) {
+        break;
+      }
+
+      endIndex = foundIndex;
+    }
+
+    return {
+      startIndex,
+      endIndex,
+    };
   }
 
   function collectHighlightRanges(text, rules) {
@@ -392,22 +486,23 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
-        for (const targetTokens of rule.targetTokenSequences) {
-          if (!doesTargetMatchAt(tokens, tokenIndex, targetTokens)) {
+        for (const targetPatterns of rule.targetTermPatterns) {
+          if (!doesPatternSequenceMatchAt(tokens, tokenIndex, targetPatterns)) {
             continue;
           }
 
-          const targetEndIndex = tokenIndex + targetTokens.length - 1;
-          const highlightStartIndex = findHighlightStartTokenIndex(
+          const targetEndIndex = tokenIndex + targetPatterns.length - 1;
+          const highlightBounds = findAdjacentHighlightBounds(
             tokens,
             tokenIndex,
-            rule.companionTokenSet,
+            targetEndIndex,
+            rule.companionTermPatterns,
             rule.companionDistance,
           );
 
           ranges.push({
-            start: tokens[highlightStartIndex].start,
-            end: tokens[targetEndIndex].end,
+            start: tokens[highlightBounds.startIndex].start,
+            end: tokens[highlightBounds.endIndex].end,
             color: rule.color,
             textColor: rule.textColor,
             ruleIndex,

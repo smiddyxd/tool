@@ -215,8 +215,8 @@ function clearRuleForm() {
 function createRuleSummary(rule) {
   const targetSummary = rule.matchStrings.join(", ");
   const companionSummary = rule.companionWords.length > 0
-    ? `${rule.companionWords.join(", ")} before, gap ${rule.companionDistance}`
-    : "No included prefix words";
+    ? `${rule.companionWords.join(", ")} adjacent, range ${rule.companionDistance}`
+    : "No included adjacent terms";
 
   return `${targetSummary} | ${companionSummary}`;
 }
