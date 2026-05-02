@@ -188,8 +188,11 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function parseTermPattern(value) {
-    const text = typeof value === "string" ? value : "";
+    const rawText = typeof value === "string" ? value.trim() : "";
+    const isPriority = rawText.startsWith("!");
+    const text = isPriority ? rawText.slice(1).trimStart() : rawText;
     const patterns = [];
+    patterns.priority = isPriority;
     TERM_PATTERN_PART_PATTERN.lastIndex = 0;
 
     for (const match of text.matchAll(TERM_PATTERN_PART_PATTERN)) {
@@ -413,12 +416,14 @@ Base everything strictly on the screenshot attachment.`;
       return {
         startIndex: targetStartIndex,
         endIndex: targetEndIndex,
+        priority: false,
       };
     }
 
     const maxOffset = Math.max(1, (Number.parseInt(`${companionDistance}`, 10) || 0) + 1);
     let startIndex = targetStartIndex;
     let endIndex = targetEndIndex;
+    let priority = false;
 
     while (startIndex > 0) {
       const earliestCandidateEndIndex = Math.max(0, startIndex - maxOffset);
@@ -439,6 +444,7 @@ Base everything strictly on the screenshot attachment.`;
             foundMatch = {
               startIndex: candidateStartIndex,
               endIndex: candidateEndIndex,
+              priority: Boolean(companionPatterns.priority),
             };
           }
         }
@@ -453,6 +459,7 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       startIndex = foundMatch.startIndex;
+      priority = priority || foundMatch.priority;
     }
 
     while (endIndex < tokens.length - 1) {
@@ -474,6 +481,7 @@ Base everything strictly on the screenshot attachment.`;
             foundMatch = {
               startIndex: candidateStartIndex,
               endIndex: candidateEndIndex,
+              priority: Boolean(companionPatterns.priority),
             };
           }
         }
@@ -488,11 +496,13 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       endIndex = foundMatch.endIndex;
+      priority = priority || foundMatch.priority;
     }
 
     return {
       startIndex,
       endIndex,
+      priority,
     };
   }
 
@@ -529,27 +539,32 @@ Base everything strictly on the screenshot attachment.`;
             end: tokens[highlightBounds.endIndex].end,
             color: rule.color,
             textColor: rule.textColor,
+            priority: Boolean(targetPatterns.priority || highlightBounds.priority),
             ruleIndex,
           });
         }
       }
     });
 
-    return ranges
+    const selectedRanges = ranges
       .sort((left, right) => (
-        left.start - right.start
+        Number(right.priority) - Number(left.priority)
         || (right.end - right.start) - (left.end - left.start)
+        || left.start - right.start
         || left.ruleIndex - right.ruleIndex
       ))
-      .reduce((selectedRanges, range) => {
-        const previousRange = selectedRanges[selectedRanges.length - 1];
-        if (previousRange && range.start < previousRange.end) {
-          return selectedRanges;
+      .reduce((selected, range) => {
+        const overlapsSelectedRange = selected.some((selectedRange) => (
+          range.start < selectedRange.end && range.end > selectedRange.start
+        ));
+        if (!overlapsSelectedRange) {
+          selected.push(range);
         }
 
-        selectedRanges.push(range);
-        return selectedRanges;
+        return selected;
       }, []);
+
+    return selectedRanges.sort((left, right) => left.start - right.start);
   }
 
   function applyHighlightsToTextNode(textNode, rules) {

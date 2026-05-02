@@ -288,7 +288,7 @@
       <section class="settings-section" aria-labelledby="highlight-settings-heading">
         <div class="section-heading">
           <h2 id="highlight-settings-heading">Keyword Highlights</h2>
-          <p class="hint">Matched strings are highlighted in ChatGPT messages. Adjacent terms are included before or after the match within the selected range; punctuation and hyphens are ignored. Use ...substitut... for a substring anywhere, substitut... for a word start, or ...accept for a word end.</p>
+          <p class="hint">Matched strings are highlighted in ChatGPT messages. Adjacent terms are included before or after the match within the selected range; punctuation and hyphens are ignored. Use ...substitut... for substrings and put ! at the start of a line to make that highlight win overlapping colors.</p>
         </div>
 
         <div class="rule-editor" aria-label="Highlight rule editor">
@@ -310,13 +310,13 @@
             <label for="highlight-rule-matches">
               Matched strings
               <textarea id="highlight-rule-matches" placeholder="poor&#10;...substitut..."></textarea>
-              <p class="hint">Add one target per line. Spaces, commas, hyphens, and punctuation stay inside that line's target phrase.</p>
+              <p class="hint">Add one target per line. Spaces, commas, hyphens, and punctuation stay inside that line's target phrase. Prefix with ! for priority.</p>
             </label>
 
             <label for="highlight-rule-companions">
               Adjacent terms
               <textarea id="highlight-rule-companions" placeholder="low&#10;mid&#10;high&#10;...accept..."></textarea>
-              <p class="hint">Add one adjacent term per line. Spaces, commas, hyphens, and punctuation stay inside that line's adjacent phrase.</p>
+              <p class="hint">Add one adjacent term per line. Spaces, commas, hyphens, and punctuation stay inside that line's adjacent phrase. Prefix with ! for priority when included.</p>
             </label>
           </div>
 
