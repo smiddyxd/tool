@@ -54,6 +54,7 @@ Base everything strictly on the screenshot attachment.`;
   const RATING_SCROLL_STYLE_ID = "local-query-bridge-rating-scroll-styles";
   const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
   const ANALYSIS_TOC_BUTTON_CLASS = "local-query-bridge-analysis-toc-button";
+  const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
@@ -155,7 +156,8 @@ Base everything strictly on the screenshot attachment.`;
     currentRunId: 0,
     baselineAssistantCount: 0,
     currentAssistantElement: null,
-    detectedHeadingKeys: new Set(),
+    baselineHeadingCounts: {},
+    nextHeadingIndex: 0,
   };
 
   const hotkeyState = {
@@ -177,9 +179,6 @@ Base everything strictly on the screenshot attachment.`;
     label,
     index,
   }));
-  const ANALYSIS_HEADING_BY_KEY = new Map(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]),
-  );
 
   function normalizeAnalysisHeadingText(value) {
     return (typeof value === "string" ? value : "")
@@ -1319,7 +1318,7 @@ Base everything strictly on the screenshot attachment.`;
     style.textContent = `
       .${ANALYSIS_TOC_BUTTON_CLASS} {
         position: fixed;
-        left: 14px;
+        left: 224px;
         z-index: 2147483647;
         transform: translateY(-50%);
         max-width: 220px;
@@ -1340,6 +1339,16 @@ Base everything strictly on the screenshot attachment.`;
         background: #1e293b;
       }
 
+      .${ANALYSIS_TOC_BUTTON_CLASS}.${ANALYSIS_TOC_BUTTON_ACTIVE_CLASS} {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: #2563eb;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+      }
+
+      .${ANALYSIS_TOC_BUTTON_CLASS}.${ANALYSIS_TOC_BUTTON_ACTIVE_CLASS}:hover {
+        background: #1d4ed8;
+      }
+
       .${ANALYSIS_TOC_BUTTON_CLASS}:focus {
         outline: 3px solid rgba(15, 23, 42, 0.2);
         outline-offset: 2px;
@@ -1348,18 +1357,71 @@ Base everything strictly on the screenshot attachment.`;
     document.documentElement.append(style);
   }
 
-  function clearAnalysisTocButtons() {
-    Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
-      button.remove();
-    });
-    analysisTocState.currentAssistantElement = null;
-    analysisTocState.detectedHeadingKeys = new Set();
+  function getAnalysisTocButton(headingKey) {
+    return Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`))
+      .find((button) => button instanceof HTMLButtonElement && button.dataset.headingKey === headingKey) ?? null;
   }
 
-  function resetAnalysisTocForRun(runId, baselineAssistantCount) {
+  function setAnalysisTocButtonActive(headingKey, isActive) {
+    const button = getAnalysisTocButton(headingKey);
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    button.classList.toggle(ANALYSIS_TOC_BUTTON_ACTIVE_CLASS, Boolean(isActive));
+  }
+
+  function resetAnalysisTocButtonStates() {
+    Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
+      if (button instanceof HTMLButtonElement) {
+        button.classList.remove(ANALYSIS_TOC_BUTTON_ACTIVE_CLASS);
+      }
+    });
+  }
+
+  function ensureAnalysisTocButtons() {
+    if (!document.body) {
+      return;
+    }
+
+    ensureAnalysisTocStyles();
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      if (getAnalysisTocButton(headingEntry.key) instanceof HTMLButtonElement) {
+        continue;
+      }
+
+      const button = document.createElement("button");
+      const offsetPx = (headingEntry.index - ((ANALYSIS_SECTION_HEADINGS.length - 1) / 2)) * ANALYSIS_TOC_GAP_PX;
+      button.className = ANALYSIS_TOC_BUTTON_CLASS;
+      button.type = "button";
+      button.textContent = headingEntry.label;
+      button.title = headingEntry.label;
+      button.dataset.headingKey = headingEntry.key;
+      button.style.top = `calc(50% + ${offsetPx}px)`;
+      button.addEventListener("click", () => {
+        void scrollToAnalysisHeading(headingEntry.key);
+      });
+      document.body.append(button);
+    }
+  }
+
+  function initializeAnalysisTocButtons() {
+    if (document.body) {
+      ensureAnalysisTocButtons();
+      return;
+    }
+
+    document.addEventListener("DOMContentLoaded", ensureAnalysisTocButtons, { once: true });
+  }
+
+  function resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts) {
     analysisTocState.currentRunId = runId;
     analysisTocState.baselineAssistantCount = baselineAssistantCount;
-    clearAnalysisTocButtons();
+    analysisTocState.currentAssistantElement = null;
+    analysisTocState.baselineHeadingCounts = baselineHeadingCounts;
+    analysisTocState.nextHeadingIndex = 0;
+    ensureAnalysisTocButtons();
+    resetAnalysisTocButtonStates();
   }
 
   function getAnalysisHeadingElements(assistantElement) {
@@ -1380,7 +1442,7 @@ Base everything strictly on the screenshot attachment.`;
           return false;
         }
 
-        return !Array.from(element.children).some((child) => (
+        return !Array.from(element.querySelectorAll("*")).some((child) => (
           child instanceof HTMLElement && /^#{1,6}\s+/.test(child.textContent?.trim() ?? "")
         ));
       });
@@ -1388,16 +1450,35 @@ Base everything strictly on the screenshot attachment.`;
     return Array.from(new Set([...renderedHeadings, ...rawMarkdownHeadings]));
   }
 
-  function findAnalysisHeadingElement(assistantElement, headingKey) {
-    return getAnalysisHeadingElements(assistantElement).find((element) => (
-      normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey
-    )) ?? null;
+  function getAllAnalysisHeadingElements() {
+    return getAssistantMessages().flatMap((assistantElement) => (
+      getAnalysisHeadingElements(assistantElement)
+    ));
+  }
+
+  function getAnalysisHeadingCounts() {
+    const counts = Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, 0]),
+    );
+
+    for (const headingElement of getAllAnalysisHeadingElements()) {
+      const headingKey = normalizeAnalysisHeadingText(headingElement.textContent ?? "");
+      if (Object.prototype.hasOwnProperty.call(counts, headingKey)) {
+        counts[headingKey] += 1;
+      }
+    }
+
+    return counts;
+  }
+
+  function findLatestAnalysisHeadingElement(headingKey) {
+    const matches = getAllAnalysisHeadingElements()
+      .filter((element) => normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey);
+    return matches[matches.length - 1] ?? null;
   }
 
   function scrollToAnalysisHeading(headingKey) {
-    const assistantElement = analysisTocState.currentAssistantElement
-      ?? getCurrentAssistantMessageForRun(analysisTocState.baselineAssistantCount);
-    const headingElement = findAnalysisHeadingElement(assistantElement, headingKey);
+    const headingElement = findLatestAnalysisHeadingElement(headingKey);
     if (!(headingElement instanceof HTMLElement)) {
       return false;
     }
@@ -1410,50 +1491,30 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  function showAnalysisTocButton(headingEntry) {
-    ensureAnalysisTocStyles();
-    const existingButton = Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`))
-      .find((button) => button instanceof HTMLButtonElement && button.dataset.headingKey === headingEntry.key);
-    if (existingButton instanceof HTMLButtonElement) {
+  function syncAnalysisHeadingCountsForRun(runId) {
+    if (analysisTocState.currentRunId !== runId) {
       return;
     }
 
-    const button = document.createElement("button");
-    const offsetPx = (headingEntry.index - ((ANALYSIS_SECTION_HEADINGS.length - 1) / 2)) * ANALYSIS_TOC_GAP_PX;
-    button.className = ANALYSIS_TOC_BUTTON_CLASS;
-    button.type = "button";
-    button.textContent = headingEntry.label;
-    button.title = headingEntry.label;
-    button.dataset.headingKey = headingEntry.key;
-    button.style.top = `calc(50% + ${offsetPx}px)`;
-    button.addEventListener("click", () => {
-      void scrollToAnalysisHeading(headingEntry.key);
-    });
-    document.body.append(button);
-  }
-
-  function syncAnalysisHeadingsForCurrentResponse(runId, assistantElement) {
-    if (analysisTocState.currentRunId !== runId || !(assistantElement instanceof HTMLElement)) {
-      return;
-    }
-
-    analysisTocState.currentAssistantElement = assistantElement;
+    const counts = getAnalysisHeadingCounts();
     const newlyDetectedHeadings = [];
-    for (const headingElement of getAnalysisHeadingElements(assistantElement)) {
-      const headingKey = normalizeAnalysisHeadingText(headingElement.textContent ?? "");
-      const headingEntry = ANALYSIS_HEADING_BY_KEY.get(headingKey);
-      if (!headingEntry || analysisTocState.detectedHeadingKeys.has(headingKey)) {
-        continue;
+
+    while (analysisTocState.nextHeadingIndex < ANALYSIS_HEADING_ENTRIES.length) {
+      const headingEntry = ANALYSIS_HEADING_ENTRIES[analysisTocState.nextHeadingIndex];
+      const baselineCount = analysisTocState.baselineHeadingCounts[headingEntry.key] ?? 0;
+      const currentCount = counts[headingEntry.key] ?? 0;
+      if (currentCount <= baselineCount) {
+        break;
       }
 
-      analysisTocState.detectedHeadingKeys.add(headingKey);
+      setAnalysisTocButtonActive(headingEntry.key, true);
       newlyDetectedHeadings.push(headingEntry);
-      showAnalysisTocButton(headingEntry);
+      analysisTocState.nextHeadingIndex += 1;
     }
 
     if (newlyDetectedHeadings.length > 0) {
       refreshHighlightsNow();
-      console.log("Local Query Bridge refreshed highlights for analysis heading(s)", {
+      console.log("Local Query Bridge refreshed highlights for analysis heading count increase(s)", {
         runId,
         headings: newlyDetectedHeadings.map((heading) => heading.label),
       });
@@ -1622,8 +1683,10 @@ Base everything strictly on the screenshot attachment.`;
     while (Date.now() < deadline && autoScrollState.runId === runId) {
       const currentAssistantElement = getCurrentAssistantMessageForRun(baselineAssistantCount);
       if (currentAssistantElement instanceof HTMLElement) {
-        syncAnalysisHeadingsForCurrentResponse(runId, currentAssistantElement);
+        analysisTocState.currentAssistantElement = currentAssistantElement;
       }
+
+      syncAnalysisHeadingCountsForRun(runId);
 
       const ratingCount = getAssistantRatingCount();
       if (!ratingButtonShown && ratingCount > baselineRatingCount) {
@@ -1656,8 +1719,9 @@ Base everything strictly on the screenshot attachment.`;
     const runId = autoScrollState.runId;
     const baselineRatingCount = getAssistantRatingCount();
     const baselineAssistantCount = getAssistantMessages().length;
+    const baselineHeadingCounts = getAnalysisHeadingCounts();
     hideRatingScrollButton();
-    resetAnalysisTocForRun(runId, baselineAssistantCount);
+    resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts);
     void watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineAssistantCount);
   }
 
@@ -1938,6 +2002,7 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   initializeHighlighting();
+  initializeAnalysisTocButtons();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === PING_MESSAGE_TYPE) {

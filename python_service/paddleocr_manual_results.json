@@ -136359,6 +136359,5230 @@
             }
           ]
         }
+      ],
+      "09": [
+        {
+          "timestamp": "2026-05-03T09:36:06",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_093558_612312.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_093558_612312.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:37:46",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_093738_481931.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_093738_481931.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:39:25",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_093917_887968.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_093917_887968.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:45:28",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_094521_893210.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_094521_893210.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:46:33",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_094627_001849.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_094627_001849.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:48:45",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_094838_720861.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_094838_720861.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-03T09:51:24",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_095116_643042.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_095116_643042.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 132,
+              "average_confidence": 0.9881,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 133,
+              "average_confidence": 0.9603,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 2008 Volvo S70\nVolvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "query_line": {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+            "selected_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.673,
+                  "ratios": {
+                    "blue": 0.673,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 3042
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.662,
+                  "ratios": {
+                    "blue": 0.662,
+                    "green": 0.001,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 2968
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.681,
+                  "ratios": {
+                    "blue": 0.017,
+                    "green": 0.018,
+                    "dark": 0.681
+                  },
+                  "ink_pixel_count": 652
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.61,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.61,
+                    "dark": 0.235
+                  },
+                  "ink_pixel_count": 1177
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 468.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 2008 Volvo S70",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    288.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    138.0
+                  ],
+                  [
+                    588.0,
+                    176.0
+                  ],
+                  [
+                    288.0,
+                    176.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 438.0,
+                    "y": 157.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;",
+                "confidence": 0.9841,
+                "bbox": [
+                  [
+                    375.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    644.0
+                  ],
+                  [
+                    747.0,
+                    661.0
+                  ],
+                  [
+                    375.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 561.0,
+                    "y": 652.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "2006: 2007) Pulley - 8642284. Cylinder head.",
+                "confidence": 0.9805,
+                "bbox": [
+                  [
+                    374.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    664.0
+                  ],
+                  [
+                    744.0,
+                    684.0
+                  ],
+                  [
+                    374.0,
+                    684.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 674.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$335,06",
+                "confidence": 0.9863,
+                "bbox": [
+                  [
+                    373.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    685.0
+                  ],
+                  [
+                    444.0,
+                    707.0
+                  ],
+                  [
+                    373.0,
+                    707.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 408.5,
+                    "y": 696.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "B:sto • Volzo Ga's",
+                "confidence": 0.8524,
+                "bbox": [
+                  [
+                    373.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    708.0
+                  ],
+                  [
+                    528.0,
+                    729.0
+                  ],
+                  [
+                    373.0,
+                    729.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 450.5,
+                    "y": 718.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 2008 Volvo S70"
+            ],
+            "bottom-mid": [
+              "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 2008 Volvo S70",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  288.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  138.0
+                ],
+                [
+                  588.0,
+                  176.0
+                ],
+                [
+                  288.0,
+                  176.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 438.0,
+                  "y": 157.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Volvo V70 XC (2001: 2002; 2003: 2004: 2005;\n2006: 2007) Pulley - 8642284. Cylinder head.\n$335,06\nB:sto • Volzo Ga's",
+              "confidence": 0.9508,
+              "bbox": [
+                [
+                  373.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  644.0
+                ],
+                [
+                  747.0,
+                  729.0
+                ],
+                [
+                  373.0,
+                  729.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 560.0,
+                  "y": 686.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        }
       ]
     }
   }
