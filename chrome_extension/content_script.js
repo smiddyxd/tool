@@ -821,6 +821,33 @@ Base everything strictly on the screenshot attachment.`;
     highlightState.timerId = window.setTimeout(runHighlightPass, HIGHLIGHT_DEBOUNCE_MS);
   }
 
+  function refreshHighlightsNow() {
+    if (highlightState.timerId !== null) {
+      window.clearTimeout(highlightState.timerId);
+      highlightState.timerId = null;
+    }
+
+    runHighlightPass();
+  }
+
+  function getHighlightMatchSignature() {
+    if (highlightState.rules.length === 0) {
+      return "";
+    }
+
+    return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
+      .map((element, index) => {
+        const ranges = collectHighlightRanges(element.textContent ?? "", highlightState.rules);
+        if (ranges.length === 0) {
+          return "";
+        }
+
+        return `${index}:${ranges.map((range) => `${range.start}-${range.end}-${range.color}`).join(",")}`;
+      })
+      .filter(Boolean)
+      .join("|");
+  }
+
   function observeHighlightChanges() {
     if (!document.body || highlightState.observer) {
       return;
@@ -1407,23 +1434,43 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  async function watchRatingCountIncreaseAndShowButton(runId, baselineRatingCount) {
+  async function watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineHighlightSignature) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
+    let currentHighlightSignature = baselineHighlightSignature;
+    let ratingButtonShown = false;
+    let sawGenerating = false;
 
-    console.log("Local Query Bridge watching rating count", { runId, baselineRatingCount });
+    console.log("Local Query Bridge watching response generation", {
+      runId,
+      baselineRatingCount,
+      baselineHighlightSignatureLength: baselineHighlightSignature.length,
+    });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
       const ratingCount = getAssistantRatingCount();
-      if (ratingCount > baselineRatingCount) {
+      if (!ratingButtonShown && ratingCount > baselineRatingCount) {
+        ratingButtonShown = true;
         showRatingScrollButton();
         console.log("Local Query Bridge showed rating scroll button", {
           runId,
           baselineRatingCount,
           ratingCount,
         });
-        if (autoScrollState.runId === runId) {
-          autoScrollState.runId = 0;
-        }
-        return;
+      }
+
+      const nextHighlightSignature = getHighlightMatchSignature();
+      if (nextHighlightSignature !== currentHighlightSignature) {
+        currentHighlightSignature = nextHighlightSignature;
+        refreshHighlightsNow();
+        console.log("Local Query Bridge refreshed highlights during response generation", {
+          runId,
+          highlightSignatureLength: currentHighlightSignature.length,
+        });
+      }
+
+      if (isResponseGenerating()) {
+        sawGenerating = true;
+      } else if (sawGenerating && isResponseIdle()) {
+        break;
       }
 
       await delay(RESPONSE_STATE_POLL_MS);
@@ -1439,8 +1486,9 @@ Base everything strictly on the screenshot attachment.`;
     autoScrollState.userScrolled = false;
     const runId = autoScrollState.runId;
     const baselineRatingCount = getAssistantRatingCount();
+    const baselineHighlightSignature = getHighlightMatchSignature();
     hideRatingScrollButton();
-    void watchRatingCountIncreaseAndShowButton(runId, baselineRatingCount);
+    void watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineHighlightSignature);
   }
 
   window.addEventListener("wheel", () => {
