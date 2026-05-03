@@ -53,6 +53,9 @@ Base everything strictly on the screenshot attachment.`;
   const RATING_SCROLL_BUTTON_ID = "local-query-bridge-rating-scroll-button";
   const RATING_SCROLL_STYLE_ID = "local-query-bridge-rating-scroll-styles";
   const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
+  const ANALYSIS_TOC_BUTTON_CLASS = "local-query-bridge-analysis-toc-button";
+  const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
+  const ANALYSIS_TOC_GAP_PX = 30;
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -97,6 +100,27 @@ Base everything strictly on the screenshot attachment.`;
       enabled: true,
     },
   ];
+  const ANALYSIS_SECTION_HEADINGS = [
+    "Decision Gates",
+    "Interpretations Table",
+    "Query Components",
+    "Query Meaning",
+    "Product Overview",
+    "Product Assessment",
+    "Requirement Analysis",
+    "Brand / Retailer / Platform Logic",
+    "Shared-Context Test",
+    "Relatedness vs Intent Satisfaction",
+    "Substitute & Compatibility Tests",
+    "Applicable Task Categories / Concepts",
+    "Rating Synthesis",
+    "Standard-Machinery Rating Suggestion",
+    "Position Calibration Check",
+    "Borderline cases",
+    "Categorical Miss Subtype Assessment",
+    "Override Impact",
+    "Formatting",
+  ];
 
   function delay(milliseconds) {
     return new Promise((resolve) => {
@@ -127,6 +151,13 @@ Base everything strictly on the screenshot attachment.`;
     applying: false,
   };
 
+  const analysisTocState = {
+    currentRunId: 0,
+    baselineAssistantCount: 0,
+    currentAssistantElement: null,
+    detectedHeadingKeys: new Set(),
+  };
+
   const hotkeyState = {
     enabled: false,
   };
@@ -141,6 +172,24 @@ Base everything strictly on the screenshot attachment.`;
     " ",
     "Spacebar",
   ]);
+  const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((label, index) => ({
+    key: normalizeAnalysisHeadingText(label),
+    label,
+    index,
+  }));
+  const ANALYSIS_HEADING_BY_KEY = new Map(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]),
+  );
+
+  function normalizeAnalysisHeadingText(value) {
+    return (typeof value === "string" ? value : "")
+      .replace(/^\s*#+\s*/, "")
+      .replace(/\([^)]*\)/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/[:.]+$/g, "")
+      .trim()
+      .toLocaleLowerCase();
+  }
 
   function cloneDefaultHighlightRules() {
     return DEFAULT_HIGHLIGHT_RULES.map((rule) => ({
@@ -830,41 +879,6 @@ Base everything strictly on the screenshot attachment.`;
     runHighlightPass();
   }
 
-  function getHighlightMatchSignature() {
-    if (highlightState.rules.length === 0) {
-      return "";
-    }
-
-    return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
-      .map((element, index) => {
-        const ranges = collectHighlightRanges(element.textContent ?? "", highlightState.rules);
-        if (ranges.length === 0) {
-          return "";
-        }
-
-        return `${index}:${ranges.map((range) => `${range.start}-${range.end}-${range.color}`).join(",")}`;
-      })
-      .filter(Boolean)
-      .join("|");
-  }
-
-  function observeHighlightChanges() {
-    if (!document.body || highlightState.observer) {
-      return;
-    }
-
-    highlightState.observer = new MutationObserver(() => {
-      if (!highlightState.applying) {
-        scheduleHighlightPass();
-      }
-    });
-    highlightState.observer.observe(document.body, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-  }
-
   async function loadHighlightRules() {
     const stored = await chrome.storage.sync.get({
       [STORAGE_KEY_HIGHLIGHT_RULES]: null,
@@ -875,12 +889,6 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function initializeHighlighting() {
-    if (document.body) {
-      observeHighlightChanges();
-    } else {
-      document.addEventListener("DOMContentLoaded", observeHighlightChanges, { once: true });
-    }
-
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "sync" || !changes[STORAGE_KEY_HIGHLIGHT_RULES]) {
         return;
@@ -1287,9 +1295,176 @@ Base everything strictly on the screenshot attachment.`;
       .toLowerCase();
   }
 
+  function getAssistantMessages() {
+    return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
+      .filter((element) => element instanceof HTMLElement);
+  }
+
+  function getCurrentAssistantMessageForRun(baselineAssistantCount) {
+    const messages = getAssistantMessages();
+    if (messages.length <= baselineAssistantCount) {
+      return isResponseGenerating() ? (messages[messages.length - 1] ?? null) : null;
+    }
+
+    return messages[messages.length - 1] ?? null;
+  }
+
+  function ensureAnalysisTocStyles() {
+    if (document.getElementById(ANALYSIS_TOC_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = ANALYSIS_TOC_STYLE_ID;
+    style.textContent = `
+      .${ANALYSIS_TOC_BUTTON_CLASS} {
+        position: fixed;
+        left: 14px;
+        z-index: 2147483647;
+        transform: translateY(-50%);
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        border-radius: 8px;
+        background: #0f172a;
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+        cursor: pointer;
+        font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
+        padding: 6px 9px;
+      }
+
+      .${ANALYSIS_TOC_BUTTON_CLASS}:hover {
+        background: #1e293b;
+      }
+
+      .${ANALYSIS_TOC_BUTTON_CLASS}:focus {
+        outline: 3px solid rgba(15, 23, 42, 0.2);
+        outline-offset: 2px;
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function clearAnalysisTocButtons() {
+    Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
+      button.remove();
+    });
+    analysisTocState.currentAssistantElement = null;
+    analysisTocState.detectedHeadingKeys = new Set();
+  }
+
+  function resetAnalysisTocForRun(runId, baselineAssistantCount) {
+    analysisTocState.currentRunId = runId;
+    analysisTocState.baselineAssistantCount = baselineAssistantCount;
+    clearAnalysisTocButtons();
+  }
+
+  function getAnalysisHeadingElements(assistantElement) {
+    if (!(assistantElement instanceof HTMLElement)) {
+      return [];
+    }
+
+    const renderedHeadings = Array.from(assistantElement.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+      .filter((element) => element instanceof HTMLElement);
+    const rawMarkdownHeadings = Array.from(assistantElement.querySelectorAll("p, div, span"))
+      .filter((element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+
+        const text = element.textContent?.trim() ?? "";
+        if (!/^#{1,6}\s+/.test(text)) {
+          return false;
+        }
+
+        return !Array.from(element.children).some((child) => (
+          child instanceof HTMLElement && /^#{1,6}\s+/.test(child.textContent?.trim() ?? "")
+        ));
+      });
+
+    return Array.from(new Set([...renderedHeadings, ...rawMarkdownHeadings]));
+  }
+
+  function findAnalysisHeadingElement(assistantElement, headingKey) {
+    return getAnalysisHeadingElements(assistantElement).find((element) => (
+      normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey
+    )) ?? null;
+  }
+
+  function scrollToAnalysisHeading(headingKey) {
+    const assistantElement = analysisTocState.currentAssistantElement
+      ?? getCurrentAssistantMessageForRun(analysisTocState.baselineAssistantCount);
+    const headingElement = findAnalysisHeadingElement(assistantElement, headingKey);
+    if (!(headingElement instanceof HTMLElement)) {
+      return false;
+    }
+
+    headingElement.scrollIntoView({
+      block: "start",
+      inline: "nearest",
+      behavior: "auto",
+    });
+    return true;
+  }
+
+  function showAnalysisTocButton(headingEntry) {
+    ensureAnalysisTocStyles();
+    const existingButton = Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`))
+      .find((button) => button instanceof HTMLButtonElement && button.dataset.headingKey === headingEntry.key);
+    if (existingButton instanceof HTMLButtonElement) {
+      return;
+    }
+
+    const button = document.createElement("button");
+    const offsetPx = (headingEntry.index - ((ANALYSIS_SECTION_HEADINGS.length - 1) / 2)) * ANALYSIS_TOC_GAP_PX;
+    button.className = ANALYSIS_TOC_BUTTON_CLASS;
+    button.type = "button";
+    button.textContent = headingEntry.label;
+    button.title = headingEntry.label;
+    button.dataset.headingKey = headingEntry.key;
+    button.style.top = `calc(50% + ${offsetPx}px)`;
+    button.addEventListener("click", () => {
+      void scrollToAnalysisHeading(headingEntry.key);
+    });
+    document.body.append(button);
+  }
+
+  function syncAnalysisHeadingsForCurrentResponse(runId, assistantElement) {
+    if (analysisTocState.currentRunId !== runId || !(assistantElement instanceof HTMLElement)) {
+      return;
+    }
+
+    analysisTocState.currentAssistantElement = assistantElement;
+    const newlyDetectedHeadings = [];
+    for (const headingElement of getAnalysisHeadingElements(assistantElement)) {
+      const headingKey = normalizeAnalysisHeadingText(headingElement.textContent ?? "");
+      const headingEntry = ANALYSIS_HEADING_BY_KEY.get(headingKey);
+      if (!headingEntry || analysisTocState.detectedHeadingKeys.has(headingKey)) {
+        continue;
+      }
+
+      analysisTocState.detectedHeadingKeys.add(headingKey);
+      newlyDetectedHeadings.push(headingEntry);
+      showAnalysisTocButton(headingEntry);
+    }
+
+    if (newlyDetectedHeadings.length > 0) {
+      refreshHighlightsNow();
+      console.log("Local Query Bridge refreshed highlights for analysis heading(s)", {
+        runId,
+        headings: newlyDetectedHeadings.map((heading) => heading.label),
+      });
+    }
+  }
+
   function getNextAutoScrollTarget() {
     const targetText = normalizeSearchText(AUTO_SCROLL_TARGET_TEXT);
-    const roots = Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR));
+    const roots = analysisTocState.currentAssistantElement instanceof HTMLElement
+      ? [analysisTocState.currentAssistantElement]
+      : getAssistantMessages();
     const searchRoots = roots.length > 0
       ? roots
       : Array.from(document.getElementsByClassName(AUTO_SCROLL_MARKDOWN_CLASS));
@@ -1434,18 +1609,22 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  async function watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineHighlightSignature) {
+  async function watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineAssistantCount) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
-    let currentHighlightSignature = baselineHighlightSignature;
     let ratingButtonShown = false;
     let sawGenerating = false;
 
     console.log("Local Query Bridge watching response generation", {
       runId,
       baselineRatingCount,
-      baselineHighlightSignatureLength: baselineHighlightSignature.length,
+      baselineAssistantCount,
     });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
+      const currentAssistantElement = getCurrentAssistantMessageForRun(baselineAssistantCount);
+      if (currentAssistantElement instanceof HTMLElement) {
+        syncAnalysisHeadingsForCurrentResponse(runId, currentAssistantElement);
+      }
+
       const ratingCount = getAssistantRatingCount();
       if (!ratingButtonShown && ratingCount > baselineRatingCount) {
         ratingButtonShown = true;
@@ -1454,16 +1633,6 @@ Base everything strictly on the screenshot attachment.`;
           runId,
           baselineRatingCount,
           ratingCount,
-        });
-      }
-
-      const nextHighlightSignature = getHighlightMatchSignature();
-      if (nextHighlightSignature !== currentHighlightSignature) {
-        currentHighlightSignature = nextHighlightSignature;
-        refreshHighlightsNow();
-        console.log("Local Query Bridge refreshed highlights during response generation", {
-          runId,
-          highlightSignatureLength: currentHighlightSignature.length,
         });
       }
 
@@ -1486,9 +1655,10 @@ Base everything strictly on the screenshot attachment.`;
     autoScrollState.userScrolled = false;
     const runId = autoScrollState.runId;
     const baselineRatingCount = getAssistantRatingCount();
-    const baselineHighlightSignature = getHighlightMatchSignature();
+    const baselineAssistantCount = getAssistantMessages().length;
     hideRatingScrollButton();
-    void watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineHighlightSignature);
+    resetAnalysisTocForRun(runId, baselineAssistantCount);
+    void watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineAssistantCount);
   }
 
   window.addEventListener("wheel", () => {

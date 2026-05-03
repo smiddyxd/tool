@@ -135611,6 +135611,753 @@
               "raw_item_count": 5
             }
           ]
+        },
+        {
+          "timestamp": "2026-05-03T08:54:47",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260503_085439_914823.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260503_085439_914823.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 99,
+              "average_confidence": 0.9953,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 99,
+              "average_confidence": 0.9953,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 99,
+              "average_confidence": 0.9954,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 94,
+              "average_confidence": 0.9015,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: blind spot tesla model y\nTesla Model Y Under Seat Security Drawer\n(2021-2023)\n$190.00\ntalsem.com",
+            "query_line": {
+              "text": "Query: blind spot tesla model y",
+              "confidence": 0.9927,
+              "bbox": [
+                [
+                  314.0,
+                  122.0
+                ],
+                [
+                  724.0,
+                  122.0
+                ],
+                [
+                  724.0,
+                  153.0
+                ],
+                [
+                  314.0,
+                  153.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 519.0,
+                  "y": 137.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Tesla Model Y Under Seat Security Drawer\n(2021-2023)\n$190.00\ntalsem.com",
+            "selected_lines": [
+              {
+                "text": "Query: blind spot tesla model y",
+                "confidence": 0.9927,
+                "bbox": [
+                  [
+                    314.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    153.0
+                  ],
+                  [
+                    314.0,
+                    153.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 519.0,
+                    "y": 137.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Tesla Model Y Under Seat Security Drawer",
+                "confidence": 0.9846,
+                "bbox": [
+                  [
+                    387.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    522.0
+                  ],
+                  [
+                    387.0,
+                    522.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 549.0,
+                    "y": 510.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "(2021-2023)",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    387.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 436.5,
+                    "y": 531.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$190.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    388.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    561.0
+                  ],
+                  [
+                    388.0,
+                    561.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 421.5,
+                    "y": 550.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "talsem.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    582.0
+                  ],
+                  [
+                    386.0,
+                    582.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 433.0,
+                    "y": 570.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Tesla Model Y Under Seat Security Drawer",
+                "confidence": 0.9846,
+                "bbox": [
+                  [
+                    387.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    522.0
+                  ],
+                  [
+                    387.0,
+                    522.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 549.0,
+                    "y": 510.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "(2021-2023)",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    387.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 436.5,
+                    "y": 531.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$190.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    388.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    561.0
+                  ],
+                  [
+                    388.0,
+                    561.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 421.5,
+                    "y": 550.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "talsem.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    582.0
+                  ],
+                  [
+                    386.0,
+                    582.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 433.0,
+                    "y": 570.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                1,
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.675,
+                  "ratios": {
+                    "blue": 0.675,
+                    "green": 0.002,
+                    "dark": 0.004
+                  },
+                  "ink_pixel_count": 2955
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.656,
+                  "ratios": {
+                    "blue": 0.656,
+                    "green": 0.003,
+                    "dark": 0.007
+                  },
+                  "ink_pixel_count": 967
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.613,
+                  "ratios": {
+                    "blue": 0.007,
+                    "green": 0.0,
+                    "dark": 0.613
+                  },
+                  "ink_pixel_count": 667
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.547,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.547,
+                    "dark": 0.229
+                  },
+                  "ink_pixel_count": 738
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: blind spot tesla model y",
+                "confidence": 0.9927,
+                "bbox": [
+                  [
+                    314.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    153.0
+                  ],
+                  [
+                    314.0,
+                    153.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 519.0,
+                    "y": 137.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 346.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: blind spot tesla model y",
+                "confidence": 0.9927,
+                "bbox": [
+                  [
+                    314.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    122.0
+                  ],
+                  [
+                    724.0,
+                    153.0
+                  ],
+                  [
+                    314.0,
+                    153.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 519.0,
+                    "y": 137.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Tesla Model Y Under Seat Security Drawer",
+                "confidence": 0.9846,
+                "bbox": [
+                  [
+                    387.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    499.0
+                  ],
+                  [
+                    711.0,
+                    522.0
+                  ],
+                  [
+                    387.0,
+                    522.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 549.0,
+                    "y": 510.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "(2021-2023)",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    387.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    519.0
+                  ],
+                  [
+                    486.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 436.5,
+                    "y": 531.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$190.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    388.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    539.0
+                  ],
+                  [
+                    455.0,
+                    561.0
+                  ],
+                  [
+                    388.0,
+                    561.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 421.5,
+                    "y": 550.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "talsem.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    558.0
+                  ],
+                  [
+                    480.0,
+                    582.0
+                  ],
+                  [
+                    386.0,
+                    582.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 433.0,
+                    "y": 570.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: blind spot tesla model y"
+            ],
+            "bottom-mid": [
+              "Tesla Model Y Under Seat Security Drawer\n(2021-2023) $190.00\ntalsem.com"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: blind spot tesla model y",
+              "confidence": 0.9927,
+              "bbox": [
+                [
+                  314.0,
+                  122.0
+                ],
+                [
+                  724.0,
+                  122.0
+                ],
+                [
+                  724.0,
+                  153.0
+                ],
+                [
+                  314.0,
+                  153.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 519.0,
+                  "y": 137.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Tesla Model Y Under Seat Security Drawer\n(2021-2023) $190.00\ntalsem.com",
+              "confidence": 0.9961,
+              "bbox": [
+                [
+                  386.0,
+                  499.0
+                ],
+                [
+                  711.0,
+                  499.0
+                ],
+                [
+                  711.0,
+                  582.0
+                ],
+                [
+                  386.0,
+                  582.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 548.5,
+                  "y": 540.5
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
         }
       ]
     }
