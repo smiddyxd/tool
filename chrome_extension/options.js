@@ -38,14 +38,43 @@ const DEFAULT_HIGHLIGHT_RULES = [
     enabled: true,
   },
 ];
+const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
+const ANALYSIS_SECTION_HEADINGS = [
+  { heading: "Decision Gates", label: "Decision Gates" },
+  { heading: "Interpretations Table", label: "Interpretations Table" },
+  { heading: "Query Components", label: "Query Components" },
+  { heading: "Query Meaning", label: "Query Meaning" },
+  { heading: "Product Overview", label: "Product Overview" },
+  { heading: "Product Assessment", label: "Product Assessment" },
+  { heading: "Requirement Analysis", label: "Requirement Analysis" },
+  { heading: "Brand / Retailer / Platform Logic", label: "Brand / Retailer / Platform" },
+  { heading: "Shared-Context Test", label: "Shared-Context Test" },
+  { heading: "Relatedness vs Intent Satisfaction", label: "Related / Intent Satisf." },
+  { heading: "Substitute & Compatibility Tests", label: "Substitut. / Compatib." },
+  { heading: "Applicable Task Categories / Concepts", label: "Task Categ. / Concepts" },
+  { heading: "Rating Synthesis", label: "Rating Synthesis" },
+  { heading: "Standard-Machinery Rating Suggestion", label: "Rating" },
+  { heading: "Position Calibration Check", label: "Position Calibration" },
+  { heading: "Borderline cases", label: "Borderline cases" },
+  { heading: "Categorical Miss Subtype Assessment", label: "Categorical Miss" },
+  { heading: "Override Impact", label: "Override Impact" },
+];
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
+const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
 
 const highlightState = {
   rules: [],
+  tocButtonColors: {},
 };
+
+const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
+  key: normalizeAnalysisHeadingText(entry.heading),
+  label: entry.label,
+  index,
+}));
 
 function cloneDefaultHighlightRules() {
   return DEFAULT_HIGHLIGHT_RULES.map((rule) => ({
@@ -61,6 +90,16 @@ function createRuleId() {
   }
 
   return `rule-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeAnalysisHeadingText(value) {
+  return (typeof value === "string" ? value : "")
+    .replace(/^\s*#+\s*/, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[:.]+$/g, "")
+    .trim()
+    .toLocaleLowerCase();
 }
 
 function normalizeProjectUrlPrefix(value) {
@@ -133,6 +172,26 @@ function sanitizeColor(value, fallback = "#facc15") {
   }
 
   return fallback;
+}
+
+function getDefaultAnalysisTocButtonColors() {
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
+  );
+}
+
+function sanitizeAnalysisTocButtonColors(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const defaults = getDefaultAnalysisTocButtonColors();
+
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entry.key,
+      sanitizeColor(source[entry.key], defaults[entry.key]),
+    ]),
+  );
 }
 
 function sanitizeHighlightRule(rawRule, index = 0) {
@@ -281,6 +340,36 @@ function renderHighlightRules() {
   }
 }
 
+function renderAnalysisTocColors() {
+  const list = document.querySelector("#analysis-toc-colors-list");
+  if (!list) {
+    return;
+  }
+
+  list.replaceChildren();
+
+  for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    const row = document.createElement("label");
+    row.className = "toc-color-row";
+    row.htmlFor = `analysis-toc-color-${headingEntry.index}`;
+
+    const labelText = document.createElement("span");
+    labelText.textContent = headingEntry.label;
+
+    const input = document.createElement("input");
+    input.id = `analysis-toc-color-${headingEntry.index}`;
+    input.type = "color";
+    input.value = highlightState.tocButtonColors[headingEntry.key] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
+    input.dataset.headingKey = headingEntry.key;
+    input.addEventListener("input", () => {
+      highlightState.tocButtonColors[headingEntry.key] = sanitizeColor(input.value, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR);
+    });
+
+    row.append(labelText, input);
+    list.append(row);
+  }
+}
+
 async function saveHighlightRules(message = "Highlight rules saved.") {
   await chrome.storage.sync.set({
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
@@ -323,16 +412,19 @@ async function loadOptions() {
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
   });
 
   const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
+  highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
   clearRuleForm();
   renderHighlightRules();
+  renderAnalysisTocColors();
 }
 
 async function saveOptions(event) {
@@ -345,6 +437,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_START_PAGE_URL]: defaultStartPageUrl,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
+    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors),
   });
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
@@ -354,16 +447,20 @@ async function saveOptions(event) {
 
 async function restoreDefaults() {
   const defaultRules = cloneDefaultHighlightRules();
+  const defaultTocButtonColors = getDefaultAnalysisTocButtonColors();
   document.querySelector("#default-start-page-url").value = DEFAULT_START_PAGE_URL;
   document.querySelector("#reset-limit").value = String(DEFAULT_RESET_LIMIT);
   highlightState.rules = sanitizeHighlightRules(defaultRules);
+  highlightState.tocButtonColors = defaultTocButtonColors;
   clearRuleForm();
   renderHighlightRules();
+  renderAnalysisTocColors();
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
+    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: highlightState.tocButtonColors,
   });
   setStatus("Defaults restored.");
 }

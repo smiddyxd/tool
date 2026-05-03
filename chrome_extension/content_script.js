@@ -57,6 +57,8 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
+  const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
+  const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -102,25 +104,24 @@ Base everything strictly on the screenshot attachment.`;
     },
   ];
   const ANALYSIS_SECTION_HEADINGS = [
-    "Decision Gates",
-    "Interpretations Table",
-    "Query Components",
-    "Query Meaning",
-    "Product Overview",
-    "Product Assessment",
-    "Requirement Analysis",
-    "Brand / Retailer / Platform Logic",
-    "Shared-Context Test",
-    "Relatedness vs Intent Satisfaction",
-    "Substitute & Compatibility Tests",
-    "Applicable Task Categories / Concepts",
-    "Rating Synthesis",
-    "Standard-Machinery Rating Suggestion",
-    "Position Calibration Check",
-    "Borderline cases",
-    "Categorical Miss Subtype Assessment",
-    "Override Impact",
-    "Formatting",
+    { heading: "Decision Gates", label: "Decision Gates" },
+    { heading: "Interpretations Table", label: "Interpretations Table" },
+    { heading: "Query Components", label: "Query Components" },
+    { heading: "Query Meaning", label: "Query Meaning" },
+    { heading: "Product Overview", label: "Product Overview" },
+    { heading: "Product Assessment", label: "Product Assessment" },
+    { heading: "Requirement Analysis", label: "Requirement Analysis" },
+    { heading: "Brand / Retailer / Platform Logic", label: "Brand / Retailer / Platform" },
+    { heading: "Shared-Context Test", label: "Shared-Context Test" },
+    { heading: "Relatedness vs Intent Satisfaction", label: "Related / Intent Satisf." },
+    { heading: "Substitute & Compatibility Tests", label: "Substitut. / Compatib." },
+    { heading: "Applicable Task Categories / Concepts", label: "Task Categ. / Concepts" },
+    { heading: "Rating Synthesis", label: "Rating Synthesis" },
+    { heading: "Standard-Machinery Rating Suggestion", label: "Rating" },
+    { heading: "Position Calibration Check", label: "Position Calibration" },
+    { heading: "Borderline cases", label: "Borderline cases" },
+    { heading: "Categorical Miss Subtype Assessment", label: "Categorical Miss" },
+    { heading: "Override Impact", label: "Override Impact" },
   ];
 
   function delay(milliseconds) {
@@ -158,6 +159,7 @@ Base everything strictly on the screenshot attachment.`;
     currentAssistantElement: null,
     baselineHeadingCounts: {},
     nextHeadingIndex: 0,
+    buttonColors: {},
   };
 
   const hotkeyState = {
@@ -174,9 +176,10 @@ Base everything strictly on the screenshot attachment.`;
     " ",
     "Spacebar",
   ]);
-  const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((label, index) => ({
-    key: normalizeAnalysisHeadingText(label),
-    label,
+  const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
+    key: normalizeAnalysisHeadingText(entry.heading),
+    heading: entry.heading,
+    label: entry.label,
     index,
   }));
 
@@ -188,6 +191,30 @@ Base everything strictly on the screenshot attachment.`;
       .replace(/[:.]+$/g, "")
       .trim()
       .toLocaleLowerCase();
+  }
+
+  function getDefaultAnalysisTocButtonColors() {
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
+    );
+  }
+
+  function sanitizeAnalysisTocButtonColors(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocButtonColors();
+
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+        entry.key,
+        sanitizeColor(source[entry.key], defaults[entry.key]),
+      ]),
+    );
+  }
+
+  function getAnalysisTocButtonColor(headingKey) {
+    return analysisTocState.buttonColors[headingKey] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
   }
 
   function cloneDefaultHighlightRules() {
@@ -881,20 +908,30 @@ Base everything strictly on the screenshot attachment.`;
   async function loadHighlightRules() {
     const stored = await chrome.storage.sync.get({
       [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
+    analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
+    applyAnalysisTocButtonColors();
     scheduleHighlightPass();
   }
 
   function initializeHighlighting() {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== "sync" || !changes[STORAGE_KEY_HIGHLIGHT_RULES]) {
+      if (areaName !== "sync") {
         return;
       }
 
-      highlightState.rules = compileHighlightRules(changes[STORAGE_KEY_HIGHLIGHT_RULES].newValue);
-      scheduleHighlightPass();
+      if (changes[STORAGE_KEY_HIGHLIGHT_RULES]) {
+        highlightState.rules = compileHighlightRules(changes[STORAGE_KEY_HIGHLIGHT_RULES].newValue);
+        scheduleHighlightPass();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLORS]) {
+        analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(changes[STORAGE_KEY_ANALYSIS_TOC_COLORS].newValue);
+        applyAnalysisTocButtonColors();
+      }
     });
 
     void loadHighlightRules().catch((error) => {
@@ -1341,12 +1378,12 @@ Base everything strictly on the screenshot attachment.`;
 
       .${ANALYSIS_TOC_BUTTON_CLASS}.${ANALYSIS_TOC_BUTTON_ACTIVE_CLASS} {
         border-color: rgba(37, 99, 235, 0.35);
-        background: #2563eb;
+        background: var(--local-query-bridge-analysis-active-color, #2563eb);
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
       }
 
       .${ANALYSIS_TOC_BUTTON_CLASS}.${ANALYSIS_TOC_BUTTON_ACTIVE_CLASS}:hover {
-        background: #1d4ed8;
+        filter: brightness(0.92);
       }
 
       .${ANALYSIS_TOC_BUTTON_CLASS}:focus {
@@ -1368,7 +1405,17 @@ Base everything strictly on the screenshot attachment.`;
       return;
     }
 
+    button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingKey));
     button.classList.toggle(ANALYSIS_TOC_BUTTON_ACTIVE_CLASS, Boolean(isActive));
+  }
+
+  function applyAnalysisTocButtonColors() {
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      const button = getAnalysisTocButton(headingEntry.key);
+      if (button instanceof HTMLButtonElement) {
+        button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingEntry.key));
+      }
+    }
   }
 
   function resetAnalysisTocButtonStates() {
@@ -1398,6 +1445,7 @@ Base everything strictly on the screenshot attachment.`;
       button.title = headingEntry.label;
       button.dataset.headingKey = headingEntry.key;
       button.style.top = `calc(50% + ${offsetPx}px)`;
+      button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingEntry.key));
       button.addEventListener("click", () => {
         void scrollToAnalysisHeading(headingEntry.key);
       });
