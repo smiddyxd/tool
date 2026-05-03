@@ -131149,6 +131149,3383 @@
             }
           ]
         }
+      ],
+      "16": [
+        {
+          "timestamp": "2026-05-02T16:18:41",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260502_161832_970033.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260502_161832_970033.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 14,
+              "total_text_length": 189,
+              "average_confidence": 0.6784,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 15,
+              "total_text_length": 179,
+              "average_confidence": 0.6801,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 12,
+              "total_text_length": 188,
+              "average_confidence": 0.7019,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 11,
+              "total_text_length": 155,
+              "average_confidence": 0.7381,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 10,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: signed francis willard book\nSigned First Edition: Finding the Measure\nby Kelly, Robert\n$200.00\nBiblio.com",
+            "query_line": {
+              "text": "Query: signed francis willard book",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  267.0,
+                  143.0
+                ],
+                [
+                  718.0,
+                  143.0
+                ],
+                [
+                  718.0,
+                  175.0
+                ],
+                [
+                  267.0,
+                  175.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 492.5,
+                  "y": 159.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Signed First Edition: Finding the Measure\nby Kelly, Robert\n$200.00\nBiblio.com",
+            "selected_lines": [
+              {
+                "text": "Query: signed francis willard book",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    267.0,
+                    143.0
+                  ],
+                  [
+                    718.0,
+                    143.0
+                  ],
+                  [
+                    718.0,
+                    175.0
+                  ],
+                  [
+                    267.0,
+                    175.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 492.5,
+                    "y": 159.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Signed First Edition: Finding the Measure",
+                "confidence": 0.9993,
+                "bbox": [
+                  [
+                    387.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    648.0
+                  ],
+                  [
+                    387.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 541.0,
+                    "y": 637.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "by Kelly, Robert",
+                "confidence": 0.9934,
+                "bbox": [
+                  [
+                    389.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    668.0
+                  ],
+                  [
+                    389.0,
+                    668.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 448.0,
+                    "y": 657.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$200.00",
+                "confidence": 0.9737,
+                "bbox": [
+                  [
+                    390.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    688.0
+                  ],
+                  [
+                    390.0,
+                    688.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 424.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Biblio.com",
+                "confidence": 0.9712,
+                "bbox": [
+                  [
+                    387.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    709.0
+                  ],
+                  [
+                    387.0,
+                    709.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 431.0,
+                    "y": 696.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Signed First Edition: Finding the Measure",
+                "confidence": 0.9993,
+                "bbox": [
+                  [
+                    387.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    648.0
+                  ],
+                  [
+                    387.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 541.0,
+                    "y": 637.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "by Kelly, Robert",
+                "confidence": 0.9934,
+                "bbox": [
+                  [
+                    389.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    668.0
+                  ],
+                  [
+                    389.0,
+                    668.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 448.0,
+                    "y": 657.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$200.00",
+                "confidence": 0.9737,
+                "bbox": [
+                  [
+                    390.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    688.0
+                  ],
+                  [
+                    390.0,
+                    688.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 424.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Biblio.com",
+                "confidence": 0.9712,
+                "bbox": [
+                  [
+                    387.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    709.0
+                  ],
+                  [
+                    387.0,
+                    709.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 431.0,
+                    "y": 696.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.735,
+                  "ratios": {
+                    "blue": 0.735,
+                    "green": 0.011,
+                    "dark": 0.001
+                  },
+                  "ink_pixel_count": 2908
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.71,
+                  "ratios": {
+                    "blue": 0.71,
+                    "green": 0.004,
+                    "dark": 0.004
+                  },
+                  "ink_pixel_count": 985
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.634,
+                  "ratios": {
+                    "blue": 0.02,
+                    "green": 0.0,
+                    "dark": 0.634
+                  },
+                  "ink_pixel_count": 607
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.575,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.575,
+                    "dark": 0.274
+                  },
+                  "ink_pixel_count": 610
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "30 Mans68",
+                "confidence": 0.7356,
+                "bbox": [
+                  [
+                    481.0,
+                    466.0
+                  ],
+                  [
+                    553.0,
+                    466.0
+                  ],
+                  [
+                    553.0,
+                    495.0
+                  ],
+                  [
+                    481.0,
+                    495.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 517.0,
+                    "y": 480.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 132.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: signed francis willard book",
+                "confidence": 0.9982,
+                "bbox": [
+                  [
+                    267.0,
+                    143.0
+                  ],
+                  [
+                    718.0,
+                    143.0
+                  ],
+                  [
+                    718.0,
+                    175.0
+                  ],
+                  [
+                    267.0,
+                    175.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 492.5,
+                    "y": 159.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "for may deaxar Jotyg",
+                "confidence": 0.6447,
+                "bbox": [
+                  [
+                    490.0,
+                    326.0
+                  ],
+                  [
+                    625.0,
+                    326.0
+                  ],
+                  [
+                    625.0,
+                    358.0
+                  ],
+                  [
+                    490.0,
+                    358.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 557.5,
+                    "y": 342.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "nn th ot o8&.=purg.",
+                "confidence": 0.4206,
+                "bbox": [
+                  [
+                    486.0,
+                    352.0
+                  ],
+                  [
+                    651.0,
+                    352.0
+                  ],
+                  [
+                    651.0,
+                    380.0
+                  ],
+                  [
+                    486.0,
+                    380.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 568.5,
+                    "y": 366.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Moss Mame in Etsosity is",
+                "confidence": 0.5677,
+                "bbox": [
+                  [
+                    488.0,
+                    378.0
+                  ],
+                  [
+                    644.0,
+                    378.0
+                  ],
+                  [
+                    644.0,
+                    399.0
+                  ],
+                  [
+                    488.0,
+                    399.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 566.0,
+                    "y": 388.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "p0ura",
+                "confidence": 0.6094,
+                "bbox": [
+                  [
+                    535.0,
+                    394.0
+                  ],
+                  [
+                    585.0,
+                    394.0
+                  ],
+                  [
+                    585.0,
+                    425.0
+                  ],
+                  [
+                    535.0,
+                    425.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 560.0,
+                    "y": 409.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "30 Mans68",
+                "confidence": 0.7356,
+                "bbox": [
+                  [
+                    481.0,
+                    466.0
+                  ],
+                  [
+                    553.0,
+                    466.0
+                  ],
+                  [
+                    553.0,
+                    495.0
+                  ],
+                  [
+                    481.0,
+                    495.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 517.0,
+                    "y": 480.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Signed First Edition: Finding the Measure",
+                "confidence": 0.9993,
+                "bbox": [
+                  [
+                    387.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    627.0
+                  ],
+                  [
+                    695.0,
+                    648.0
+                  ],
+                  [
+                    387.0,
+                    648.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 541.0,
+                    "y": 637.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "by Kelly, Robert",
+                "confidence": 0.9934,
+                "bbox": [
+                  [
+                    389.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    646.0
+                  ],
+                  [
+                    507.0,
+                    668.0
+                  ],
+                  [
+                    389.0,
+                    668.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 448.0,
+                    "y": 657.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$200.00",
+                "confidence": 0.9737,
+                "bbox": [
+                  [
+                    390.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    665.0
+                  ],
+                  [
+                    458.0,
+                    688.0
+                  ],
+                  [
+                    390.0,
+                    688.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 424.0,
+                    "y": 676.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Biblio.com",
+                "confidence": 0.9712,
+                "bbox": [
+                  [
+                    387.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    684.0
+                  ],
+                  [
+                    475.0,
+                    709.0
+                  ],
+                  [
+                    387.0,
+                    709.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 431.0,
+                    "y": 696.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: signed francis willard book"
+            ],
+            "mid-mid": [
+              "nn th ot o8&.=purg. for may deaxar Jotyg\nMoss Mame in Etsosity is\np0ura\n30 Mans68"
+            ],
+            "bottom-mid": [
+              "Signed First Edition: Finding the Measure\nby Kelly, Robert\n$200.00\nBiblio.com"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: signed francis willard book",
+              "confidence": 0.9982,
+              "bbox": [
+                [
+                  267.0,
+                  143.0
+                ],
+                [
+                  718.0,
+                  143.0
+                ],
+                [
+                  718.0,
+                  175.0
+                ],
+                [
+                  267.0,
+                  175.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 492.5,
+                  "y": 159.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "nn th ot o8&.=purg. for may deaxar Jotyg\nMoss Mame in Etsosity is\np0ura\n30 Mans68",
+              "confidence": 0.5956,
+              "bbox": [
+                [
+                  481.0,
+                  326.0
+                ],
+                [
+                  651.0,
+                  326.0
+                ],
+                [
+                  651.0,
+                  495.0
+                ],
+                [
+                  481.0,
+                  495.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 566.0,
+                  "y": 410.5
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "Signed First Edition: Finding the Measure\nby Kelly, Robert\n$200.00\nBiblio.com",
+              "confidence": 0.9844,
+              "bbox": [
+                [
+                  387.0,
+                  627.0
+                ],
+                [
+                  695.0,
+                  627.0
+                ],
+                [
+                  695.0,
+                  709.0
+                ],
+                [
+                  387.0,
+                  709.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 541.0,
+                  "y": 668.0
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-02T16:26:24",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260502_162616_506129.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260502_162616_506129.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 5,
+              "total_text_length": 67,
+              "average_confidence": 0.8523,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 5,
+              "total_text_length": 67,
+              "average_confidence": 0.8523,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 4,
+              "total_text_length": 66,
+              "average_confidence": 0.9926,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 6,
+              "total_text_length": 68,
+              "average_confidence": 0.7683,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 4,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: safari alto\nSea to Summit Alto TR 2 Plus Tent Gray\n$449.00\nREI",
+            "query_line": {
+              "text": "Query: safari alto",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  296.0,
+                  89.0
+                ],
+                [
+                  528.0,
+                  89.0
+                ],
+                [
+                  528.0,
+                  125.0
+                ],
+                [
+                  296.0,
+                  125.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 412.0,
+                  "y": 107.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Sea to Summit Alto TR 2 Plus Tent Gray\n$449.00\nREI",
+            "selected_lines": [
+              {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    296.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    125.0
+                  ],
+                  [
+                    296.0,
+                    125.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 412.0,
+                    "y": 107.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9972,
+                "bbox": [
+                  [
+                    347.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    527.0
+                  ],
+                  [
+                    347.0,
+                    527.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 520.0,
+                    "y": 511.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 0.9782,
+                "bbox": [
+                  [
+                    349.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    547.0
+                  ],
+                  [
+                    349.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 389.0,
+                    "y": 534.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9954,
+                "bbox": [
+                  [
+                    348.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    573.0
+                  ],
+                  [
+                    348.0,
+                    573.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 367.5,
+                    "y": 558.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9972,
+                "bbox": [
+                  [
+                    347.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    527.0
+                  ],
+                  [
+                    347.0,
+                    527.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 520.0,
+                    "y": 511.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 0.9782,
+                "bbox": [
+                  [
+                    349.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    547.0
+                  ],
+                  [
+                    349.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 389.0,
+                    "y": 534.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9954,
+                "bbox": [
+                  [
+                    348.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    573.0
+                  ],
+                  [
+                    348.0,
+                    573.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 367.5,
+                    "y": 558.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 3,
+              "price_line_indexes": [
+                1
+              ],
+              "dark_price_line_indexes": [
+                1
+              ],
+              "price_anchor_index": 1,
+              "blue_title_line_indexes": [
+                0
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.482,
+                  "ratios": {
+                    "blue": 0.482,
+                    "green": 0.007,
+                    "dark": 0.002
+                  },
+                  "ink_pixel_count": 4526
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.628,
+                  "ratios": {
+                    "blue": 0.018,
+                    "green": 0.018,
+                    "dark": 0.628
+                  },
+                  "ink_pixel_count": 798
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.557,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.557,
+                    "dark": 0.18
+                  },
+                  "ink_pixel_count": 323
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    296.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    125.0
+                  ],
+                  [
+                    296.0,
+                    125.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 412.0,
+                    "y": 107.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 371.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: safari alto",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    296.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    89.0
+                  ],
+                  [
+                    528.0,
+                    125.0
+                  ],
+                  [
+                    296.0,
+                    125.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 412.0,
+                    "y": 107.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Sea to Summit Alto TR 2 Plus Tent Gray",
+                "confidence": 0.9972,
+                "bbox": [
+                  [
+                    347.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    496.0
+                  ],
+                  [
+                    693.0,
+                    527.0
+                  ],
+                  [
+                    347.0,
+                    527.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 520.0,
+                    "y": 511.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$449.00",
+                "confidence": 0.9782,
+                "bbox": [
+                  [
+                    349.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    521.0
+                  ],
+                  [
+                    429.0,
+                    547.0
+                  ],
+                  [
+                    349.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 389.0,
+                    "y": 534.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "REI",
+                "confidence": 0.9954,
+                "bbox": [
+                  [
+                    348.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    544.0
+                  ],
+                  [
+                    387.0,
+                    573.0
+                  ],
+                  [
+                    348.0,
+                    573.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 367.5,
+                    "y": 558.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: safari alto"
+            ],
+            "bottom-mid": [
+              "Sea to Summit Alto TR 2 Plus Tent Gray $449.00\nREI"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: safari alto",
+              "confidence": 0.9997,
+              "bbox": [
+                [
+                  296.0,
+                  89.0
+                ],
+                [
+                  528.0,
+                  89.0
+                ],
+                [
+                  528.0,
+                  125.0
+                ],
+                [
+                  296.0,
+                  125.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 412.0,
+                  "y": 107.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Sea to Summit Alto TR 2 Plus Tent Gray $449.00\nREI",
+              "confidence": 0.9903,
+              "bbox": [
+                [
+                  347.0,
+                  496.0
+                ],
+                [
+                  693.0,
+                  496.0
+                ],
+                [
+                  693.0,
+                  573.0
+                ],
+                [
+                  347.0,
+                  573.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 520.0,
+                  "y": 534.5
+                }
+              },
+              "raw_item_count": 3
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-02T16:28:48",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260502_162840_287897.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260502_162840_287897.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 8,
+              "total_text_length": 109,
+              "average_confidence": 0.7789,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 8,
+              "total_text_length": 109,
+              "average_confidence": 0.7722,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 5,
+              "total_text_length": 106,
+              "average_confidence": 0.9935,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 5,
+              "total_text_length": 84,
+              "average_confidence": 0.8361,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 5,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: 1669066903\nDodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "query_line": {
+              "text": "Query: 1669066903",
+              "confidence": 0.9955,
+              "bbox": [
+                [
+                  288.0,
+                  101.0
+                ],
+                [
+                  542.0,
+                  101.0
+                ],
+                [
+                  542.0,
+                  140.0
+                ],
+                [
+                  288.0,
+                  140.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 415.0,
+                  "y": 120.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power\nHeated LED Lights\n$399.99\nTopGearAutosport.com",
+            "selected_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9955,
+                "bbox": [
+                  [
+                    288.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    140.0
+                  ],
+                  [
+                    288.0,
+                    140.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 415.0,
+                    "y": 120.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9769,
+                "bbox": [
+                  [
+                    385.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    606.0
+                  ],
+                  [
+                    385.0,
+                    606.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 563.0,
+                    "y": 595.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    384.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    625.0
+                  ],
+                  [
+                    384.0,
+                    625.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 452.0,
+                    "y": 613.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9959,
+                "bbox": [
+                  [
+                    385.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    643.0
+                  ],
+                  [
+                    385.0,
+                    643.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 416.0,
+                    "y": 632.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    661.0
+                  ],
+                  [
+                    386.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 467.0,
+                    "y": 651.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9769,
+                "bbox": [
+                  [
+                    385.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    606.0
+                  ],
+                  [
+                    385.0,
+                    606.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 563.0,
+                    "y": 595.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    384.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    625.0
+                  ],
+                  [
+                    384.0,
+                    625.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 452.0,
+                    "y": 613.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9959,
+                "bbox": [
+                  [
+                    385.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    643.0
+                  ],
+                  [
+                    385.0,
+                    643.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 416.0,
+                    "y": 632.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    661.0
+                  ],
+                  [
+                    386.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 467.0,
+                    "y": 651.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 4,
+              "price_line_indexes": [
+                2
+              ],
+              "dark_price_line_indexes": [
+                2
+              ],
+              "price_anchor_index": 2,
+              "blue_title_line_indexes": [
+                0,
+                1
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.675,
+                  "ratios": {
+                    "blue": 0.675,
+                    "green": 0.004,
+                    "dark": 0.008
+                  },
+                  "ink_pixel_count": 3347
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.639,
+                  "ratios": {
+                    "blue": 0.639,
+                    "green": 0.003,
+                    "dark": 0.006
+                  },
+                  "ink_pixel_count": 1396
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.549,
+                  "ratios": {
+                    "blue": 0.015,
+                    "green": 0.023,
+                    "dark": 0.549
+                  },
+                  "ink_pixel_count": 648
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.367,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.367,
+                    "dark": 0.186
+                  },
+                  "ink_pixel_count": 1378
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: 1669066903",
+                "confidence": 0.9955,
+                "bbox": [
+                  [
+                    288.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    140.0
+                  ],
+                  [
+                    288.0,
+                    140.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 415.0,
+                    "y": 120.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 445.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: 1669066903",
+                "confidence": 0.9955,
+                "bbox": [
+                  [
+                    288.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    101.0
+                  ],
+                  [
+                    542.0,
+                    140.0
+                  ],
+                  [
+                    288.0,
+                    140.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 415.0,
+                    "y": 120.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Dodge Ram 2500 2019-2022 Towing Mirrors Power",
+                "confidence": 0.9769,
+                "bbox": [
+                  [
+                    385.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    585.0
+                  ],
+                  [
+                    741.0,
+                    606.0
+                  ],
+                  [
+                    385.0,
+                    606.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 563.0,
+                    "y": 595.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Heated LED Lights",
+                "confidence": 0.9996,
+                "bbox": [
+                  [
+                    384.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    602.0
+                  ],
+                  [
+                    520.0,
+                    625.0
+                  ],
+                  [
+                    384.0,
+                    625.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 452.0,
+                    "y": 613.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$399.99",
+                "confidence": 0.9959,
+                "bbox": [
+                  [
+                    385.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    621.0
+                  ],
+                  [
+                    447.0,
+                    643.0
+                  ],
+                  [
+                    385.0,
+                    643.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 416.0,
+                    "y": 632.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "TopGearAutosport.com",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    386.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    641.0
+                  ],
+                  [
+                    548.0,
+                    661.0
+                  ],
+                  [
+                    386.0,
+                    661.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 467.0,
+                    "y": 651.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: 1669066903"
+            ],
+            "bottom-mid": [
+              "Heated LED Lights Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99\nTopGearAutosport.com"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: 1669066903",
+              "confidence": 0.9955,
+              "bbox": [
+                [
+                  288.0,
+                  101.0
+                ],
+                [
+                  542.0,
+                  101.0
+                ],
+                [
+                  542.0,
+                  140.0
+                ],
+                [
+                  288.0,
+                  140.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 415.0,
+                  "y": 120.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Heated LED Lights Dodge Ram 2500 2019-2022 Towing Mirrors Power\n$399.99\nTopGearAutosport.com",
+              "confidence": 0.9931,
+              "bbox": [
+                [
+                  384.0,
+                  585.0
+                ],
+                [
+                  741.0,
+                  585.0
+                ],
+                [
+                  741.0,
+                  661.0
+                ],
+                [
+                  384.0,
+                  661.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 562.5,
+                  "y": 623.0
+                }
+              },
+              "raw_item_count": 4
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-02T16:31:08",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\llm_test_20260502_163059_554244.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "threshold_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\llm_test_20260502_163059_554244.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 13,
+              "total_text_length": 222,
+              "average_confidence": 0.9381,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 11,
+              "total_text_length": 190,
+              "average_confidence": 0.8805,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 8,
+              "total_text_length": 143,
+              "average_confidence": 0.9139,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 14,
+              "total_text_length": 180,
+              "average_confidence": 0.7924,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 14,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: ceiling grid spray paint home depot\nRust-Oleur fnverted Striping Paict -\nWhite - Rust-Oluen - Oty of 6 -\nS-21133W\n$60.00\n. I'. .",
+            "query_line": {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9995,
+              "bbox": [
+                [
+                  333.0,
+                  63.0
+                ],
+                [
+                  893.0,
+                  63.0
+                ],
+                [
+                  893.0,
+                  97.0
+                ],
+                [
+                  333.0,
+                  97.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 613.0,
+                  "y": 80.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Rust-Oleur fnverted Striping Paict -\nWhite - Rust-Oluen - Oty of 6 -\nS-21133W\n$60.00\n. I'. .",
+            "selected_lines": [
+              {
+                "text": "Query: ceiling grid spray paint home depot",
+                "confidence": 0.9995,
+                "bbox": [
+                  [
+                    333.0,
+                    63.0
+                  ],
+                  [
+                    893.0,
+                    63.0
+                  ],
+                  [
+                    893.0,
+                    97.0
+                  ],
+                  [
+                    333.0,
+                    97.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 613.0,
+                    "y": 80.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Rust-Oleur fnverted Striping Paict -",
+                "confidence": 0.9409,
+                "bbox": [
+                  [
+                    455.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    574.0
+                  ],
+                  [
+                    455.0,
+                    574.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 584.0,
+                    "y": 564.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluen - Oty of 6 -",
+                "confidence": 0.9839,
+                "bbox": [
+                  [
+                    455.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    593.0
+                  ],
+                  [
+                    455.0,
+                    593.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 566.0,
+                    "y": 584.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9957,
+                "bbox": [
+                  [
+                    455.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    611.0
+                  ],
+                  [
+                    455.0,
+                    611.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9987,
+                "bbox": [
+                  [
+                    454.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    630.0
+                  ],
+                  [
+                    454.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 480.5,
+                    "y": 620.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": ". I'. .",
+                "confidence": 0.5945,
+                "bbox": [
+                  [
+                    453.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    650.0
+                  ],
+                  [
+                    453.0,
+                    650.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 476.5,
+                    "y": 640.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Rust-Oleur fnverted Striping Paict -",
+                "confidence": 0.9409,
+                "bbox": [
+                  [
+                    455.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    574.0
+                  ],
+                  [
+                    455.0,
+                    574.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 584.0,
+                    "y": 564.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluen - Oty of 6 -",
+                "confidence": 0.9839,
+                "bbox": [
+                  [
+                    455.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    593.0
+                  ],
+                  [
+                    455.0,
+                    593.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 566.0,
+                    "y": 584.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9957,
+                "bbox": [
+                  [
+                    455.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    611.0
+                  ],
+                  [
+                    455.0,
+                    611.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9987,
+                "bbox": [
+                  [
+                    454.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    630.0
+                  ],
+                  [
+                    454.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 480.5,
+                    "y": 620.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": ". I'. .",
+                "confidence": 0.5945,
+                "bbox": [
+                  [
+                    453.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    650.0
+                  ],
+                  [
+                    453.0,
+                    650.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 476.5,
+                    "y": 640.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 5,
+              "price_line_indexes": [
+                3
+              ],
+              "dark_price_line_indexes": [
+                3
+              ],
+              "price_anchor_index": 3,
+              "blue_title_line_indexes": [
+                0,
+                1,
+                2
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.668,
+                  "ratios": {
+                    "blue": 0.668,
+                    "green": 0.011,
+                    "dark": 0.002
+                  },
+                  "ink_pixel_count": 2128
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.709,
+                  "ratios": {
+                    "blue": 0.709,
+                    "green": 0.01,
+                    "dark": 0.003
+                  },
+                  "ink_pixel_count": 1613
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.645,
+                  "ratios": {
+                    "blue": 0.645,
+                    "green": 0.021,
+                    "dark": 0.002
+                  },
+                  "ink_pixel_count": 623
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.593,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.002,
+                    "dark": 0.593
+                  },
+                  "ink_pixel_count": 526
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.566,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.566,
+                    "dark": 0.246
+                  },
+                  "ink_pixel_count": 378
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "\" \"\" I;, .. , ..t..",
+                "confidence": 0.6111,
+                "bbox": [
+                  [
+                    562.0,
+                    397.0
+                  ],
+                  [
+                    635.0,
+                    397.0
+                  ],
+                  [
+                    635.0,
+                    422.0
+                  ],
+                  [
+                    562.0,
+                    422.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 598.5,
+                    "y": 409.5
+                  }
+                },
+                "raw_item_count": 3
+              },
+              "gap_px": 133.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: ceiling grid spray paint home depot",
+                "confidence": 0.9995,
+                "bbox": [
+                  [
+                    333.0,
+                    63.0
+                  ],
+                  [
+                    893.0,
+                    63.0
+                  ],
+                  [
+                    893.0,
+                    97.0
+                  ],
+                  [
+                    333.0,
+                    97.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 613.0,
+                    "y": 80.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "RUST-OLEUM",
+                "confidence": 0.9802,
+                "bbox": [
+                  [
+                    552.0,
+                    251.0
+                  ],
+                  [
+                    644.0,
+                    251.0
+                  ],
+                  [
+                    644.0,
+                    276.0
+                  ],
+                  [
+                    552.0,
+                    276.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 598.0,
+                    "y": 263.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "NOUSAL C CHOCICE.",
+                "confidence": 0.6133,
+                "bbox": [
+                  [
+                    565.0,
+                    270.0
+                  ],
+                  [
+                    632.0,
+                    270.0
+                  ],
+                  [
+                    632.0,
+                    296.0
+                  ],
+                  [
+                    565.0,
+                    296.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 598.5,
+                    "y": 283.0
+                  }
+                },
+                "raw_item_count": 2
+              },
+              {
+                "text": "Smp*ry P",
+                "confidence": 0.77,
+                "bbox": [
+                  [
+                    572.0,
+                    305.0
+                  ],
+                  [
+                    625.0,
+                    305.0
+                  ],
+                  [
+                    625.0,
+                    326.0
+                  ],
+                  [
+                    572.0,
+                    326.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 598.5,
+                    "y": 315.5
+                  }
+                },
+                "raw_item_count": 2
+              },
+              {
+                "text": "\" \"\" I;, .. , ..t..",
+                "confidence": 0.6111,
+                "bbox": [
+                  [
+                    562.0,
+                    397.0
+                  ],
+                  [
+                    635.0,
+                    397.0
+                  ],
+                  [
+                    635.0,
+                    422.0
+                  ],
+                  [
+                    562.0,
+                    422.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 598.5,
+                    "y": 409.5
+                  }
+                },
+                "raw_item_count": 3
+              },
+              {
+                "text": "Rust-Oleur fnverted Striping Paict -",
+                "confidence": 0.9409,
+                "bbox": [
+                  [
+                    455.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    555.0
+                  ],
+                  [
+                    713.0,
+                    574.0
+                  ],
+                  [
+                    455.0,
+                    574.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 584.0,
+                    "y": 564.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "White - Rust-Oluen - Oty of 6 -",
+                "confidence": 0.9839,
+                "bbox": [
+                  [
+                    455.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    575.0
+                  ],
+                  [
+                    677.0,
+                    593.0
+                  ],
+                  [
+                    455.0,
+                    593.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 566.0,
+                    "y": 584.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "S-21133W",
+                "confidence": 0.9957,
+                "bbox": [
+                  [
+                    455.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    594.0
+                  ],
+                  [
+                    533.0,
+                    611.0
+                  ],
+                  [
+                    455.0,
+                    611.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 602.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$60.00",
+                "confidence": 0.9987,
+                "bbox": [
+                  [
+                    454.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    611.0
+                  ],
+                  [
+                    507.0,
+                    630.0
+                  ],
+                  [
+                    454.0,
+                    630.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 480.5,
+                    "y": 620.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": ". I'. .",
+                "confidence": 0.5945,
+                "bbox": [
+                  [
+                    453.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    631.0
+                  ],
+                  [
+                    500.0,
+                    650.0
+                  ],
+                  [
+                    453.0,
+                    650.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 476.5,
+                    "y": 640.5
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: ceiling grid spray paint home depot"
+            ],
+            "mid-mid": [
+              "RUST-OLEUM NOUSAL C CHOCICE.\nSmp*ry P",
+              "\" \"\" I;, .. , ..t.."
+            ],
+            "bottom-mid": [
+              "Rust-Oleur fnverted Striping Paict -\nWhite - Rust-Oluen - Oty of 6 -\n$60.00 S-21133W\n. I'. ."
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: ceiling grid spray paint home depot",
+              "confidence": 0.9995,
+              "bbox": [
+                [
+                  333.0,
+                  63.0
+                ],
+                [
+                  893.0,
+                  63.0
+                ],
+                [
+                  893.0,
+                  97.0
+                ],
+                [
+                  333.0,
+                  97.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 613.0,
+                  "y": 80.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "RUST-OLEUM NOUSAL C CHOCICE.\nSmp*ry P",
+              "confidence": 0.7494,
+              "bbox": [
+                [
+                  552.0,
+                  251.0
+                ],
+                [
+                  644.0,
+                  251.0
+                ],
+                [
+                  644.0,
+                  326.0
+                ],
+                [
+                  552.0,
+                  326.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 598.0,
+                  "y": 288.5
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "\" \"\" I;, .. , ..t..",
+              "confidence": 0.6111,
+              "bbox": [
+                [
+                  562.0,
+                  397.0
+                ],
+                [
+                  635.0,
+                  397.0
+                ],
+                [
+                  635.0,
+                  422.0
+                ],
+                [
+                  562.0,
+                  422.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 598.5,
+                  "y": 409.5
+                }
+              },
+              "raw_item_count": 3
+            },
+            {
+              "text": "Rust-Oleur fnverted Striping Paict -\nWhite - Rust-Oluen - Oty of 6 -\n$60.00 S-21133W\n. I'. .",
+              "confidence": 0.9027,
+              "bbox": [
+                [
+                  453.0,
+                  555.0
+                ],
+                [
+                  713.0,
+                  555.0
+                ],
+                [
+                  713.0,
+                  650.0
+                ],
+                [
+                  453.0,
+                  650.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 583.0,
+                  "y": 602.5
+                }
+              },
+              "raw_item_count": 5
+            }
+          ]
+        }
       ]
     }
   }
