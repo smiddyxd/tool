@@ -159,7 +159,8 @@ Base everything strictly on the screenshot attachment.`;
     baselineAssistantCount: 0,
     currentAssistantElement: null,
     baselineHeadingCounts: {},
-    nextHeadingIndex: 0,
+    detectedHeadingKeys: new Set(),
+    highlightRefreshAllowed: false,
     buttonColors: {},
   };
 
@@ -1037,6 +1038,8 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function noteManualScroll(source) {
+    armAnalysisHeadingHighlightRefresh(source);
+
     if (autoScrollState.runId === 0 || autoScrollState.userScrolled) {
       return;
     }
@@ -1448,6 +1451,7 @@ Base everything strictly on the screenshot attachment.`;
       button.style.top = `calc(50% + ${offsetPx}px)`;
       button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingEntry.key));
       button.addEventListener("click", () => {
+        armAnalysisHeadingHighlightRefresh("analysis-toc-click");
         void scrollToAnalysisHeading(headingEntry.key);
       });
       document.body.append(button);
@@ -1468,9 +1472,25 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.baselineAssistantCount = baselineAssistantCount;
     analysisTocState.currentAssistantElement = null;
     analysisTocState.baselineHeadingCounts = baselineHeadingCounts;
-    analysisTocState.nextHeadingIndex = 0;
+    analysisTocState.detectedHeadingKeys = new Set();
+    analysisTocState.highlightRefreshAllowed = false;
     ensureAnalysisTocButtons();
     resetAnalysisTocButtonStates();
+  }
+
+  function armAnalysisHeadingHighlightRefresh(source) {
+    const runId = analysisTocState.currentRunId;
+    if (runId === 0) {
+      return;
+    }
+
+    syncAnalysisHeadingCountsForRun(runId);
+    analysisTocState.highlightRefreshAllowed = true;
+
+    console.log("Local Query Bridge armed next heading-triggered highlight refresh", {
+      source,
+      runId,
+    });
   }
 
   function getAnalysisHeadingElements(assistantElement) {
@@ -1548,22 +1568,31 @@ Base everything strictly on the screenshot attachment.`;
     const counts = getAnalysisHeadingCounts();
     const newlyDetectedHeadings = [];
 
-    while (analysisTocState.nextHeadingIndex < ANALYSIS_HEADING_ENTRIES.length) {
-      const headingEntry = ANALYSIS_HEADING_ENTRIES[analysisTocState.nextHeadingIndex];
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      if (analysisTocState.detectedHeadingKeys.has(headingEntry.key)) {
+        continue;
+      }
+
       const baselineCount = analysisTocState.baselineHeadingCounts[headingEntry.key] ?? 0;
       const currentCount = counts[headingEntry.key] ?? 0;
       if (currentCount <= baselineCount) {
-        break;
+        continue;
       }
 
       setAnalysisTocButtonActive(headingEntry.key, true);
       newlyDetectedHeadings.push(headingEntry);
-      analysisTocState.nextHeadingIndex += 1;
+      analysisTocState.detectedHeadingKeys.add(headingEntry.key);
     }
 
-    if (newlyDetectedHeadings.length > 0) {
+    if (newlyDetectedHeadings.length > 0 && analysisTocState.highlightRefreshAllowed) {
+      analysisTocState.highlightRefreshAllowed = false;
       refreshHighlightsNow();
       console.log("Local Query Bridge refreshed highlights for analysis heading count increase(s)", {
+        runId,
+        headings: newlyDetectedHeadings.map((heading) => heading.label),
+      });
+    } else if (newlyDetectedHeadings.length > 0) {
+      console.log("Local Query Bridge skipped highlight refresh for unarmed analysis heading count increase(s)", {
         runId,
         headings: newlyDetectedHeadings.map((heading) => heading.label),
       });
