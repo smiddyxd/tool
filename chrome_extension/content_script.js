@@ -50,6 +50,9 @@ Base everything strictly on the screenshot attachment.`;
   const AUTO_SCROLL_MARKDOWN_CLASS = "markdown";
   const AUTO_SCROLL_TARGET_TEXT = "Rating: ";
   const AUTO_SCROLL_TARGET_OFFSET_PX = 0;
+  const RATING_SCROLL_BUTTON_ID = "local-query-bridge-rating-scroll-button";
+  const RATING_SCROLL_STYLE_ID = "local-query-bridge-rating-scroll-styles";
+  const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -574,25 +577,23 @@ Base everything strictly on the screenshot attachment.`;
     return bestMatch;
   }
 
-  function findAdjacentHighlightBounds(text, tokens, targetMatch, companionTermEntries, companionDistance) {
+  function collectAdjacentHighlightMatches(text, tokens, targetMatch, companionTermEntries, companionDistance) {
+    const matches = [{
+      startIndex: targetMatch.startIndex,
+      endIndex: targetMatch.endIndex,
+      start: targetMatch.start,
+      end: targetMatch.end,
+      priority: Boolean(targetMatch.priority),
+    }];
     const targetStartIndex = targetMatch.startIndex;
     const targetEndIndex = targetMatch.endIndex;
     if (!Array.isArray(companionTermEntries) || companionTermEntries.length === 0) {
-      return {
-        startIndex: targetStartIndex,
-        endIndex: targetEndIndex,
-        start: targetMatch.start,
-        end: targetMatch.end,
-        priority: false,
-      };
+      return matches;
     }
 
     const maxOffset = Math.max(1, (Number.parseInt(`${companionDistance}`, 10) || 0) + 1);
     let startIndex = targetStartIndex;
     let endIndex = targetEndIndex;
-    let start = targetMatch.start;
-    let end = targetMatch.end;
-    let priority = false;
 
     while (startIndex > 0) {
       const foundMatch = findPreviousAdjacentMatch(text, tokens, startIndex, companionTermEntries, maxOffset);
@@ -600,9 +601,8 @@ Base everything strictly on the screenshot attachment.`;
         break;
       }
 
+      matches.push(foundMatch);
       startIndex = foundMatch.startIndex;
-      start = foundMatch.start;
-      priority = priority || foundMatch.priority;
     }
 
     while (endIndex < tokens.length - 1) {
@@ -611,18 +611,11 @@ Base everything strictly on the screenshot attachment.`;
         break;
       }
 
+      matches.push(foundMatch);
       endIndex = foundMatch.endIndex;
-      end = foundMatch.end;
-      priority = priority || foundMatch.priority;
     }
 
-    return {
-      startIndex,
-      endIndex,
-      start,
-      end,
-      priority,
-    };
+    return matches;
   }
 
   function compareHighlightRangePreference(left, right) {
@@ -703,7 +696,7 @@ Base everything strictly on the screenshot attachment.`;
 
       for (const targetEntry of rule.targetTermEntries) {
         for (const targetMatch of collectTermEntryMatches(text, tokens, targetEntry)) {
-          const highlightBounds = findAdjacentHighlightBounds(
+          const relatedMatches = collectAdjacentHighlightMatches(
             text,
             tokens,
             targetMatch,
@@ -711,13 +704,15 @@ Base everything strictly on the screenshot attachment.`;
             rule.companionDistance,
           );
 
-          ranges.push({
-            start: highlightBounds.start,
-            end: highlightBounds.end,
-            color: rule.color,
-            textColor: rule.textColor,
-            priority: Boolean(targetMatch.priority || highlightBounds.priority),
-            ruleIndex,
+          relatedMatches.forEach((relatedMatch) => {
+            ranges.push({
+              start: relatedMatch.start,
+              end: relatedMatch.end,
+              color: rule.color,
+              textColor: rule.textColor,
+              priority: Boolean(targetMatch.priority || relatedMatch.priority),
+              ruleIndex,
+            });
           });
         }
       }
@@ -975,7 +970,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     autoScrollState.userScrolled = true;
-    console.log("Local Query Bridge auto-scroll canceled by manual scroll", { source, runId: autoScrollState.runId });
+    console.log("Local Query Bridge noted manual scroll during rating watch", { source, runId: autoScrollState.runId });
   }
 
   function findVisibleWebSearchMenuItem() {
@@ -1266,13 +1261,12 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function getNextAutoScrollTarget() {
-    const markdownRoot = document.getElementsByClassName(AUTO_SCROLL_MARKDOWN_CLASS)[0];
-    if (!(markdownRoot instanceof HTMLElement)) {
-      return null;
-    }
-
     const targetText = normalizeSearchText(AUTO_SCROLL_TARGET_TEXT);
-    const candidates = Array.from(markdownRoot.querySelectorAll("*")).filter((element) => {
+    const roots = Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR));
+    const searchRoots = roots.length > 0
+      ? roots
+      : Array.from(document.getElementsByClassName(AUTO_SCROLL_MARKDOWN_CLASS));
+    const candidates = searchRoots.flatMap((root) => Array.from(root.querySelectorAll("*"))).filter((element) => {
       if (!(element instanceof HTMLElement)) {
         return false;
       }
@@ -1307,6 +1301,71 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     return nextTarget;
+  }
+
+  function getAssistantRatingCount() {
+    return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
+      .reduce((total, element) => {
+        const matches = element.textContent?.match(/Rating: /g);
+        return total + (matches ? matches.length : 0);
+      }, 0);
+  }
+
+  function ensureRatingScrollButtonStyles() {
+    if (document.getElementById(RATING_SCROLL_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = RATING_SCROLL_STYLE_ID;
+    style.textContent = `
+      #${RATING_SCROLL_BUTTON_ID} {
+        position: fixed;
+        right: 18px;
+        top: 50%;
+        z-index: 2147483647;
+        transform: translateY(-50%);
+        border: 1px solid rgba(37, 99, 235, 0.35);
+        border-radius: 8px;
+        background: #2563eb;
+        color: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+        cursor: pointer;
+        font: 650 14px/1.2 "Segoe UI", system-ui, sans-serif;
+        padding: 10px 14px;
+      }
+
+      #${RATING_SCROLL_BUTTON_ID}:hover {
+        background: #1d4ed8;
+      }
+
+      #${RATING_SCROLL_BUTTON_ID}:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.25);
+        outline-offset: 2px;
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function hideRatingScrollButton() {
+    document.getElementById(RATING_SCROLL_BUTTON_ID)?.remove();
+  }
+
+  function showRatingScrollButton() {
+    ensureRatingScrollButtonStyles();
+    let button = document.getElementById(RATING_SCROLL_BUTTON_ID);
+    if (!(button instanceof HTMLButtonElement)) {
+      button = document.createElement("button");
+      button.id = RATING_SCROLL_BUTTON_ID;
+      button.type = "button";
+      button.textContent = "Rating";
+      button.addEventListener("click", () => {
+        if (scrollToNextPositionRationaleNow()) {
+          hideRatingScrollButton();
+        }
+      });
+      document.body.append(button);
+    }
   }
 
   function applyAutoScrollOffset(offsetPx) {
@@ -1348,20 +1407,19 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
-  async function watchResponseCompletionAndAutoScroll(runId) {
+  async function watchRatingCountIncreaseAndShowButton(runId, baselineRatingCount) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
-    let sawGenerating = false;
 
-    console.log("Local Query Bridge watching response completion", { runId });
+    console.log("Local Query Bridge watching rating count", { runId, baselineRatingCount });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
-      if (isResponseGenerating()) {
-        sawGenerating = true;
-      } else if (sawGenerating && isResponseIdle()) {
-        if (!autoScrollState.userScrolled) {
-          scrollToNextPositionRationaleNow();
-        } else {
-          console.log("Local Query Bridge skipped auto-scroll after completion", { runId });
-        }
+      const ratingCount = getAssistantRatingCount();
+      if (ratingCount > baselineRatingCount) {
+        showRatingScrollButton();
+        console.log("Local Query Bridge showed rating scroll button", {
+          runId,
+          baselineRatingCount,
+          ratingCount,
+        });
         if (autoScrollState.runId === runId) {
           autoScrollState.runId = 0;
         }
@@ -1380,7 +1438,9 @@ Base everything strictly on the screenshot attachment.`;
     autoScrollState.runId += 1;
     autoScrollState.userScrolled = false;
     const runId = autoScrollState.runId;
-    void watchResponseCompletionAndAutoScroll(runId);
+    const baselineRatingCount = getAssistantRatingCount();
+    hideRatingScrollButton();
+    void watchRatingCountIncreaseAndShowButton(runId, baselineRatingCount);
   }
 
   window.addEventListener("wheel", () => {
