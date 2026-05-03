@@ -40,6 +40,7 @@ const DEFAULT_HIGHLIGHT_RULES = [
 ];
 const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
 const ANALYSIS_SECTION_HEADINGS = [
+  { heading: "Query Coherence Check", label: "Query Coherence Check" },
   { heading: "Decision Gates", label: "Decision Gates" },
   { heading: "Interpretations Table", label: "Interpretations Table" },
   { heading: "Query Components", label: "Query Components" },
