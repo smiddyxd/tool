@@ -320,6 +320,61 @@ Base everything strictly on the screenshot attachment.`;
     };
   }
 
+  function escapeRegexText(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function hasRawPunctuation(value) {
+    return /[^\p{L}\p{N}\s]/u.test(
+      (typeof value === "string" ? value : "").replace(/\.{3}/g, ""),
+    );
+  }
+
+  function parseExcludedTermLine(value) {
+    const rawText = typeof value === "string" ? value.trim() : "";
+    const isPriority = rawText.startsWith("!");
+    const text = isPriority ? rawText.slice(1).trimStart() : rawText;
+    if (!text || text.startsWith("r-") || !hasRawPunctuation(text)) {
+      return parseTermLine(rawText);
+    }
+
+    return {
+      type: "regex",
+      regex: new RegExp(`(?<!\\S)${escapeRegexText(text)}(?!\\S)`, "giu"),
+      priority: false,
+    };
+  }
+
+  function compileHighlightMatchEntries(values) {
+    const targetTermEntries = [];
+    const excludedTermEntries = [];
+
+    for (const value of values) {
+      const rawText = typeof value === "string" ? value.trim() : "";
+      if (!rawText) {
+        continue;
+      }
+
+      const isExcluded = rawText.startsWith("--");
+      const text = isExcluded ? rawText.slice(2).trimStart() : rawText;
+      const entry = isExcluded ? parseExcludedTermLine(text) : parseTermLine(text);
+      if (!entry) {
+        continue;
+      }
+
+      if (isExcluded) {
+        excludedTermEntries.push(entry);
+      } else {
+        targetTermEntries.push(entry);
+      }
+    }
+
+    return {
+      targetTermEntries,
+      excludedTermEntries,
+    };
+  }
+
   function compileTermEntries(values) {
     return values
       .map((value) => parseTermLine(value))
@@ -372,7 +427,11 @@ Base everything strictly on the screenshot attachment.`;
   function compileHighlightRule(rawRule, index = 0) {
     const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
     const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
-    const targetTermEntries = compileTermEntries(matchStrings);
+    const positiveMatchStrings = matchStrings.filter((value) => !value.trim().startsWith("--"));
+    const {
+      targetTermEntries,
+      excludedTermEntries,
+    } = compileHighlightMatchEntries(matchStrings);
 
     if (targetTermEntries.length === 0) {
       return null;
@@ -388,11 +447,12 @@ Base everything strictly on the screenshot attachment.`;
 
     return {
       id: typeof rawRule?.id === "string" && rawRule.id.trim() ? rawRule.id.trim() : fallbackRule.id,
-      label: typeof rawRule?.label === "string" && rawRule.label.trim() ? rawRule.label.trim() : matchStrings[0],
+      label: typeof rawRule?.label === "string" && rawRule.label.trim() ? rawRule.label.trim() : positiveMatchStrings[0],
       color,
       textColor: getReadableTextColor(color),
       enabled: rawRule?.enabled !== false,
       targetTermEntries,
+      excludedTermEntries,
       companionTermEntries,
       companionDistance,
     };
@@ -760,6 +820,33 @@ Base everything strictly on the screenshot attachment.`;
     return selectedSegments;
   }
 
+  function rangesOverlap(left, right) {
+    return Boolean(
+      left
+      && right
+      && Number.isFinite(left.start)
+      && Number.isFinite(left.end)
+      && Number.isFinite(right.start)
+      && Number.isFinite(right.end)
+      && left.start < right.end
+      && right.start < left.end
+    );
+  }
+
+  function collectExcludedMatches(text, tokens, excludedTermEntries) {
+    if (!Array.isArray(excludedTermEntries) || excludedTermEntries.length === 0) {
+      return [];
+    }
+
+    return excludedTermEntries.flatMap((entry) => (
+      collectTermEntryMatches(text, tokens, entry)
+    ));
+  }
+
+  function isExcludedMatch(match, excludedMatches) {
+    return excludedMatches.some((excludedMatch) => rangesOverlap(match, excludedMatch));
+  }
+
   function collectHighlightRanges(text, rules) {
     const tokens = extractWordTokens(text);
     const ranges = [];
@@ -773,8 +860,13 @@ Base everything strictly on the screenshot attachment.`;
         return;
       }
 
+      const excludedMatches = collectExcludedMatches(text, tokens, rule.excludedTermEntries);
       for (const targetEntry of rule.targetTermEntries) {
         for (const targetMatch of collectTermEntryMatches(text, tokens, targetEntry)) {
+          if (isExcludedMatch(targetMatch, excludedMatches)) {
+            continue;
+          }
+
           const relatedMatches = collectAdjacentHighlightMatches(
             text,
             tokens,
@@ -784,6 +876,10 @@ Base everything strictly on the screenshot attachment.`;
           );
 
           relatedMatches.forEach((relatedMatch) => {
+            if (isExcludedMatch(relatedMatch, excludedMatches)) {
+              return;
+            }
+
             ranges.push({
               start: relatedMatch.start,
               end: relatedMatch.end,

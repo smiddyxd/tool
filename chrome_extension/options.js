@@ -161,6 +161,22 @@ function normalizeStringList(value) {
     });
 }
 
+function isExcludedMatchString(value) {
+  return typeof value === "string" && value.trim().startsWith("--");
+}
+
+function getPositiveMatchStrings(matchStrings) {
+  return Array.isArray(matchStrings)
+    ? matchStrings.filter((value) => !isExcludedMatchString(value))
+    : [];
+}
+
+function getExcludedMatchStrings(matchStrings) {
+  return Array.isArray(matchStrings)
+    ? matchStrings.filter(isExcludedMatchString)
+    : [];
+}
+
 function sanitizeColor(value, fallback = "#facc15") {
   const rawValue = typeof value === "string" ? value.trim() : "";
   const shortHexMatch = rawValue.match(/^#([0-9a-f]{3})$/i);
@@ -198,7 +214,8 @@ function sanitizeAnalysisTocButtonColors(rawValue) {
 function sanitizeHighlightRule(rawRule, index = 0) {
   const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
   const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
-  if (matchStrings.length === 0) {
+  const positiveMatchStrings = getPositiveMatchStrings(matchStrings);
+  if (positiveMatchStrings.length === 0) {
     return null;
   }
 
@@ -209,7 +226,7 @@ function sanitizeHighlightRule(rawRule, index = 0) {
     : 0;
   const label = typeof rawRule?.label === "string" && rawRule.label.trim()
     ? rawRule.label.trim()
-    : (typeof rawRule?.name === "string" && rawRule.name.trim() ? rawRule.name.trim() : matchStrings[0]);
+    : (typeof rawRule?.name === "string" && rawRule.name.trim() ? rawRule.name.trim() : positiveMatchStrings[0]);
 
   return {
     id: typeof rawRule?.id === "string" && rawRule.id.trim() ? rawRule.id.trim() : createRuleId(),
@@ -273,12 +290,16 @@ function clearRuleForm() {
 }
 
 function createRuleSummary(rule) {
-  const targetSummary = rule.matchStrings.join(", ");
+  const targetSummary = getPositiveMatchStrings(rule.matchStrings).join(", ");
+  const excludedMatches = getExcludedMatchStrings(rule.matchStrings);
+  const exclusionSummary = excludedMatches.length > 0
+    ? ` | Excludes ${excludedMatches.map((value) => value.replace(/^--\s*/, "")).join(", ")}`
+    : "";
   const companionSummary = rule.companionWords.length > 0
     ? `${rule.companionWords.join(", ")} adjacent, range ${rule.companionDistance}`
     : "No included adjacent terms";
 
-  return `${targetSummary} | ${companionSummary}`;
+  return `${targetSummary}${exclusionSummary} | ${companionSummary}`;
 }
 
 function renderHighlightRules() {
@@ -382,7 +403,7 @@ async function saveHighlightRules(message = "Highlight rules saved.") {
 async function upsertHighlightRule() {
   const rule = getRuleFormValue();
   if (!rule) {
-    setStatus("Add at least one matched string before saving a rule.");
+    setStatus("Add at least one non-excluded matched string before saving a rule.");
     return;
   }
 
