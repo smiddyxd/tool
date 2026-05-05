@@ -189,6 +189,7 @@ Base everything strictly on the screenshot attachment.`;
   function normalizeAnalysisHeadingText(value) {
     return (typeof value === "string" ? value : "")
       .replace(/^\s*#+\s*/, "")
+      .replace(/^\s*(?:(?:\(?\d+[.)]|\(?[a-z][.)]|\(?[ivxlcdm]+[.)])\s*)+/i, "")
       .replace(/\([^)]*\)/g, "")
       .replace(/\s+/g, " ")
       .replace(/[:.]+$/g, "")
