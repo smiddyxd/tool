@@ -29,6 +29,7 @@ Base everything strictly on the screenshot attachment.`;
   const SHOW_ALERT_MESSAGE_TYPE = "showBridgeAlert";
   const QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE = "queueRepeatScreenshot";
   const SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE = "submitRepeatDraft";
+  const ACTIVATE_CURRENT_CHAT_MESSAGE_TYPE = "activateCurrentChat";
   const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
   const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
   const SCROLL_MESSAGE_TYPE = "scrollChatGpt";
@@ -1340,6 +1341,11 @@ Base everything strictly on the screenshot attachment.`;
       .filter((element) => element instanceof HTMLElement);
   }
 
+  function getLatestAssistantMessage() {
+    const messages = getAssistantMessages();
+    return messages[messages.length - 1] ?? null;
+  }
+
   function getCurrentAssistantMessageForRun(baselineAssistantCount) {
     const messages = getAssistantMessages();
     if (messages.length <= baselineAssistantCount) {
@@ -1541,6 +1547,15 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function findLatestAnalysisHeadingElement(headingKey) {
+    const preferredRoot = analysisTocState.currentAssistantElement instanceof HTMLElement
+      ? analysisTocState.currentAssistantElement
+      : null;
+    const preferredMatches = getAnalysisHeadingElements(preferredRoot)
+      .filter((element) => normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey);
+    if (preferredRoot instanceof HTMLElement) {
+      return preferredMatches[preferredMatches.length - 1] ?? null;
+    }
+
     const matches = getAllAnalysisHeadingElements()
       .filter((element) => normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey);
     return matches[matches.length - 1] ?? null;
@@ -1597,6 +1612,43 @@ Base everything strictly on the screenshot attachment.`;
         headings: newlyDetectedHeadings.map((heading) => heading.label),
       });
     }
+  }
+
+  function syncAnalysisTocButtonsForAssistantElement(assistantElement) {
+    ensureAnalysisTocButtons();
+    resetAnalysisTocButtonStates();
+
+    if (!(assistantElement instanceof HTMLElement)) {
+      return;
+    }
+
+    const headingKeys = new Set(
+      getAnalysisHeadingElements(assistantElement)
+        .map((element) => normalizeAnalysisHeadingText(element.textContent ?? ""))
+        .filter(Boolean),
+    );
+
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      setAnalysisTocButtonActive(headingEntry.key, headingKeys.has(headingEntry.key));
+    }
+  }
+
+  function activateCurrentChatSession() {
+    const latestAssistantElement = getLatestAssistantMessage();
+    analysisTocState.currentRunId = 0;
+    analysisTocState.baselineAssistantCount = Math.max(0, getAssistantMessages().length - 1);
+    analysisTocState.currentAssistantElement = latestAssistantElement;
+    analysisTocState.baselineHeadingCounts = {};
+    analysisTocState.detectedHeadingKeys = new Set();
+    analysisTocState.highlightRefreshAllowed = false;
+    syncAnalysisTocButtonsForAssistantElement(latestAssistantElement);
+    refreshHighlightsNow();
+
+    console.log("Local Query Bridge activated current ChatGPT tab", {
+      latestAssistantFound: latestAssistantElement instanceof HTMLElement,
+    });
+
+    return latestAssistantElement instanceof HTMLElement;
   }
 
   function getNextAutoScrollTarget() {
@@ -1752,6 +1804,7 @@ Base everything strictly on the screenshot attachment.`;
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
     let ratingButtonShown = false;
     let sawGenerating = false;
+    let responseCompleted = false;
 
     console.log("Local Query Bridge watching response generation", {
       runId,
@@ -1780,6 +1833,7 @@ Base everything strictly on the screenshot attachment.`;
       if (isResponseGenerating()) {
         sawGenerating = true;
       } else if (sawGenerating && isResponseIdle()) {
+        responseCompleted = true;
         break;
       }
 
@@ -1787,6 +1841,19 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     if (autoScrollState.runId === runId) {
+      if (responseCompleted) {
+        const currentAssistantElement = getCurrentAssistantMessageForRun(baselineAssistantCount);
+        if (currentAssistantElement instanceof HTMLElement) {
+          analysisTocState.currentAssistantElement = currentAssistantElement;
+        }
+
+        syncAnalysisHeadingCountsForRun(runId);
+        refreshHighlightsNow();
+        console.log("Local Query Bridge refreshed highlights after response completion", {
+          runId,
+        });
+      }
+
       autoScrollState.runId = 0;
     }
   }
@@ -2085,6 +2152,13 @@ Base everything strictly on the screenshot attachment.`;
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === PING_MESSAGE_TYPE) {
       sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message?.type === ACTIVATE_CURRENT_CHAT_MESSAGE_TYPE) {
+      hotkeyState.enabled = true;
+      const latestAssistantFound = activateCurrentChatSession();
+      sendResponse({ ok: true, latestAssistantFound });
       return false;
     }
 

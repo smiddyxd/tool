@@ -36,6 +36,7 @@ const CONTENT_SCRIPT_SUBMIT_TEXT_TYPE = "submitTextPrompt";
 const CONTENT_SCRIPT_SHOW_ALERT_TYPE = "showBridgeAlert";
 const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
 const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
+const CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE = "activateCurrentChat";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -568,6 +569,33 @@ async function sendScrollToChatGpt(tabId, direction, steps) {
   });
 
   return response?.ok === true;
+}
+
+async function activateCurrentChatTab(tabId) {
+  await ensureContentScript(tabId);
+
+  const response = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE,
+  });
+
+  return response?.ok === true;
+}
+
+async function handleActionClick(tab) {
+  if (!tab?.id || !isChatGptUrl(tab.url)) {
+    console.warn("Local Query Bridge action click ignored because the active tab is not ChatGPT", {
+      tabId: tab?.id,
+      url: tab?.url,
+    });
+    return;
+  }
+
+  state.lastChatGptTabId = tab.id;
+  const activated = await activateCurrentChatTab(tab.id);
+  console.log("Local Query Bridge action click activated current ChatGPT tab", {
+    tabId: tab.id,
+    activated,
+  });
 }
 
 async function assignPromptTargets(baseTabs, promptTexts, logLabel) {
@@ -1233,6 +1261,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 
   void pollLocalBridge();
+});
+
+chrome.action.onClicked.addListener((tab) => {
+  void handleActionClick(tab).catch((error) => {
+    console.warn("Local Query Bridge action click activation failed", error);
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
