@@ -1486,6 +1486,7 @@ Base everything strictly on the screenshot attachment.`;
       .${ANALYSIS_TOC_BUTTON_CLASS}.${ANALYSIS_TOC_BUTTON_ACTIVE_CLASS} {
         border-color: rgba(37, 99, 235, 0.35);
         background: var(--local-query-bridge-analysis-active-color, #2563eb);
+        color: var(--local-query-bridge-analysis-active-text-color, #ffffff);
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
       }
 
@@ -1506,13 +1507,19 @@ Base everything strictly on the screenshot attachment.`;
       .find((button) => button instanceof HTMLButtonElement && button.dataset.headingKey === headingKey) ?? null;
   }
 
+  function setAnalysisTocButtonColorVariables(button, headingKey) {
+    const backgroundColor = getAnalysisTocButtonColor(headingKey);
+    button.style.setProperty("--local-query-bridge-analysis-active-color", backgroundColor);
+    button.style.setProperty("--local-query-bridge-analysis-active-text-color", getReadableTextColor(backgroundColor));
+  }
+
   function setAnalysisTocButtonActive(headingKey, isActive) {
     const button = getAnalysisTocButton(headingKey);
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
 
-    button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingKey));
+    setAnalysisTocButtonColorVariables(button, headingKey);
     button.classList.toggle(ANALYSIS_TOC_BUTTON_ACTIVE_CLASS, Boolean(isActive));
   }
 
@@ -1520,7 +1527,7 @@ Base everything strictly on the screenshot attachment.`;
     for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
       const button = getAnalysisTocButton(headingEntry.key);
       if (button instanceof HTMLButtonElement) {
-        button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingEntry.key));
+        setAnalysisTocButtonColorVariables(button, headingEntry.key);
       }
     }
   }
@@ -1552,7 +1559,7 @@ Base everything strictly on the screenshot attachment.`;
       button.title = headingEntry.label;
       button.dataset.headingKey = headingEntry.key;
       button.style.top = `calc(50% + ${offsetPx}px)`;
-      button.style.setProperty("--local-query-bridge-analysis-active-color", getAnalysisTocButtonColor(headingEntry.key));
+      setAnalysisTocButtonColorVariables(button, headingEntry.key);
       button.addEventListener("click", () => {
         armAnalysisHeadingHighlightRefresh("analysis-toc-click");
         void scrollToAnalysisHeading(headingEntry.key);
