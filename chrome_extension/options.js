@@ -191,6 +191,55 @@ function sanitizeColor(value, fallback = "#facc15") {
   return fallback;
 }
 
+function normalizeHexColorValue(value, fallback = "#facc15") {
+  const rawValue = typeof value === "string" ? value.trim() : "";
+  if (!rawValue) {
+    return fallback;
+  }
+
+  return sanitizeColor(rawValue.startsWith("#") ? rawValue : `#${rawValue}`, fallback);
+}
+
+function isValidHexColorValue(value) {
+  const rawValue = typeof value === "string" ? value.trim() : "";
+  return /^#?[0-9a-f]{3}$/i.test(rawValue) || /^#?[0-9a-f]{6}$/i.test(rawValue);
+}
+
+function setColorControlValue(colorInput, hexInput, value, fallback = "#facc15") {
+  const normalizedColor = normalizeHexColorValue(value, fallback);
+  colorInput.value = normalizedColor;
+  hexInput.value = normalizedColor;
+  return normalizedColor;
+}
+
+function bindColorControl(colorInput, hexInput, fallback, onChange) {
+  const applyColor = (value) => {
+    const normalizedColor = setColorControlValue(colorInput, hexInput, value, fallback);
+    if (typeof onChange === "function") {
+      onChange(normalizedColor);
+    }
+  };
+
+  colorInput.addEventListener("input", () => {
+    applyColor(colorInput.value);
+  });
+
+  hexInput.addEventListener("input", () => {
+    if (isValidHexColorValue(hexInput.value)) {
+      applyColor(hexInput.value);
+    }
+  });
+
+  hexInput.addEventListener("blur", () => {
+    if (isValidHexColorValue(hexInput.value)) {
+      applyColor(hexInput.value);
+      return;
+    }
+
+    setColorControlValue(colorInput, hexInput, colorInput.value, fallback);
+  });
+}
+
 function getDefaultAnalysisTocButtonColors() {
   return Object.fromEntries(
     ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
@@ -267,9 +316,11 @@ function setStatus(message) {
 }
 
 function fillRuleForm(rule) {
+  const colorInput = document.querySelector("#highlight-rule-color");
+  const hexInput = document.querySelector("#highlight-rule-color-hex");
   document.querySelector("#highlight-rule-id").value = rule?.id ?? "";
   document.querySelector("#highlight-rule-label").value = rule?.label ?? "";
-  document.querySelector("#highlight-rule-color").value = sanitizeColor(rule?.color, "#facc15");
+  setColorControlValue(colorInput, hexInput, rule?.color, "#facc15");
   document.querySelector("#highlight-rule-matches").value = Array.isArray(rule?.matchStrings) ? rule.matchStrings.join("\n") : "";
   document.querySelector("#highlight-rule-companions").value = Array.isArray(rule?.companionWords) ? rule.companionWords.join("\n") : "";
   document.querySelector("#highlight-rule-distance").value = String(Number.isFinite(rule?.companionDistance) ? rule.companionDistance : 0);
@@ -381,13 +432,30 @@ function renderAnalysisTocColors() {
     const input = document.createElement("input");
     input.id = `analysis-toc-color-${headingEntry.index}`;
     input.type = "color";
-    input.value = highlightState.tocButtonColors[headingEntry.key] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
     input.dataset.headingKey = headingEntry.key;
-    input.addEventListener("input", () => {
-      highlightState.tocButtonColors[headingEntry.key] = sanitizeColor(input.value, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR);
+
+    const hexInput = document.createElement("input");
+    hexInput.className = "hex-color-input";
+    hexInput.type = "text";
+    hexInput.autocomplete = "off";
+    hexInput.spellcheck = false;
+    hexInput.setAttribute("aria-label", `${headingEntry.label} hex color`);
+
+    const colorControl = document.createElement("span");
+    colorControl.className = "color-control";
+    colorControl.append(input, hexInput);
+
+    setColorControlValue(
+      input,
+      hexInput,
+      highlightState.tocButtonColors[headingEntry.key] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR,
+      DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR,
+    );
+    bindColorControl(input, hexInput, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR, (color) => {
+      highlightState.tocButtonColors[headingEntry.key] = color;
     });
 
-    row.append(labelText, input);
+    row.append(labelText, colorControl);
     list.append(row);
   }
 }
@@ -492,8 +560,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetButton = document.querySelector("#reset-defaults");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
+  const highlightColorInput = document.querySelector("#highlight-rule-color");
+  const highlightHexInput = document.querySelector("#highlight-rule-color-hex");
 
   void loadOptions();
+  bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
   form.addEventListener("submit", (event) => {
     void saveOptions(event);
   });

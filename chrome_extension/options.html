@@ -121,6 +121,18 @@
       cursor: pointer;
     }
 
+    .color-control {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 120px);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .hex-color-input {
+      font-family: Consolas, "Courier New", monospace;
+      text-transform: uppercase;
+    }
+
     .hint {
       margin: 0;
       color: var(--muted);
@@ -207,7 +219,7 @@
 
     .toc-color-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 200px);
       gap: 12px;
       align-items: center;
       padding: 10px 12px;
@@ -327,7 +339,10 @@
 
             <label for="highlight-rule-color">
               Color
-              <input id="highlight-rule-color" type="color" value="#facc15">
+              <span class="color-control">
+                <input id="highlight-rule-color" type="color" value="#facc15">
+                <input id="highlight-rule-color-hex" class="hex-color-input" type="text" value="#facc15" autocomplete="off" spellcheck="false" aria-label="Highlight color hex code">
+              </span>
             </label>
           </div>
 
