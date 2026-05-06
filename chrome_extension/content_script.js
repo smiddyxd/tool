@@ -53,8 +53,10 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
-  const ANALYSIS_TOC_LEFT_PX = 224;
-  const ANALYSIS_TOC_RIGHT_PX = 18;
+  const ANALYSIS_TOC_DEFAULT_LEFT_X_PX = 224;
+  const ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX = 18;
+  const ANALYSIS_TOC_MIN_COLUMN_POSITION_PX = 0;
+  const ANALYSIS_TOC_MAX_COLUMN_POSITION_PX = 5000;
   const ANALYSIS_TOC_SIDE_LEFT = "left";
   const ANALYSIS_TOC_SIDE_RIGHT = "right";
   const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
@@ -65,6 +67,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
   const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
+  const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -175,6 +178,10 @@ Base everything strictly on the screenshot attachment.`;
     buttonColors: {},
     buttonSettings: {},
     buttonLabels: {},
+    columnPositions: {
+      leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
+      rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
+    },
   };
 
   const hotkeyState = {
@@ -262,6 +269,41 @@ Base everything strictly on the screenshot attachment.`;
     return analysisTocState.buttonLabels[headingKey]
       ?? getDefaultAnalysisTocButtonLabels()[headingKey]
       ?? headingKey;
+  }
+
+  function getDefaultAnalysisTocColumnPositions() {
+    return {
+      leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
+      rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
+    };
+  }
+
+  function sanitizeAnalysisTocColumnPosition(value, fallback) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return fallback;
+    }
+
+    return Math.min(
+      ANALYSIS_TOC_MAX_COLUMN_POSITION_PX,
+      Math.max(ANALYSIS_TOC_MIN_COLUMN_POSITION_PX, parsedValue),
+    );
+  }
+
+  function sanitizeAnalysisTocColumnPositions(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocColumnPositions();
+
+    return {
+      leftPx: sanitizeAnalysisTocColumnPosition(source.leftPx, defaults.leftPx),
+      rightInsetPx: sanitizeAnalysisTocColumnPosition(source.rightInsetPx, defaults.rightInsetPx),
+    };
+  }
+
+  function getAnalysisTocColumnPositions() {
+    return analysisTocState.columnPositions ?? getDefaultAnalysisTocColumnPositions();
   }
 
   function getDefaultAnalysisTocButtonSettings() {
@@ -1117,12 +1159,14 @@ Base everything strictly on the screenshot attachment.`;
       [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
     analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
     analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
     analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
+    analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
     applyAnalysisTocButtonLabels();
@@ -1153,6 +1197,11 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_LABELS]) {
         analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(changes[STORAGE_KEY_ANALYSIS_TOC_LABELS].newValue);
         applyAnalysisTocButtonLabels();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]) {
+        analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS].newValue);
+        applyAnalysisTocButtonSettings();
       }
     });
 
@@ -1577,7 +1626,7 @@ Base everything strictly on the screenshot attachment.`;
     style.textContent = `
       .${ANALYSIS_TOC_BUTTON_CLASS} {
         position: fixed;
-        left: ${ANALYSIS_TOC_LEFT_PX}px;
+        left: ${ANALYSIS_TOC_DEFAULT_LEFT_X_PX}px;
         z-index: 2147483647;
         transform: translateY(-50%);
         max-width: 220px;
@@ -1630,11 +1679,12 @@ Base everything strictly on the screenshot attachment.`;
 
   function applyAnalysisTocButtonPlacement(button, headingKey, verticalOffsetPx) {
     const side = getAnalysisTocButtonSettings(headingKey).side;
+    const columnPositions = getAnalysisTocColumnPositions();
     if (side === ANALYSIS_TOC_SIDE_RIGHT) {
       button.style.left = "auto";
-      button.style.right = `${ANALYSIS_TOC_RIGHT_PX}px`;
+      button.style.right = `${columnPositions.rightInsetPx}px`;
     } else {
-      button.style.left = `${ANALYSIS_TOC_LEFT_PX}px`;
+      button.style.left = `${columnPositions.leftPx}px`;
       button.style.right = "auto";
     }
 

@@ -218,6 +218,16 @@
       gap: 10px;
     }
 
+    .toc-column-position-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
     .toc-settings-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
@@ -306,6 +316,7 @@
       }
 
       .grid-2,
+      .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
       .rule-row {
@@ -407,6 +418,20 @@
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
           <p class="hint">Edit each jump button's name, active color, screen side, and scroll offset in pixels.</p>
+        </div>
+
+        <div class="toc-column-position-grid" aria-label="TOC column positions">
+          <label for="analysis-toc-left-x">
+            Left column x
+            <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">
+            <p class="hint">Pixels from the left edge of the ChatGPT viewport.</p>
+          </label>
+
+          <label for="analysis-toc-right-inset">
+            Right column inset
+            <input id="analysis-toc-right-inset" type="number" min="0" max="5000" step="1" inputmode="numeric">
+            <p class="hint">Pixels from the right edge of the ChatGPT viewport.</p>
+          </label>
         </div>
 
         <div id="analysis-toc-settings-list" class="toc-settings-list"></div>
