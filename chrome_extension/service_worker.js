@@ -21,9 +21,13 @@ const EVENT_TYPE_SCROLL = "scroll";
 const EVENT_TYPE_REPEAT = "repeat";
 
 // Extension settings persisted through the options page.
-const DEFAULT_START_PAGE_URL = "https://chatgpt.com/g/g-p-69bc1388b0588191bd1c176e83f018e4";
+const CHATGPT_PROJECT_URL_PREFIX = "https://chatgpt.com/g/g-p-";
+const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
+const DEFAULT_START_PAGE_URL = `${CHATGPT_PROJECT_URL_PREFIX}${DEFAULT_PROJECT_ID}`;
 const DEFAULT_RESET_LIMIT = 0;
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
+const STORAGE_KEY_PROJECT_IDS = "projectIds";
+const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
@@ -165,22 +169,79 @@ function isChatGptUrl(url) {
 }
 
 function normalizeProjectUrlPrefix(value) {
+  return buildProjectStartPageUrl(sanitizeProjectId(value, DEFAULT_PROJECT_ID));
+}
+
+function extractProjectId(value) {
   const rawValue = typeof value === "string" ? value.trim() : "";
   if (!rawValue) {
-    return DEFAULT_START_PAGE_URL;
+    return "";
   }
 
-  const directProjectMatch = rawValue.match(/https:\/\/chatgpt\.com\/g\/g-p-[0-9a-f]{32}/i);
-  if (directProjectMatch?.[0]) {
-    return directProjectMatch[0].replace(/\/+$/, "");
+  const directMatch = rawValue.match(/^(?:g-p-)?([0-9a-f]{32})$/i);
+  if (directMatch?.[1]) {
+    return directMatch[1].toLocaleLowerCase();
   }
 
-  try {
-    const parsedUrl = new URL(rawValue);
-    return `${parsedUrl.origin}${parsedUrl.pathname}`.replace(/\/+$/, "");
-  } catch (_error) {
-    return DEFAULT_START_PAGE_URL;
+  const urlMatch = rawValue.match(/\/g\/g-p-([0-9a-f]{32})(?:[/?#]|$)/i);
+  return urlMatch?.[1]?.toLocaleLowerCase() ?? "";
+}
+
+function sanitizeProjectId(value, fallback = "") {
+  const projectId = extractProjectId(value);
+  if (projectId) {
+    return projectId;
   }
+
+  return fallback ? extractProjectId(fallback) : "";
+}
+
+function buildProjectStartPageUrl(projectId) {
+  return `${CHATGPT_PROJECT_URL_PREFIX}${sanitizeProjectId(projectId, DEFAULT_PROJECT_ID)}`;
+}
+
+function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
+  const rawValues = Array.isArray(rawValue)
+    ? rawValue
+    : (typeof rawValue === "string" ? rawValue.split(/[\s,]+/) : []);
+  const projectIds = [];
+  const seenIds = new Set();
+
+  for (const value of rawValues) {
+    const projectId = sanitizeProjectId(value);
+    if (!projectId || seenIds.has(projectId)) {
+      continue;
+    }
+
+    projectIds.push(projectId);
+    seenIds.add(projectId);
+  }
+
+  if (projectIds.length > 0) {
+    return projectIds;
+  }
+
+  return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
+}
+
+function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
+  const legacyProjectId = sanitizeProjectId(rawStartPageUrl, DEFAULT_PROJECT_ID);
+  const projectIds = sanitizeProjectIds(rawProjectIds, legacyProjectId);
+  const activeProjectId = sanitizeProjectId(rawActiveProjectId);
+
+  if (activeProjectId && !projectIds.includes(activeProjectId)) {
+    projectIds.push(activeProjectId);
+  }
+
+  const normalizedActiveProjectId = activeProjectId && projectIds.includes(activeProjectId)
+    ? activeProjectId
+    : (projectIds.includes(legacyProjectId) ? legacyProjectId : projectIds[0]);
+
+  return {
+    projectIds,
+    activeProjectId: normalizedActiveProjectId,
+    defaultStartPageUrl: buildProjectStartPageUrl(normalizedActiveProjectId),
+  };
 }
 
 function isEligibleProjectUrl(url, startPageUrl) {
@@ -197,7 +258,7 @@ function preferEligibleProjectTabs(tabs, startPageUrl) {
     ? tabs.filter((tab) => tab?.id && isChatGptUrl(tab.url))
     : [];
   const eligibleTabs = chatGptTabs.filter((tab) => isEligibleProjectUrl(tab.url, startPageUrl));
-  return eligibleTabs.length > 0 ? eligibleTabs : chatGptTabs;
+  return eligibleTabs;
 }
 
 function isFreshProjectStartUrl(url, startPageUrl) {
@@ -263,11 +324,18 @@ function selectPromptForIndex(promptTexts, index) {
 async function getOptions() {
   const stored = await chrome.storage.sync.get({
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
+    [STORAGE_KEY_PROJECT_IDS]: null,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
   });
+  const projectSettings = normalizeProjectSettings(
+    stored[STORAGE_KEY_PROJECT_IDS],
+    stored[STORAGE_KEY_ACTIVE_PROJECT_ID],
+    stored[STORAGE_KEY_START_PAGE_URL],
+  );
 
   return {
-    defaultStartPageUrl: sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]),
+    ...projectSettings,
     resetLimit: sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]),
   };
 }
@@ -276,6 +344,8 @@ async function ensureDefaultOptions() {
   const options = await getOptions();
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: options.defaultStartPageUrl,
+    [STORAGE_KEY_PROJECT_IDS]: options.projectIds,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: options.activeProjectId,
     [STORAGE_KEY_RESET_LIMIT]: options.resetLimit,
   });
 }
@@ -346,12 +416,14 @@ async function getPreferredChatGptTab(startPageUrl = DEFAULT_START_PAGE_URL) {
   if (Number.isInteger(state.lastChatGptTabId)) {
     try {
       const knownTab = await chrome.tabs.get(state.lastChatGptTabId);
-      if (knownTab?.id && isChatGptUrl(knownTab.url)) {
+      if (knownTab?.id && isEligibleProjectUrl(knownTab.url, startPageUrl)) {
         return knownTab;
       }
     } catch (_error) {
       state.lastChatGptTabId = null;
     }
+
+    state.lastChatGptTabId = null;
   }
 
   const tabs = await chrome.tabs.query({
@@ -590,11 +662,16 @@ async function handleActionClick(tab) {
     return;
   }
 
-  state.lastChatGptTabId = tab.id;
+  const settings = await getOptions();
+  if (isEligibleProjectUrl(tab.url, settings.defaultStartPageUrl)) {
+    state.lastChatGptTabId = tab.id;
+  }
+
   const activated = await activateCurrentChatTab(tab.id);
   console.log("Local Query Bridge action click activated current ChatGPT tab", {
     tabId: tab.id,
     activated,
+    activeProjectId: settings.activeProjectId,
   });
 }
 
@@ -610,8 +687,13 @@ async function assignPromptTargets(baseTabs, promptTexts, logLabel) {
       .filter((tab) => tab?.id && isChatGptUrl(tab.url))
       .map((tab) => String(tab.id)),
   );
+  const eligibleTargetTabIds = new Set(
+    baseTabs
+      .filter((tab) => tab?.id)
+      .map((tab) => String(tab.id)),
+  );
   for (const tabId of Object.keys(slotMap)) {
-    if (!liveTabIds.has(tabId)) {
+    if (!liveTabIds.has(tabId) || !eligibleTargetTabIds.has(tabId)) {
       delete slotMap[tabId];
       slotMapChanged = true;
     }

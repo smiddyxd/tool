@@ -226,6 +226,68 @@
       gap: 10px;
     }
 
+    .project-id-manager {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .project-id-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .project-id-row {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 290px) minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 13px;
+    }
+
+    .project-active-control {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-weight: 650;
+    }
+
+    .project-active-control input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .project-id-value,
+    .project-id-url {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .project-id-value {
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+
+    .project-id-url {
+      color: var(--muted);
+    }
+
+    .project-id-add-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
     .toc-settings-list {
       display: grid;
       gap: 10px;
@@ -351,6 +413,8 @@
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
+      .project-id-row,
+      .project-id-add-row,
       .rule-row {
         grid-template-columns: 1fr;
       }
@@ -378,11 +442,29 @@
           <h2 id="bridge-settings-heading">Bridge Settings</h2>
         </div>
 
-        <label for="default-start-page-url">
-          Default start page
-          <input id="default-start-page-url" name="defaultStartPageUrl" type="url" required>
-          <p class="hint">Use the ChatGPT project base URL. Matching ChatGPT tabs are reused before a new tab is opened.</p>
-        </label>
+        <div class="project-id-manager" aria-label="ChatGPT project IDs">
+          <div>
+            <h3>ChatGPT project IDs</h3>
+            <p class="hint">The active ID controls which project URL is opened and which ChatGPT project tabs can be reused for submissions.</p>
+          </div>
+
+          <div id="project-id-list" class="project-id-list"></div>
+
+          <div class="project-id-add-row">
+            <label for="new-project-id">
+              Add project ID
+              <input id="new-project-id" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
+              <p class="hint">Paste either a raw 32-character ID, a g-p- ID, or a full ChatGPT project URL.</p>
+            </label>
+
+            <button id="add-project-id" type="button">Add project</button>
+          </div>
+
+          <label for="active-project-url">
+            Active project URL
+            <input id="active-project-url" type="url" readonly>
+          </label>
+        </div>
 
         <label for="reset-limit">
           Reset limit

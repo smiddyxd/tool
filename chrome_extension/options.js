@@ -1,4 +1,6 @@
-const DEFAULT_START_PAGE_URL = "https://chatgpt.com/g/g-p-69bc1388b0588191bd1c176e83f018e4";
+const CHATGPT_PROJECT_URL_PREFIX = "https://chatgpt.com/g/g-p-";
+const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
+const DEFAULT_START_PAGE_URL = `${CHATGPT_PROJECT_URL_PREFIX}${DEFAULT_PROJECT_ID}`;
 const DEFAULT_RESET_LIMIT = 0;
 const DEFAULT_HIGHLIGHT_RULES = [
   {
@@ -92,6 +94,8 @@ const ANALYSIS_SECTION_HEADINGS = [
 ];
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
+const STORAGE_KEY_PROJECT_IDS = "projectIds";
+const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
@@ -104,6 +108,8 @@ const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSec
 
 const highlightState = {
   rules: [],
+  projectIds: [DEFAULT_PROJECT_ID],
+  activeProjectId: DEFAULT_PROJECT_ID,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -154,22 +160,79 @@ function normalizeAnalysisHeadingText(value) {
 }
 
 function normalizeProjectUrlPrefix(value) {
+  return buildProjectStartPageUrl(sanitizeProjectId(value, DEFAULT_PROJECT_ID));
+}
+
+function extractProjectId(value) {
   const rawValue = typeof value === "string" ? value.trim() : "";
   if (!rawValue) {
-    return DEFAULT_START_PAGE_URL;
+    return "";
   }
 
-  const directProjectMatch = rawValue.match(/https:\/\/chatgpt\.com\/g\/g-p-[0-9a-f]{32}/i);
-  if (directProjectMatch?.[0]) {
-    return directProjectMatch[0].replace(/\/+$/, "");
+  const directMatch = rawValue.match(/^(?:g-p-)?([0-9a-f]{32})$/i);
+  if (directMatch?.[1]) {
+    return directMatch[1].toLocaleLowerCase();
   }
 
-  try {
-    const parsedUrl = new URL(rawValue);
-    return `${parsedUrl.origin}${parsedUrl.pathname}`.replace(/\/+$/, "");
-  } catch (_error) {
-    return DEFAULT_START_PAGE_URL;
+  const urlMatch = rawValue.match(/\/g\/g-p-([0-9a-f]{32})(?:[/?#]|$)/i);
+  return urlMatch?.[1]?.toLocaleLowerCase() ?? "";
+}
+
+function sanitizeProjectId(value, fallback = "") {
+  const projectId = extractProjectId(value);
+  if (projectId) {
+    return projectId;
   }
+
+  return fallback ? extractProjectId(fallback) : "";
+}
+
+function buildProjectStartPageUrl(projectId) {
+  return `${CHATGPT_PROJECT_URL_PREFIX}${sanitizeProjectId(projectId, DEFAULT_PROJECT_ID)}`;
+}
+
+function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
+  const rawValues = Array.isArray(rawValue)
+    ? rawValue
+    : (typeof rawValue === "string" ? rawValue.split(/[\s,]+/) : []);
+  const projectIds = [];
+  const seenIds = new Set();
+
+  for (const value of rawValues) {
+    const projectId = sanitizeProjectId(value);
+    if (!projectId || seenIds.has(projectId)) {
+      continue;
+    }
+
+    projectIds.push(projectId);
+    seenIds.add(projectId);
+  }
+
+  if (projectIds.length > 0) {
+    return projectIds;
+  }
+
+  return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
+}
+
+function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
+  const legacyProjectId = sanitizeProjectId(rawStartPageUrl, DEFAULT_PROJECT_ID);
+  const projectIds = sanitizeProjectIds(rawProjectIds, legacyProjectId);
+  const activeProjectId = sanitizeProjectId(rawActiveProjectId);
+
+  if (activeProjectId && !projectIds.includes(activeProjectId)) {
+    projectIds.push(activeProjectId);
+  }
+
+  const normalizedActiveProjectId = activeProjectId && projectIds.includes(activeProjectId)
+    ? activeProjectId
+    : (projectIds.includes(legacyProjectId) ? legacyProjectId : projectIds[0]);
+
+  return {
+    projectIds,
+    activeProjectId: normalizedActiveProjectId,
+    defaultStartPageUrl: buildProjectStartPageUrl(normalizedActiveProjectId),
+  };
 }
 
 function sanitizeStartPageUrl(value) {
@@ -561,6 +624,105 @@ function getRuleFormValue() {
 
 function setStatus(message) {
   document.querySelector("#status").textContent = message;
+}
+
+function setActiveProjectUrlInput(projectId) {
+  const input = document.querySelector("#active-project-url");
+  if (input instanceof HTMLInputElement) {
+    input.value = buildProjectStartPageUrl(projectId);
+  }
+}
+
+function renderProjectIds() {
+  const list = document.querySelector("#project-id-list");
+  if (!list) {
+    return;
+  }
+
+  list.replaceChildren();
+  const normalizedProjectSettings = normalizeProjectSettings(
+    highlightState.projectIds,
+    highlightState.activeProjectId,
+    DEFAULT_START_PAGE_URL,
+  );
+  highlightState.projectIds = normalizedProjectSettings.projectIds;
+  highlightState.activeProjectId = normalizedProjectSettings.activeProjectId;
+  setActiveProjectUrlInput(highlightState.activeProjectId);
+
+  for (const projectId of highlightState.projectIds) {
+    const row = document.createElement("div");
+    row.className = "project-id-row";
+
+    const activeLabel = document.createElement("label");
+    activeLabel.className = "project-active-control";
+
+    const activeInput = document.createElement("input");
+    activeInput.type = "radio";
+    activeInput.name = "active-project-id";
+    activeInput.value = projectId;
+    activeInput.checked = projectId === highlightState.activeProjectId;
+    activeInput.addEventListener("change", () => {
+      if (!activeInput.checked) {
+        return;
+      }
+
+      highlightState.activeProjectId = projectId;
+      renderProjectIds();
+      setStatus("Active project changed. Save settings to apply it.");
+    });
+
+    const activeText = document.createElement("span");
+    activeText.textContent = activeInput.checked ? "Active" : "Use";
+    activeLabel.append(activeInput, activeText);
+
+    const projectIdText = document.createElement("code");
+    projectIdText.className = "project-id-value";
+    projectIdText.textContent = projectId;
+
+    const projectUrlText = document.createElement("span");
+    projectUrlText.className = "project-id-url";
+    projectUrlText.textContent = buildProjectStartPageUrl(projectId);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.disabled = highlightState.projectIds.length <= 1;
+    deleteButton.addEventListener("click", () => {
+      highlightState.projectIds = highlightState.projectIds.filter((candidate) => candidate !== projectId);
+      if (highlightState.activeProjectId === projectId) {
+        highlightState.activeProjectId = highlightState.projectIds[0] ?? DEFAULT_PROJECT_ID;
+      }
+
+      renderProjectIds();
+      setStatus("Project ID removed. Save settings to apply it.");
+    });
+
+    row.append(activeLabel, projectIdText, projectUrlText, deleteButton);
+    list.append(row);
+  }
+}
+
+function addProjectIdFromInput() {
+  const input = document.querySelector("#new-project-id");
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const projectId = sanitizeProjectId(input.value);
+  if (!projectId) {
+    setStatus("Enter a valid 32-character ChatGPT project ID or project URL.");
+    return;
+  }
+
+  if (!highlightState.projectIds.includes(projectId)) {
+    highlightState.projectIds.push(projectId);
+  }
+
+  highlightState.activeProjectId = projectId;
+  input.value = "";
+  renderProjectIds();
+  setStatus("Project ID added and selected. Save settings to apply it.");
 }
 
 function fillRuleForm(rule) {
@@ -959,6 +1121,8 @@ async function deleteHighlightRule(ruleId) {
 async function loadOptions() {
   const stored = await chrome.storage.sync.get({
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
+    [STORAGE_KEY_PROJECT_IDS]: null,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
@@ -970,8 +1134,14 @@ async function loadOptions() {
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
   });
 
-  const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
+  const projectSettings = normalizeProjectSettings(
+    stored[STORAGE_KEY_PROJECT_IDS],
+    stored[STORAGE_KEY_ACTIVE_PROJECT_ID],
+    stored[STORAGE_KEY_START_PAGE_URL],
+  );
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
+  highlightState.projectIds = projectSettings.projectIds;
+  highlightState.activeProjectId = projectSettings.activeProjectId;
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
   highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
@@ -983,8 +1153,8 @@ async function loadOptions() {
     stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
   );
 
-  document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
+  renderProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
@@ -996,7 +1166,11 @@ async function loadOptions() {
 async function saveOptions(event) {
   event.preventDefault();
 
-  const defaultStartPageUrl = sanitizeStartPageUrl(document.querySelector("#default-start-page-url").value);
+  const projectSettings = normalizeProjectSettings(
+    highlightState.projectIds,
+    highlightState.activeProjectId,
+    DEFAULT_START_PAGE_URL,
+  );
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
@@ -1007,7 +1181,9 @@ async function saveOptions(event) {
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
 
   await chrome.storage.sync.set({
-    [STORAGE_KEY_START_PAGE_URL]: defaultStartPageUrl,
+    [STORAGE_KEY_START_PAGE_URL]: projectSettings.defaultStartPageUrl,
+    [STORAGE_KEY_PROJECT_IDS]: projectSettings.projectIds,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: projectSettings.activeProjectId,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
@@ -1019,6 +1195,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
   });
 
+  highlightState.projectIds = projectSettings.projectIds;
+  highlightState.activeProjectId = projectSettings.activeProjectId;
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
@@ -1026,8 +1204,8 @@ async function saveOptions(event) {
   highlightState.tocColumnPositions = tocColumnPositions;
   highlightState.tocColumnOpacity = tocColumnOpacity;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
-  document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
+  renderProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
@@ -1043,6 +1221,8 @@ async function resetChanges() {
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");
   const resetButton = document.querySelector("#reset-changes");
+  const addProjectButton = document.querySelector("#add-project-id");
+  const newProjectInput = document.querySelector("#new-project-id");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
   const highlightColorInput = document.querySelector("#highlight-rule-color");
@@ -1055,6 +1235,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   resetButton.addEventListener("click", () => {
     void resetChanges();
+  });
+  addProjectButton.addEventListener("click", () => {
+    addProjectIdFromInput();
+  });
+  newProjectInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addProjectIdFromInput();
+    }
   });
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();
