@@ -178,6 +178,19 @@
       align-items: center;
     }
 
+    .floating-form-actions {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 50;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 12px 30px rgba(31, 41, 55, 0.14);
+      backdrop-filter: blur(8px);
+    }
+
     button {
       border: 1px solid transparent;
       border-radius: 8px;
@@ -230,7 +243,7 @@
 
     .toc-settings-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
+      grid-template-columns: 34px minmax(0, 1fr) minmax(0, 560px);
       gap: 12px;
       align-items: center;
       padding: 10px 12px;
@@ -242,6 +255,25 @@
 
     .toc-label-input {
       font-weight: 650;
+    }
+
+    .toc-reorder-actions {
+      display: grid;
+      gap: 4px;
+      align-self: stretch;
+      align-content: center;
+    }
+
+    .toc-reorder-actions button {
+      width: 28px;
+      height: 26px;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .toc-reorder-actions button:disabled {
+      cursor: default;
+      opacity: 0.42;
     }
 
     .toc-settings-controls {
@@ -321,6 +353,11 @@
       .toc-settings-controls,
       .rule-row {
         grid-template-columns: 1fr;
+      }
+
+      .floating-form-actions {
+        top: 12px;
+        right: 12px;
       }
 
       .rule-swatch {
@@ -417,7 +454,7 @@
       <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">Edit each jump button's name, active color, screen side, scroll offset, column position, and idle opacity.</p>
+          <p class="hint">Edit each jump button's order, name, active color, screen side, scroll offset, column position, and idle opacity.</p>
         </div>
 
         <div class="toc-column-position-grid" aria-label="TOC column position and opacity">
@@ -449,9 +486,9 @@
         <div id="analysis-toc-settings-list" class="toc-settings-list"></div>
       </section>
 
-      <div class="actions">
+      <div class="actions floating-form-actions">
         <button type="submit">Save settings</button>
-        <button id="reset-defaults" type="button">Restore defaults</button>
+        <button id="reset-changes" type="button">Reset changes</button>
       </div>
 
       <p id="status" aria-live="polite"></p>

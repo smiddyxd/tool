@@ -87,12 +87,14 @@ const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
 const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
+const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 
 const highlightState = {
   rules: [],
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
+  tocButtonOrder: [],
   tocColumnPositions: {
     leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
     rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
@@ -105,6 +107,7 @@ const highlightState = {
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
   key: normalizeAnalysisHeadingText(entry.heading),
+  heading: entry.heading,
   label: entry.label,
   index,
 }));
@@ -290,6 +293,42 @@ function sanitizeAnalysisTocButtonColors(rawValue) {
       sanitizeColor(source[entry.key], defaults[entry.key]),
     ]),
   );
+}
+
+function getDefaultAnalysisTocButtonOrder() {
+  return ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key);
+}
+
+function sanitizeAnalysisTocButtonOrder(rawValue) {
+  const defaultOrder = getDefaultAnalysisTocButtonOrder();
+  const allowedKeys = new Set(defaultOrder);
+  const seenKeys = new Set();
+  const sourceOrder = Array.isArray(rawValue) ? rawValue : [];
+  const orderedKeys = [];
+
+  for (const value of sourceOrder) {
+    if (typeof value !== "string" || !allowedKeys.has(value) || seenKeys.has(value)) {
+      continue;
+    }
+
+    orderedKeys.push(value);
+    seenKeys.add(value);
+  }
+
+  for (const key of defaultOrder) {
+    if (!seenKeys.has(key)) {
+      orderedKeys.push(key);
+    }
+  }
+
+  return orderedKeys;
+}
+
+function getOrderedAnalysisHeadingEntries() {
+  const entriesByKey = new Map(ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]));
+  return sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder)
+    .map((key) => entriesByKey.get(key))
+    .filter(Boolean);
 }
 
 function getDefaultAnalysisTocButtonLabels() {
@@ -595,6 +634,20 @@ function renderHighlightRules() {
   }
 }
 
+function moveAnalysisTocButtonOrder(headingKey, direction) {
+  const order = sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder);
+  const currentIndex = order.indexOf(headingKey);
+  const nextIndex = currentIndex + direction;
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= order.length) {
+    return;
+  }
+
+  [order[currentIndex], order[nextIndex]] = [order[nextIndex], order[currentIndex]];
+  highlightState.tocButtonOrder = order;
+  renderAnalysisTocSettings();
+  setStatus("TOC button order changed. Save settings to apply it.");
+}
+
 function renderAnalysisTocSettings() {
   const list = document.querySelector("#analysis-toc-settings-list");
   if (!list) {
@@ -602,14 +655,40 @@ function renderAnalysisTocSettings() {
   }
 
   list.replaceChildren();
+  const orderedEntries = getOrderedAnalysisHeadingEntries();
 
-  for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+  for (const [rowIndex, headingEntry] of orderedEntries.entries()) {
     const settings = highlightState.tocButtonSettings[headingEntry.key] ?? {
       side: ANALYSIS_TOC_SIDE_LEFT,
       offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
     };
     const row = document.createElement("div");
     row.className = "toc-settings-row";
+
+    const reorderActions = document.createElement("span");
+    reorderActions.className = "toc-reorder-actions";
+
+    const moveUpButton = document.createElement("button");
+    moveUpButton.type = "button";
+    moveUpButton.textContent = "^";
+    moveUpButton.title = `Move ${headingEntry.label} up`;
+    moveUpButton.setAttribute("aria-label", moveUpButton.title);
+    moveUpButton.disabled = rowIndex === 0;
+    moveUpButton.addEventListener("click", () => {
+      moveAnalysisTocButtonOrder(headingEntry.key, -1);
+    });
+
+    const moveDownButton = document.createElement("button");
+    moveDownButton.type = "button";
+    moveDownButton.textContent = "v";
+    moveDownButton.title = `Move ${headingEntry.label} down`;
+    moveDownButton.setAttribute("aria-label", moveDownButton.title);
+    moveDownButton.disabled = rowIndex === orderedEntries.length - 1;
+    moveDownButton.addEventListener("click", () => {
+      moveAnalysisTocButtonOrder(headingEntry.key, 1);
+    });
+
+    reorderActions.append(moveUpButton, moveDownButton);
 
     const labelInput = document.createElement("input");
     labelInput.id = `analysis-toc-label-${headingEntry.index}`;
@@ -723,7 +802,7 @@ function renderAnalysisTocSettings() {
     controls.className = "toc-settings-controls";
     controls.append(colorLabel, sideLabel, offsetLabel);
 
-    row.append(labelInput, controls);
+    row.append(reorderActions, labelInput, controls);
     list.append(row);
   }
 }
@@ -815,6 +894,7 @@ async function loadOptions() {
     [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
   });
 
   const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
@@ -823,6 +903,7 @@ async function loadOptions() {
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
   highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
   highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
+  highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
   highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
   highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
 
@@ -843,6 +924,7 @@ async function saveOptions(event) {
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
   const tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels);
+  const tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder);
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
 
@@ -853,6 +935,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: tocButtonSettings,
     [STORAGE_KEY_ANALYSIS_TOC_LABELS]: tocButtonLabels,
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: tocButtonOrder,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: tocColumnPositions,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: tocColumnOpacity,
   });
@@ -860,6 +943,7 @@ async function saveOptions(event) {
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
+  highlightState.tocButtonOrder = tocButtonOrder;
   highlightState.tocColumnPositions = tocColumnPositions;
   highlightState.tocColumnOpacity = tocColumnOpacity;
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
@@ -870,43 +954,14 @@ async function saveOptions(event) {
   setStatus("Settings saved.");
 }
 
-async function restoreDefaults() {
-  const defaultRules = cloneDefaultHighlightRules();
-  const defaultTocButtonColors = getDefaultAnalysisTocButtonColors();
-  const defaultTocButtonSettings = getDefaultAnalysisTocButtonSettings();
-  const defaultTocButtonLabels = getDefaultAnalysisTocButtonLabels();
-  const defaultTocColumnPositions = getDefaultAnalysisTocColumnPositions();
-  const defaultTocColumnOpacity = getDefaultAnalysisTocColumnOpacity();
-  document.querySelector("#default-start-page-url").value = DEFAULT_START_PAGE_URL;
-  document.querySelector("#reset-limit").value = String(DEFAULT_RESET_LIMIT);
-  highlightState.rules = sanitizeHighlightRules(defaultRules);
-  highlightState.tocButtonColors = defaultTocButtonColors;
-  highlightState.tocButtonSettings = defaultTocButtonSettings;
-  highlightState.tocButtonLabels = defaultTocButtonLabels;
-  highlightState.tocColumnPositions = defaultTocColumnPositions;
-  highlightState.tocColumnOpacity = defaultTocColumnOpacity;
-  setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
-  setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
-  clearRuleForm();
-  renderHighlightRules();
-  renderAnalysisTocSettings();
-
-  await chrome.storage.sync.set({
-    [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
-    [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
-    [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
-    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: highlightState.tocButtonColors,
-    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: highlightState.tocButtonSettings,
-    [STORAGE_KEY_ANALYSIS_TOC_LABELS]: highlightState.tocButtonLabels,
-    [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: highlightState.tocColumnPositions,
-    [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: highlightState.tocColumnOpacity,
-  });
-  setStatus("Defaults restored.");
+async function resetChanges() {
+  await loadOptions();
+  setStatus("Unsaved changes reset.");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");
-  const resetButton = document.querySelector("#reset-defaults");
+  const resetButton = document.querySelector("#reset-changes");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
   const highlightColorInput = document.querySelector("#highlight-rule-color");
@@ -918,7 +973,7 @@ document.addEventListener("DOMContentLoaded", () => {
     void saveOptions(event);
   });
   resetButton.addEventListener("click", () => {
-    void restoreDefaults();
+    void resetChanges();
   });
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();

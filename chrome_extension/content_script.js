@@ -74,6 +74,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
+  const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -184,6 +185,7 @@ Base everything strictly on the screenshot attachment.`;
     buttonColors: {},
     buttonSettings: {},
     buttonLabels: {},
+    buttonOrder: [],
     columnPositions: {
       leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
       rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
@@ -250,6 +252,42 @@ Base everything strictly on the screenshot attachment.`;
 
   function getAnalysisTocButtonColor(headingKey) {
     return analysisTocState.buttonColors[headingKey] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
+  }
+
+  function getDefaultAnalysisTocButtonOrder() {
+    return ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key);
+  }
+
+  function sanitizeAnalysisTocButtonOrder(rawValue) {
+    const defaultOrder = getDefaultAnalysisTocButtonOrder();
+    const allowedKeys = new Set(defaultOrder);
+    const seenKeys = new Set();
+    const sourceOrder = Array.isArray(rawValue) ? rawValue : [];
+    const orderedKeys = [];
+
+    for (const value of sourceOrder) {
+      if (typeof value !== "string" || !allowedKeys.has(value) || seenKeys.has(value)) {
+        continue;
+      }
+
+      orderedKeys.push(value);
+      seenKeys.add(value);
+    }
+
+    for (const key of defaultOrder) {
+      if (!seenKeys.has(key)) {
+        orderedKeys.push(key);
+      }
+    }
+
+    return orderedKeys;
+  }
+
+  function getOrderedAnalysisHeadingEntries() {
+    const entriesByKey = new Map(ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]));
+    return sanitizeAnalysisTocButtonOrder(analysisTocState.buttonOrder)
+      .map((key) => entriesByKey.get(key))
+      .filter(Boolean);
   }
 
   function getDefaultAnalysisTocButtonLabels() {
@@ -1219,12 +1257,14 @@ Base everything strictly on the screenshot attachment.`;
       [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
     analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
     analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
     analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
+    analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
     analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
     analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
     applyAnalysisTocButtonColors();
@@ -1257,6 +1297,11 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_LABELS]) {
         analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(changes[STORAGE_KEY_ANALYSIS_TOC_LABELS].newValue);
         applyAnalysisTocButtonLabels();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]) {
+        analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER].newValue);
+        applyAnalysisTocButtonSettings();
       }
 
       if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]) {
@@ -1941,7 +1986,7 @@ Base everything strictly on the screenshot attachment.`;
       [ANALYSIS_TOC_SIDE_RIGHT]: [],
     };
 
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getOrderedAnalysisHeadingEntries()) {
       const side = getAnalysisTocButtonSettings(headingEntry.key).side;
       sideGroups[side === ANALYSIS_TOC_SIDE_RIGHT ? ANALYSIS_TOC_SIDE_RIGHT : ANALYSIS_TOC_SIDE_LEFT].push(headingEntry);
     }
@@ -2002,7 +2047,7 @@ Base everything strictly on the screenshot attachment.`;
 
     ensureAnalysisTocStyles();
     ensureAnalysisTocToggleButtons();
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getOrderedAnalysisHeadingEntries()) {
       if (getAnalysisTocButton(headingEntry.key) instanceof HTMLButtonElement) {
         continue;
       }
