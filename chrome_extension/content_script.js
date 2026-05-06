@@ -2121,8 +2121,10 @@ Base everything strictly on the screenshot attachment.`;
       setAnalysisTocButtonColorVariables(button, headingEntry.key);
       applyAnalysisTocButtonLabel(button, headingEntry.key);
       button.addEventListener("click", () => {
-        handleAnalysisTextHighlightSignal("analysis-toc-click");
         void scrollToAnalysisTocTarget(headingEntry.key);
+        window.requestAnimationFrame(() => {
+          handleAnalysisTextHighlightSignal("analysis-toc-click");
+        });
       });
       document.body.append(button);
     }
@@ -2157,16 +2159,35 @@ Base everything strictly on the screenshot attachment.`;
     return runId !== 0 && analysisTocState.responseCompletedRunId === runId;
   }
 
+  function getSignalRefreshAssistantElement() {
+    return analysisTocState.currentAssistantElement instanceof HTMLElement
+      ? analysisTocState.currentAssistantElement
+      : getLatestAssistantMessage();
+  }
+
   function scheduleCompletedResponseHighlightRefresh(source) {
-    if (!isAnalysisResponseCompletedForCurrentRun()) {
+    if (isResponseGenerating()) {
       return false;
     }
 
+    const assistantElement = getSignalRefreshAssistantElement();
+    if (assistantElement instanceof HTMLElement) {
+      analysisTocState.currentAssistantElement = assistantElement;
+      syncAnalysisTocButtonsForAssistantElement(assistantElement);
+    }
+
     const runId = analysisTocState.currentRunId;
-    syncAnalysisHeadingCountsForRun(runId);
-    scheduleHighlightPass();
-    if (source === "analysis-toc-click") {
-      console.log("Local Query Bridge scheduled completed-response highlight refresh", {
+    if (runId !== 0) {
+      if (!isAnalysisResponseCompletedForCurrentRun()) {
+        analysisTocState.responseCompletedRunId = runId;
+      }
+      analysisTocState.highlightRefreshAllowed = false;
+      syncAnalysisHeadingCountsForRun(runId);
+    }
+
+    refreshHighlightsNow();
+    if (source === "analysis-toc-click" || source === "analysis-toc-toggle-click") {
+      console.log("Local Query Bridge refreshed completed-response highlights from signal", {
         source,
         runId,
       });
