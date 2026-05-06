@@ -52,7 +52,16 @@ const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC
 const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
 const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
 const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
+const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
+const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
+const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
 const ANALYSIS_SECTION_HEADINGS = [
+  {
+    key: LATEST_USER_PROMPT_TOC_KEY,
+    heading: "Latest prompt",
+    label: "Latest prompt",
+    type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+  },
   { heading: "Query Coherence Check", label: "Query Coherence Check" },
   { heading: "Decision Gates", label: "Decision Gates" },
   { heading: "Interpretations Table", label: "Interpretations Table" },
@@ -106,9 +115,10 @@ const highlightState = {
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
-  key: normalizeAnalysisHeadingText(entry.heading),
+  key: entry.key ?? normalizeAnalysisHeadingText(entry.heading),
   heading: entry.heading,
   label: entry.label,
+  type: entry.type ?? ANALYSIS_TOC_ENTRY_TYPE_HEADING,
   index,
 }));
 

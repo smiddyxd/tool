@@ -49,6 +49,7 @@ Base everything strictly on the screenshot attachment.`;
   const SEND_BUTTON_RETRY_COUNT = 20;
   const SEND_BUTTON_RETRY_DELAY_MS = 250;
   const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
+  const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
   const ANALYSIS_TOC_BUTTON_CLASS = "local-query-bridge-analysis-toc-button";
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_TOGGLE_BUTTON_CLASS = "local-query-bridge-analysis-toc-toggle-button";
@@ -68,6 +69,9 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
   const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
   const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
+  const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
+  const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
+  const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
   const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
   const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
@@ -120,6 +124,12 @@ Base everything strictly on the screenshot attachment.`;
     },
   ];
   const ANALYSIS_SECTION_HEADINGS = [
+    {
+      key: LATEST_USER_PROMPT_TOC_KEY,
+      heading: "Latest prompt",
+      label: "Latest prompt",
+      type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+    },
     { heading: "Query Coherence Check", label: "Query Coherence Check" },
     { heading: "Decision Gates", label: "Decision Gates" },
     { heading: "Interpretations Table", label: "Interpretations Table" },
@@ -213,9 +223,10 @@ Base everything strictly on the screenshot attachment.`;
     "Spacebar",
   ]);
   const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
-    key: normalizeAnalysisHeadingText(entry.heading),
+    key: entry.key ?? normalizeAnalysisHeadingText(entry.heading),
     heading: entry.heading,
     label: entry.label,
+    type: entry.type ?? ANALYSIS_TOC_ENTRY_TYPE_HEADING,
     index,
   }));
 
@@ -288,6 +299,10 @@ Base everything strictly on the screenshot attachment.`;
     return sanitizeAnalysisTocButtonOrder(analysisTocState.buttonOrder)
       .map((key) => entriesByKey.get(key))
       .filter(Boolean);
+  }
+
+  function getAnalysisHeadingTocEntries() {
+    return ANALYSIS_HEADING_ENTRIES.filter((entry) => entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING);
   }
 
   function getDefaultAnalysisTocButtonLabels() {
@@ -1712,6 +1727,16 @@ Base everything strictly on the screenshot attachment.`;
       .filter((element) => element instanceof HTMLElement);
   }
 
+  function getUserMessages() {
+    return Array.from(document.querySelectorAll(USER_MESSAGE_SELECTOR))
+      .filter((element) => element instanceof HTMLElement);
+  }
+
+  function getLatestUserMessage() {
+    const messages = getUserMessages();
+    return messages[messages.length - 1] ?? null;
+  }
+
   function getLatestAssistantMessage() {
     const messages = getAssistantMessages();
     return messages[messages.length - 1] ?? null;
@@ -2060,7 +2085,7 @@ Base everything strictly on the screenshot attachment.`;
       applyAnalysisTocButtonLabel(button, headingEntry.key);
       button.addEventListener("click", () => {
         armAnalysisHeadingHighlightRefresh("analysis-toc-click");
-        void scrollToAnalysisHeading(headingEntry.key);
+        void scrollToAnalysisTocTarget(headingEntry.key);
       });
       document.body.append(button);
     }
@@ -2086,6 +2111,7 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.highlightRefreshAllowed = false;
     ensureAnalysisTocButtons();
     resetAnalysisTocButtonStates();
+    setAnalysisTocButtonActive(LATEST_USER_PROMPT_TOC_KEY, getLatestUserMessage() instanceof HTMLElement);
   }
 
   function armAnalysisHeadingHighlightRefresh(source) {
@@ -2139,6 +2165,7 @@ Base everything strictly on the screenshot attachment.`;
     const counts = Object.fromEntries(
       ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, 0]),
     );
+    counts[LATEST_USER_PROMPT_TOC_KEY] = getUserMessages().length;
 
     for (const headingElement of getAllAnalysisHeadingElements()) {
       const headingKey = normalizeAnalysisHeadingText(headingElement.textContent ?? "");
@@ -2151,6 +2178,10 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function findLatestAnalysisHeadingElement(headingKey) {
+    if (headingKey === LATEST_USER_PROMPT_TOC_KEY) {
+      return getLatestUserMessage();
+    }
+
     const preferredRoot = analysisTocState.currentAssistantElement instanceof HTMLElement
       ? analysisTocState.currentAssistantElement
       : null;
@@ -2165,13 +2196,13 @@ Base everything strictly on the screenshot attachment.`;
     return matches[matches.length - 1] ?? null;
   }
 
-  function scrollToAnalysisHeading(headingKey) {
-    const headingElement = findLatestAnalysisHeadingElement(headingKey);
-    if (!(headingElement instanceof HTMLElement)) {
+  function scrollToAnalysisTocTarget(headingKey) {
+    const targetElement = findLatestAnalysisHeadingElement(headingKey);
+    if (!(targetElement instanceof HTMLElement)) {
       return false;
     }
 
-    headingElement.scrollIntoView({
+    targetElement.scrollIntoView({
       block: "start",
       inline: "nearest",
       behavior: "auto",
@@ -2188,7 +2219,7 @@ Base everything strictly on the screenshot attachment.`;
     const counts = getAnalysisHeadingCounts();
     const newlyDetectedHeadings = [];
 
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getAnalysisHeadingTocEntries()) {
       if (analysisTocState.detectedHeadingKeys.has(headingEntry.key)) {
         continue;
       }
@@ -2234,7 +2265,10 @@ Base everything strictly on the screenshot attachment.`;
     );
 
     for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
-      setAnalysisTocButtonActive(headingEntry.key, headingKeys.has(headingEntry.key));
+      const isActive = headingEntry.key === LATEST_USER_PROMPT_TOC_KEY
+        ? getLatestUserMessage() instanceof HTMLElement
+        : headingKeys.has(headingEntry.key);
+      setAnalysisTocButtonActive(headingEntry.key, isActive);
     }
   }
 
