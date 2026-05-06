@@ -52,6 +52,9 @@ const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC
 const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
 const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
 const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
+const LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS = 3;
+const LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS = 0;
+const LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS = 60;
 const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
 const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
 const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
@@ -97,6 +100,7 @@ const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
+const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
 
 const highlightState = {
   rules: [],
@@ -112,6 +116,7 @@ const highlightState = {
     [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
     [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
   },
+  latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -488,6 +493,18 @@ function sanitizeAnalysisTocButtonSettings(rawValue) {
         },
       ];
     }),
+  );
+}
+
+function sanitizeLatestPromptScrollHoldSeconds(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS;
+  }
+
+  return Math.min(
+    LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS,
+    Math.max(LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS, parsedValue),
   );
 }
 
@@ -889,6 +906,19 @@ function getAnalysisTocColumnOpacityInputValues() {
   });
 }
 
+function setLatestPromptScrollHoldSecondsInput(value) {
+  const input = document.querySelector("#latest-prompt-scroll-hold-seconds");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(sanitizeLatestPromptScrollHoldSeconds(value));
+  }
+}
+
+function getLatestPromptScrollHoldSecondsInputValue() {
+  return sanitizeLatestPromptScrollHoldSeconds(
+    document.querySelector("#latest-prompt-scroll-hold-seconds")?.value,
+  );
+}
+
 async function saveHighlightRules(message = "Highlight rules saved.") {
   await chrome.storage.sync.set({
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
@@ -937,6 +967,7 @@ async function loadOptions() {
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
+    [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
   });
 
   const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
@@ -948,11 +979,15 @@ async function loadOptions() {
   highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
   highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
   highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
+  highlightState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+    stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+  );
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   clearRuleForm();
   renderHighlightRules();
   renderAnalysisTocSettings();
@@ -969,6 +1004,7 @@ async function saveOptions(event) {
   const tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder);
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
+  const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: defaultStartPageUrl,
@@ -980,6 +1016,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: tocButtonOrder,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: tocColumnPositions,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: tocColumnOpacity,
+    [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
   });
 
   highlightState.tocButtonColors = tocButtonColors;
@@ -988,10 +1025,12 @@ async function saveOptions(event) {
   highlightState.tocButtonOrder = tocButtonOrder;
   highlightState.tocColumnPositions = tocColumnPositions;
   highlightState.tocColumnOpacity = tocColumnOpacity;
+  highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   renderAnalysisTocSettings();
   setStatus("Settings saved.");
 }

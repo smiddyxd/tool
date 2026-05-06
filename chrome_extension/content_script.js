@@ -69,6 +69,11 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
   const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
   const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
+  const LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS = 3;
+  const LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS = 0;
+  const LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS = 60;
+  const LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS = 1000;
+  const LATEST_PROMPT_SCROLL_TOLERANCE_PX = 6;
   const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
   const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
   const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
@@ -79,6 +84,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
+  const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -204,6 +210,7 @@ Base everything strictly on the screenshot attachment.`;
       [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
       [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
     },
+    latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
     hoveredSides: new Set(),
     collapsedSides: new Set(),
   };
@@ -478,6 +485,24 @@ Base everything strictly on the screenshot attachment.`;
 
   function getAnalysisTocButtonOffset(headingKey) {
     return getAnalysisTocButtonSettings(headingKey).offsetPx;
+  }
+
+  function sanitizeLatestPromptScrollHoldSeconds(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS;
+    }
+
+    return Math.min(
+      LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS,
+      Math.max(LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS, parsedValue),
+    );
+  }
+
+  function getLatestPromptScrollHoldMs() {
+    return sanitizeLatestPromptScrollHoldSeconds(
+      analysisTocState.latestPromptScrollHoldSeconds,
+    ) * 1000;
   }
 
   function cloneDefaultHighlightRules() {
@@ -1273,6 +1298,7 @@ Base everything strictly on the screenshot attachment.`;
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
       [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
+      [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
@@ -1282,6 +1308,9 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
     analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
     analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
+    analysisTocState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+      stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+    );
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
     applyAnalysisTocButtonLabels();
@@ -1327,6 +1356,12 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]) {
         analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY].newValue);
         applyAnalysisTocColumnOpacities();
+      }
+
+      if (changes[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]) {
+        analysisTocState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+          changes[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS].newValue,
+        );
       }
     });
 
@@ -2211,6 +2246,50 @@ Base everything strictly on the screenshot attachment.`;
     return true;
   }
 
+  function getScrollTargetViewportTop(target) {
+    if (
+      !(target instanceof HTMLElement)
+      || target === document.scrollingElement
+      || target === document.documentElement
+      || target === document.body
+    ) {
+      return 0;
+    }
+
+    return target.getBoundingClientRect().top;
+  }
+
+  function getAnalysisTocTargetScrollDelta(headingKey) {
+    const targetElement = findLatestAnalysisHeadingElement(headingKey);
+    if (!(targetElement instanceof HTMLElement)) {
+      return null;
+    }
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const scrollTarget = getScrollTarget();
+    const containerTop = getScrollTargetViewportTop(scrollTarget);
+    return targetRect.top - containerTop + getAnalysisTocButtonOffset(headingKey);
+  }
+
+  function restoreLatestPromptJumpPositionIfNeeded(runId) {
+    const deltaPx = getAnalysisTocTargetScrollDelta(LATEST_USER_PROMPT_TOC_KEY);
+    if (!Number.isFinite(deltaPx)) {
+      return false;
+    }
+
+    if (Math.abs(deltaPx) <= LATEST_PROMPT_SCROLL_TOLERANCE_PX) {
+      return true;
+    }
+
+    const didScroll = scrollToAnalysisTocTarget(LATEST_USER_PROMPT_TOC_KEY);
+    console.log("Local Query Bridge restored latest prompt generation-start jump", {
+      runId,
+      deltaPx,
+      didScroll,
+    });
+    return didScroll;
+  }
+
   function syncAnalysisHeadingCountsForRun(runId) {
     if (analysisTocState.currentRunId !== runId) {
       return;
@@ -2308,6 +2387,8 @@ Base everything strictly on the screenshot attachment.`;
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
     let sawGenerating = false;
     let scrolledToLatestPrompt = false;
+    let latestPromptScrollHoldUntil = 0;
+    let nextLatestPromptScrollCheckAt = 0;
     let responseCompleted = false;
 
     console.log("Local Query Bridge watching response generation", {
@@ -2323,14 +2404,32 @@ Base everything strictly on the screenshot attachment.`;
       syncAnalysisHeadingCountsForRun(runId);
 
       if (isResponseGenerating()) {
+        const now = Date.now();
         sawGenerating = true;
-        if (!scrolledToLatestPrompt && !autoScrollState.userScrolled) {
+        if (!scrolledToLatestPrompt) {
           scrolledToLatestPrompt = true;
           const didScroll = scrollToAnalysisTocTarget(LATEST_USER_PROMPT_TOC_KEY);
+          const holdMs = getLatestPromptScrollHoldMs();
+          if (didScroll && holdMs > 0) {
+            latestPromptScrollHoldUntil = now + holdMs;
+            nextLatestPromptScrollCheckAt = now + LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS;
+          }
+
           console.log("Local Query Bridge latest prompt generation-start jump", {
             runId,
             didScroll,
+            holdSeconds: holdMs / 1000,
           });
+        }
+
+        if (
+          latestPromptScrollHoldUntil > 0
+          && nextLatestPromptScrollCheckAt > 0
+          && nextLatestPromptScrollCheckAt <= latestPromptScrollHoldUntil
+          && now >= nextLatestPromptScrollCheckAt
+        ) {
+          restoreLatestPromptJumpPositionIfNeeded(runId);
+          nextLatestPromptScrollCheckAt += LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS;
         }
       } else if (sawGenerating && isResponseIdle()) {
         responseCompleted = true;

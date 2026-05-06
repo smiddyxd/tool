@@ -454,7 +454,7 @@
       <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">Edit each jump button's order, name, active color, screen side, scroll offset, column position, and idle opacity.</p>
+          <p class="hint">Edit each jump button's order, name, active color, screen side, scroll offset, column position, idle opacity, and latest prompt re-check window.</p>
         </div>
 
         <div class="toc-column-position-grid" aria-label="TOC column position and opacity">
@@ -480,6 +480,12 @@
             Right idle opacity
             <input id="analysis-toc-right-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
             <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
+          </label>
+
+          <label for="latest-prompt-scroll-hold-seconds">
+            Latest prompt re-check seconds
+            <input id="latest-prompt-scroll-hold-seconds" type="number" min="0" max="60" step="1" inputmode="numeric">
+            <p class="hint">After the generation-start jump, re-check once per second for this many seconds. Use 0 to disable.</p>
           </label>
         </div>
 
