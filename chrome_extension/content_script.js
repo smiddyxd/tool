@@ -2307,6 +2307,7 @@ Base everything strictly on the screenshot attachment.`;
   async function watchResponseGenerationAndHeadings(runId, baselineAssistantCount) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
     let sawGenerating = false;
+    let scrolledToLatestPrompt = false;
     let responseCompleted = false;
 
     console.log("Local Query Bridge watching response generation", {
@@ -2323,6 +2324,14 @@ Base everything strictly on the screenshot attachment.`;
 
       if (isResponseGenerating()) {
         sawGenerating = true;
+        if (!scrolledToLatestPrompt && !autoScrollState.userScrolled) {
+          scrolledToLatestPrompt = true;
+          const didScroll = scrollToAnalysisTocTarget(LATEST_USER_PROMPT_TOC_KEY);
+          console.log("Local Query Bridge latest prompt generation-start jump", {
+            runId,
+            didScroll,
+          });
+        }
       } else if (sawGenerating && isResponseIdle()) {
         responseCompleted = true;
         break;
