@@ -64,6 +64,7 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
   const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
+  const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -173,6 +174,7 @@ Base everything strictly on the screenshot attachment.`;
     highlightRefreshAllowed: false,
     buttonColors: {},
     buttonSettings: {},
+    buttonLabels: {},
   };
 
   const hotkeyState = {
@@ -229,6 +231,37 @@ Base everything strictly on the screenshot attachment.`;
 
   function getAnalysisTocButtonColor(headingKey) {
     return analysisTocState.buttonColors[headingKey] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
+  }
+
+  function getDefaultAnalysisTocButtonLabels() {
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry.label]),
+    );
+  }
+
+  function sanitizeAnalysisTocButtonLabel(value, fallback) {
+    const label = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+    return label ? label.slice(0, 120) : fallback;
+  }
+
+  function sanitizeAnalysisTocButtonLabels(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocButtonLabels();
+
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+        entry.key,
+        sanitizeAnalysisTocButtonLabel(source[entry.key], defaults[entry.key]),
+      ]),
+    );
+  }
+
+  function getAnalysisTocButtonLabel(headingKey) {
+    return analysisTocState.buttonLabels[headingKey]
+      ?? getDefaultAnalysisTocButtonLabels()[headingKey]
+      ?? headingKey;
   }
 
   function getDefaultAnalysisTocButtonSettings() {
@@ -1083,13 +1116,16 @@ Base everything strictly on the screenshot attachment.`;
       [STORAGE_KEY_HIGHLIGHT_RULES]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
     analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
     analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
+    analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
+    applyAnalysisTocButtonLabels();
     scheduleHighlightPass();
   }
 
@@ -1112,6 +1148,11 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]) {
         analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS].newValue);
         applyAnalysisTocButtonSettings();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_LABELS]) {
+        analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(changes[STORAGE_KEY_ANALYSIS_TOC_LABELS].newValue);
+        applyAnalysisTocButtonLabels();
       }
     });
 
@@ -1599,6 +1640,12 @@ Base everything strictly on the screenshot attachment.`;
     button.style.right = "auto";
   }
 
+  function applyAnalysisTocButtonLabel(button, headingKey) {
+    const label = getAnalysisTocButtonLabel(headingKey);
+    button.textContent = label;
+    button.title = label;
+  }
+
   function setAnalysisTocButtonActive(headingKey, isActive) {
     const button = getAnalysisTocButton(headingKey);
     if (!(button instanceof HTMLButtonElement)) {
@@ -1627,6 +1674,15 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
+  function applyAnalysisTocButtonLabels() {
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      const button = getAnalysisTocButton(headingEntry.key);
+      if (button instanceof HTMLButtonElement) {
+        applyAnalysisTocButtonLabel(button, headingEntry.key);
+      }
+    }
+  }
+
   function resetAnalysisTocButtonStates() {
     Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
       if (button instanceof HTMLButtonElement) {
@@ -1650,12 +1706,11 @@ Base everything strictly on the screenshot attachment.`;
       const offsetPx = (headingEntry.index - ((ANALYSIS_SECTION_HEADINGS.length - 1) / 2)) * ANALYSIS_TOC_GAP_PX;
       button.className = ANALYSIS_TOC_BUTTON_CLASS;
       button.type = "button";
-      button.textContent = headingEntry.label;
-      button.title = headingEntry.label;
       button.dataset.headingKey = headingEntry.key;
       button.style.top = `calc(50% + ${offsetPx}px)`;
       setAnalysisTocButtonColorVariables(button, headingEntry.key);
       applyAnalysisTocButtonPlacement(button, headingEntry.key);
+      applyAnalysisTocButtonLabel(button, headingEntry.key);
       button.addEventListener("click", () => {
         armAnalysisHeadingHighlightRefresh("analysis-toc-click");
         void scrollToAnalysisHeading(headingEntry.key);

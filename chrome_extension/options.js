@@ -77,11 +77,13 @@ const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
+const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
 
 const highlightState = {
   rules: [],
   tocButtonColors: {},
   tocButtonSettings: {},
+  tocButtonLabels: {},
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -269,6 +271,31 @@ function sanitizeAnalysisTocButtonColors(rawValue) {
     ANALYSIS_HEADING_ENTRIES.map((entry) => [
       entry.key,
       sanitizeColor(source[entry.key], defaults[entry.key]),
+    ]),
+  );
+}
+
+function getDefaultAnalysisTocButtonLabels() {
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry.label]),
+  );
+}
+
+function sanitizeAnalysisTocButtonLabel(value, fallback) {
+  const label = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  return label ? label.slice(0, 120) : fallback;
+}
+
+function sanitizeAnalysisTocButtonLabels(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const defaults = getDefaultAnalysisTocButtonLabels();
+
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entry.key,
+      sanitizeAnalysisTocButtonLabel(source[entry.key], defaults[entry.key]),
     ]),
   );
 }
@@ -494,9 +521,28 @@ function renderAnalysisTocSettings() {
     const row = document.createElement("div");
     row.className = "toc-settings-row";
 
-    const labelText = document.createElement("span");
-    labelText.className = "toc-heading-label";
-    labelText.textContent = headingEntry.label;
+    const labelInput = document.createElement("input");
+    labelInput.id = `analysis-toc-label-${headingEntry.index}`;
+    labelInput.className = "toc-label-input";
+    labelInput.type = "text";
+    labelInput.autocomplete = "off";
+    labelInput.spellcheck = false;
+    labelInput.dataset.headingKey = headingEntry.key;
+    labelInput.value = sanitizeAnalysisTocButtonLabel(
+      highlightState.tocButtonLabels[headingEntry.key],
+      headingEntry.label,
+    );
+    labelInput.placeholder = headingEntry.label;
+    labelInput.title = `Button for heading: ${headingEntry.heading}`;
+    labelInput.setAttribute("aria-label", `${headingEntry.heading} button name`);
+    labelInput.addEventListener("input", () => {
+      highlightState.tocButtonLabels[headingEntry.key] = labelInput.value;
+    });
+    labelInput.addEventListener("blur", () => {
+      const normalizedLabel = sanitizeAnalysisTocButtonLabel(labelInput.value, headingEntry.label);
+      labelInput.value = normalizedLabel;
+      highlightState.tocButtonLabels[headingEntry.key] = normalizedLabel;
+    });
 
     const input = document.createElement("input");
     input.id = `analysis-toc-color-${headingEntry.index}`;
@@ -587,7 +633,7 @@ function renderAnalysisTocSettings() {
     controls.className = "toc-settings-controls";
     controls.append(colorLabel, sideLabel, offsetLabel);
 
-    row.append(labelText, controls);
+    row.append(labelInput, controls);
     list.append(row);
   }
 }
@@ -636,6 +682,7 @@ async function loadOptions() {
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+    [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
   });
 
   const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
@@ -643,6 +690,7 @@ async function loadOptions() {
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
   highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
+  highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
@@ -656,17 +704,25 @@ async function saveOptions(event) {
 
   const defaultStartPageUrl = sanitizeStartPageUrl(document.querySelector("#default-start-page-url").value);
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
+  const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
+  const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
+  const tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels);
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: defaultStartPageUrl,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
-    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors),
-    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings),
+    [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: tocButtonSettings,
+    [STORAGE_KEY_ANALYSIS_TOC_LABELS]: tocButtonLabels,
   });
 
+  highlightState.tocButtonColors = tocButtonColors;
+  highlightState.tocButtonSettings = tocButtonSettings;
+  highlightState.tocButtonLabels = tocButtonLabels;
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
+  renderAnalysisTocSettings();
   setStatus("Settings saved.");
 }
 
@@ -674,11 +730,13 @@ async function restoreDefaults() {
   const defaultRules = cloneDefaultHighlightRules();
   const defaultTocButtonColors = getDefaultAnalysisTocButtonColors();
   const defaultTocButtonSettings = getDefaultAnalysisTocButtonSettings();
+  const defaultTocButtonLabels = getDefaultAnalysisTocButtonLabels();
   document.querySelector("#default-start-page-url").value = DEFAULT_START_PAGE_URL;
   document.querySelector("#reset-limit").value = String(DEFAULT_RESET_LIMIT);
   highlightState.rules = sanitizeHighlightRules(defaultRules);
   highlightState.tocButtonColors = defaultTocButtonColors;
   highlightState.tocButtonSettings = defaultTocButtonSettings;
+  highlightState.tocButtonLabels = defaultTocButtonLabels;
   clearRuleForm();
   renderHighlightRules();
   renderAnalysisTocSettings();
@@ -689,6 +747,7 @@ async function restoreDefaults() {
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: highlightState.tocButtonColors,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: highlightState.tocButtonSettings,
+    [STORAGE_KEY_ANALYSIS_TOC_LABELS]: highlightState.tocButtonLabels,
   });
   setStatus("Defaults restored.");
 }
