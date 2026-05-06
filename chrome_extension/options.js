@@ -654,16 +654,29 @@ function moveAnalysisTocButtonOrder(headingKey, direction) {
 
   [order[currentIndex], order[nextIndex]] = [order[nextIndex], order[currentIndex]];
   highlightState.tocButtonOrder = order;
-  renderAnalysisTocSettings();
+  renderAnalysisTocSettings({
+    focusDirection: direction,
+    focusHeadingKey: headingKey,
+    preserveScroll: true,
+  });
   setStatus("TOC button order changed. Save settings to apply it.");
 }
 
-function renderAnalysisTocSettings() {
+function renderAnalysisTocSettings(options = {}) {
+  const {
+    focusDirection = 0,
+    focusHeadingKey = "",
+    preserveScroll = false,
+  } = options;
   const list = document.querySelector("#analysis-toc-settings-list");
   if (!list) {
     return;
   }
 
+  const scrollPosition = preserveScroll
+    ? { left: window.scrollX, top: window.scrollY }
+    : null;
+  let focusButton = null;
   list.replaceChildren();
   const orderedEntries = getOrderedAnalysisHeadingEntries();
 
@@ -684,7 +697,8 @@ function renderAnalysisTocSettings() {
     moveUpButton.title = `Move ${headingEntry.label} up`;
     moveUpButton.setAttribute("aria-label", moveUpButton.title);
     moveUpButton.disabled = rowIndex === 0;
-    moveUpButton.addEventListener("click", () => {
+    moveUpButton.addEventListener("click", (event) => {
+      event.preventDefault();
       moveAnalysisTocButtonOrder(headingEntry.key, -1);
     });
 
@@ -694,9 +708,16 @@ function renderAnalysisTocSettings() {
     moveDownButton.title = `Move ${headingEntry.label} down`;
     moveDownButton.setAttribute("aria-label", moveDownButton.title);
     moveDownButton.disabled = rowIndex === orderedEntries.length - 1;
-    moveDownButton.addEventListener("click", () => {
+    moveDownButton.addEventListener("click", (event) => {
+      event.preventDefault();
       moveAnalysisTocButtonOrder(headingEntry.key, 1);
     });
+
+    if (headingEntry.key === focusHeadingKey) {
+      const preferredButton = focusDirection < 0 ? moveUpButton : moveDownButton;
+      const fallbackButton = focusDirection < 0 ? moveDownButton : moveUpButton;
+      focusButton = preferredButton.disabled ? fallbackButton : preferredButton;
+    }
 
     reorderActions.append(moveUpButton, moveDownButton);
 
@@ -814,6 +835,17 @@ function renderAnalysisTocSettings() {
 
     row.append(reorderActions, labelInput, controls);
     list.append(row);
+  }
+
+  if (focusButton instanceof HTMLButtonElement && !focusButton.disabled) {
+    focusButton.focus({ preventScroll: true });
+  }
+
+  if (scrollPosition) {
+    window.scrollTo({ left: scrollPosition.left, top: scrollPosition.top, behavior: "auto" });
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ left: scrollPosition.left, top: scrollPosition.top, behavior: "auto" });
+    });
   }
 }
 
