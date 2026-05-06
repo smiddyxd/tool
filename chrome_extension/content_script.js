@@ -1822,15 +1822,14 @@ Base everything strictly on the screenshot attachment.`;
       const entries = sideGroups[side];
       const toggleButton = getAnalysisTocToggleButton(side);
       const isCollapsed = isAnalysisTocSideCollapsed(side);
-      const visibleButtonCount = isCollapsed ? 0 : entries.length;
-      const totalVisibleItems = entries.length > 0 ? visibleButtonCount + 1 : 0;
-      const midpoint = (totalVisibleItems - 1) / 2;
+      const buttonMidpoint = (entries.length - 1) / 2;
+      const toggleOffsetPx = -(buttonMidpoint + 1) * ANALYSIS_TOC_GAP_PX;
 
       if (toggleButton instanceof HTMLButtonElement) {
         applyAnalysisTocToggleButtonState(
           toggleButton,
           side,
-          totalVisibleItems > 0 ? -midpoint * ANALYSIS_TOC_GAP_PX : 0,
+          entries.length > 0 ? toggleOffsetPx : 0,
           entries.length > 0,
         );
       }
@@ -1842,7 +1841,7 @@ Base everything strictly on the screenshot attachment.`;
           applyAnalysisTocButtonPlacement(
             button,
             headingEntry.key,
-            ((groupIndex + 1) - midpoint) * ANALYSIS_TOC_GAP_PX,
+            (groupIndex - buttonMidpoint) * ANALYSIS_TOC_GAP_PX,
           );
         }
       });
