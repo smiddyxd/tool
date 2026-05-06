@@ -39,6 +39,12 @@ const DEFAULT_HIGHLIGHT_RULES = [
   },
 ];
 const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
+const ANALYSIS_TOC_SIDE_LEFT = "left";
+const ANALYSIS_TOC_SIDE_RIGHT = "right";
+const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
+const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
+const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
+const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
 const ANALYSIS_SECTION_HEADINGS = [
   { heading: "Query Coherence Check", label: "Query Coherence Check" },
   { heading: "Decision Gates", label: "Decision Gates" },
@@ -65,10 +71,12 @@ const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
+const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
 
 const highlightState = {
   rules: [],
   tocButtonColors: {},
+  tocButtonSettings: {},
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -260,6 +268,58 @@ function sanitizeAnalysisTocButtonColors(rawValue) {
   );
 }
 
+function getDefaultAnalysisTocButtonSettings() {
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entry.key,
+      {
+        side: ANALYSIS_TOC_SIDE_LEFT,
+        offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+      },
+    ]),
+  );
+}
+
+function sanitizeAnalysisTocButtonSide(value) {
+  return ANALYSIS_TOC_ALLOWED_SIDES.has(value) ? value : ANALYSIS_TOC_SIDE_LEFT;
+}
+
+function sanitizeAnalysisTocButtonOffset(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return ANALYSIS_TOC_DEFAULT_OFFSET_PX;
+  }
+
+  return Math.min(
+    ANALYSIS_TOC_MAX_OFFSET_PX,
+    Math.max(ANALYSIS_TOC_MIN_OFFSET_PX, parsedValue),
+  );
+}
+
+function sanitizeAnalysisTocButtonSettings(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const defaults = getDefaultAnalysisTocButtonSettings();
+
+  return Object.fromEntries(
+    ANALYSIS_HEADING_ENTRIES.map((entry) => {
+      const rawEntry = source[entry.key] && typeof source[entry.key] === "object"
+        ? source[entry.key]
+        : {};
+      const defaultEntry = defaults[entry.key];
+
+      return [
+        entry.key,
+        {
+          side: sanitizeAnalysisTocButtonSide(rawEntry.side ?? defaultEntry.side),
+          offsetPx: sanitizeAnalysisTocButtonOffset(rawEntry.offsetPx ?? defaultEntry.offsetPx),
+        },
+      ];
+    }),
+  );
+}
+
 function sanitizeHighlightRule(rawRule, index = 0) {
   const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
   const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
@@ -413,8 +473,8 @@ function renderHighlightRules() {
   }
 }
 
-function renderAnalysisTocColors() {
-  const list = document.querySelector("#analysis-toc-colors-list");
+function renderAnalysisTocSettings() {
+  const list = document.querySelector("#analysis-toc-settings-list");
   if (!list) {
     return;
   }
@@ -422,11 +482,15 @@ function renderAnalysisTocColors() {
   list.replaceChildren();
 
   for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
-    const row = document.createElement("label");
-    row.className = "toc-color-row";
-    row.htmlFor = `analysis-toc-color-${headingEntry.index}`;
+    const settings = highlightState.tocButtonSettings[headingEntry.key] ?? {
+      side: ANALYSIS_TOC_SIDE_LEFT,
+      offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+    };
+    const row = document.createElement("div");
+    row.className = "toc-settings-row";
 
     const labelText = document.createElement("span");
+    labelText.className = "toc-heading-label";
     labelText.textContent = headingEntry.label;
 
     const input = document.createElement("input");
@@ -445,6 +509,13 @@ function renderAnalysisTocColors() {
     colorControl.className = "color-control";
     colorControl.append(input, hexInput);
 
+    const colorLabel = document.createElement("label");
+    colorLabel.className = "toc-control toc-color-control";
+    colorLabel.htmlFor = input.id;
+    const colorLabelText = document.createElement("span");
+    colorLabelText.textContent = "Color";
+    colorLabel.append(colorLabelText, colorControl);
+
     setColorControlValue(
       input,
       hexInput,
@@ -455,7 +526,63 @@ function renderAnalysisTocColors() {
       highlightState.tocButtonColors[headingEntry.key] = color;
     });
 
-    row.append(labelText, colorControl);
+    const sideSelect = document.createElement("select");
+    sideSelect.id = `analysis-toc-side-${headingEntry.index}`;
+    sideSelect.dataset.headingKey = headingEntry.key;
+    sideSelect.append(
+      new Option("Left", ANALYSIS_TOC_SIDE_LEFT),
+      new Option("Right", ANALYSIS_TOC_SIDE_RIGHT),
+    );
+    sideSelect.value = sanitizeAnalysisTocButtonSide(settings.side);
+    sideSelect.addEventListener("change", () => {
+      const currentSettings = highlightState.tocButtonSettings[headingEntry.key] ?? {};
+      highlightState.tocButtonSettings[headingEntry.key] = {
+        ...currentSettings,
+        side: sanitizeAnalysisTocButtonSide(sideSelect.value),
+        offsetPx: sanitizeAnalysisTocButtonOffset(currentSettings.offsetPx),
+      };
+    });
+
+    const sideLabel = document.createElement("label");
+    sideLabel.className = "toc-control";
+    sideLabel.htmlFor = sideSelect.id;
+    const sideLabelText = document.createElement("span");
+    sideLabelText.textContent = "Side";
+    sideLabel.append(sideLabelText, sideSelect);
+
+    const offsetInput = document.createElement("input");
+    offsetInput.id = `analysis-toc-offset-${headingEntry.index}`;
+    offsetInput.type = "number";
+    offsetInput.step = "1";
+    offsetInput.min = String(ANALYSIS_TOC_MIN_OFFSET_PX);
+    offsetInput.max = String(ANALYSIS_TOC_MAX_OFFSET_PX);
+    offsetInput.inputMode = "numeric";
+    offsetInput.dataset.headingKey = headingEntry.key;
+    offsetInput.value = String(sanitizeAnalysisTocButtonOffset(settings.offsetPx));
+    offsetInput.addEventListener("input", () => {
+      const currentSettings = highlightState.tocButtonSettings[headingEntry.key] ?? {};
+      highlightState.tocButtonSettings[headingEntry.key] = {
+        ...currentSettings,
+        side: sanitizeAnalysisTocButtonSide(currentSettings.side),
+        offsetPx: sanitizeAnalysisTocButtonOffset(offsetInput.value),
+      };
+    });
+    offsetInput.addEventListener("blur", () => {
+      offsetInput.value = String(sanitizeAnalysisTocButtonOffset(offsetInput.value));
+    });
+
+    const offsetLabel = document.createElement("label");
+    offsetLabel.className = "toc-control";
+    offsetLabel.htmlFor = offsetInput.id;
+    const offsetLabelText = document.createElement("span");
+    offsetLabelText.textContent = "Offset px";
+    offsetLabel.append(offsetLabelText, offsetInput);
+
+    const controls = document.createElement("span");
+    controls.className = "toc-settings-controls";
+    controls.append(colorLabel, sideLabel, offsetLabel);
+
+    row.append(labelText, controls);
     list.append(row);
   }
 }
@@ -503,18 +630,20 @@ async function loadOptions() {
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
   });
 
   const defaultStartPageUrl = sanitizeStartPageUrl(stored[STORAGE_KEY_START_PAGE_URL]);
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
+  highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
   document.querySelector("#reset-limit").value = String(resetLimit);
   clearRuleForm();
   renderHighlightRules();
-  renderAnalysisTocColors();
+  renderAnalysisTocSettings();
 }
 
 async function saveOptions(event) {
@@ -528,6 +657,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors),
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings),
   });
 
   document.querySelector("#default-start-page-url").value = defaultStartPageUrl;
@@ -538,19 +668,22 @@ async function saveOptions(event) {
 async function restoreDefaults() {
   const defaultRules = cloneDefaultHighlightRules();
   const defaultTocButtonColors = getDefaultAnalysisTocButtonColors();
+  const defaultTocButtonSettings = getDefaultAnalysisTocButtonSettings();
   document.querySelector("#default-start-page-url").value = DEFAULT_START_PAGE_URL;
   document.querySelector("#reset-limit").value = String(DEFAULT_RESET_LIMIT);
   highlightState.rules = sanitizeHighlightRules(defaultRules);
   highlightState.tocButtonColors = defaultTocButtonColors;
+  highlightState.tocButtonSettings = defaultTocButtonSettings;
   clearRuleForm();
   renderHighlightRules();
-  renderAnalysisTocColors();
+  renderAnalysisTocSettings();
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: highlightState.tocButtonColors,
+    [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: highlightState.tocButtonSettings,
   });
   setStatus("Defaults restored.");
 }

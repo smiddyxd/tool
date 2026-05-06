@@ -48,18 +48,22 @@ Base everything strictly on the screenshot attachment.`;
   const SCROLL_EXECUTION_INTERVAL_MS = 180;
   const SEND_BUTTON_RETRY_COUNT = 20;
   const SEND_BUTTON_RETRY_DELAY_MS = 250;
-  const AUTO_SCROLL_MARKDOWN_CLASS = "markdown";
-  const AUTO_SCROLL_TARGET_TEXT = "Rating: ";
-  const AUTO_SCROLL_TARGET_OFFSET_PX = 0;
-  const RATING_SCROLL_BUTTON_ID = "local-query-bridge-rating-scroll-button";
-  const RATING_SCROLL_STYLE_ID = "local-query-bridge-rating-scroll-styles";
   const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
   const ANALYSIS_TOC_BUTTON_CLASS = "local-query-bridge-analysis-toc-button";
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
+  const ANALYSIS_TOC_LEFT_PX = 224;
+  const ANALYSIS_TOC_RIGHT_PX = 18;
+  const ANALYSIS_TOC_SIDE_LEFT = "left";
+  const ANALYSIS_TOC_SIDE_RIGHT = "right";
+  const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
+  const ANALYSIS_TOC_DEFAULT_OFFSET_PX = 0;
+  const ANALYSIS_TOC_MIN_OFFSET_PX = -2000;
+  const ANALYSIS_TOC_MAX_OFFSET_PX = 2000;
   const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
   const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
+  const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -163,6 +167,7 @@ Base everything strictly on the screenshot attachment.`;
     detectedHeadingKeys: new Set(),
     highlightRefreshAllowed: false,
     buttonColors: {},
+    buttonSettings: {},
   };
 
   const hotkeyState = {
@@ -219,6 +224,69 @@ Base everything strictly on the screenshot attachment.`;
 
   function getAnalysisTocButtonColor(headingKey) {
     return analysisTocState.buttonColors[headingKey] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
+  }
+
+  function getDefaultAnalysisTocButtonSettings() {
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+        entry.key,
+        {
+          side: ANALYSIS_TOC_SIDE_LEFT,
+          offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+        },
+      ]),
+    );
+  }
+
+  function sanitizeAnalysisTocButtonSide(value) {
+    return ANALYSIS_TOC_ALLOWED_SIDES.has(value) ? value : ANALYSIS_TOC_SIDE_LEFT;
+  }
+
+  function sanitizeAnalysisTocButtonOffset(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return ANALYSIS_TOC_DEFAULT_OFFSET_PX;
+    }
+
+    return Math.min(
+      ANALYSIS_TOC_MAX_OFFSET_PX,
+      Math.max(ANALYSIS_TOC_MIN_OFFSET_PX, parsedValue),
+    );
+  }
+
+  function sanitizeAnalysisTocButtonSettings(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocButtonSettings();
+
+    return Object.fromEntries(
+      ANALYSIS_HEADING_ENTRIES.map((entry) => {
+        const rawEntry = source[entry.key] && typeof source[entry.key] === "object"
+          ? source[entry.key]
+          : {};
+        const defaultEntry = defaults[entry.key];
+
+        return [
+          entry.key,
+          {
+            side: sanitizeAnalysisTocButtonSide(rawEntry.side ?? defaultEntry.side),
+            offsetPx: sanitizeAnalysisTocButtonOffset(rawEntry.offsetPx ?? defaultEntry.offsetPx),
+          },
+        ];
+      }),
+    );
+  }
+
+  function getAnalysisTocButtonSettings(headingKey) {
+    return analysisTocState.buttonSettings[headingKey] ?? {
+      side: ANALYSIS_TOC_SIDE_LEFT,
+      offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+    };
+  }
+
+  function getAnalysisTocButtonOffset(headingKey) {
+    return getAnalysisTocButtonSettings(headingKey).offsetPx;
   }
 
   function cloneDefaultHighlightRules() {
@@ -1009,11 +1077,14 @@ Base everything strictly on the screenshot attachment.`;
     const stored = await chrome.storage.sync.get({
       [STORAGE_KEY_HIGHLIGHT_RULES]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
     analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
+    analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
     applyAnalysisTocButtonColors();
+    applyAnalysisTocButtonSettings();
     scheduleHighlightPass();
   }
 
@@ -1031,6 +1102,11 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_COLORS]) {
         analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(changes[STORAGE_KEY_ANALYSIS_TOC_COLORS].newValue);
         applyAnalysisTocButtonColors();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]) {
+        analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS].newValue);
+        applyAnalysisTocButtonSettings();
       }
     });
 
@@ -1426,13 +1502,6 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function normalizeSearchText(value) {
-    return (typeof value === "string" ? value : "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-  }
-
   function getAssistantMessages() {
     return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
       .filter((element) => element instanceof HTMLElement);
@@ -1462,7 +1531,7 @@ Base everything strictly on the screenshot attachment.`;
     style.textContent = `
       .${ANALYSIS_TOC_BUTTON_CLASS} {
         position: fixed;
-        left: 224px;
+        left: ${ANALYSIS_TOC_LEFT_PX}px;
         z-index: 2147483647;
         transform: translateY(-50%);
         max-width: 220px;
@@ -1513,6 +1582,18 @@ Base everything strictly on the screenshot attachment.`;
     button.style.setProperty("--local-query-bridge-analysis-active-text-color", getReadableTextColor(backgroundColor));
   }
 
+  function applyAnalysisTocButtonPlacement(button, headingKey) {
+    const settings = getAnalysisTocButtonSettings(headingKey);
+    if (settings.side === ANALYSIS_TOC_SIDE_RIGHT) {
+      button.style.left = "auto";
+      button.style.right = `${ANALYSIS_TOC_RIGHT_PX}px`;
+      return;
+    }
+
+    button.style.left = `${ANALYSIS_TOC_LEFT_PX}px`;
+    button.style.right = "auto";
+  }
+
   function setAnalysisTocButtonActive(headingKey, isActive) {
     const button = getAnalysisTocButton(headingKey);
     if (!(button instanceof HTMLButtonElement)) {
@@ -1528,6 +1609,15 @@ Base everything strictly on the screenshot attachment.`;
       const button = getAnalysisTocButton(headingEntry.key);
       if (button instanceof HTMLButtonElement) {
         setAnalysisTocButtonColorVariables(button, headingEntry.key);
+      }
+    }
+  }
+
+  function applyAnalysisTocButtonSettings() {
+    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+      const button = getAnalysisTocButton(headingEntry.key);
+      if (button instanceof HTMLButtonElement) {
+        applyAnalysisTocButtonPlacement(button, headingEntry.key);
       }
     }
   }
@@ -1560,6 +1650,7 @@ Base everything strictly on the screenshot attachment.`;
       button.dataset.headingKey = headingEntry.key;
       button.style.top = `calc(50% + ${offsetPx}px)`;
       setAnalysisTocButtonColorVariables(button, headingEntry.key);
+      applyAnalysisTocButtonPlacement(button, headingEntry.key);
       button.addEventListener("click", () => {
         armAnalysisHeadingHighlightRefresh("analysis-toc-click");
         void scrollToAnalysisHeading(headingEntry.key);
@@ -1676,6 +1767,7 @@ Base everything strictly on the screenshot attachment.`;
       inline: "nearest",
       behavior: "auto",
     });
+    applyAutoScrollOffset(getAnalysisTocButtonOffset(headingKey));
     return true;
   }
 
@@ -1755,116 +1847,6 @@ Base everything strictly on the screenshot attachment.`;
     return latestAssistantElement instanceof HTMLElement;
   }
 
-  function getNextAutoScrollTarget() {
-    const targetText = normalizeSearchText(AUTO_SCROLL_TARGET_TEXT);
-    const roots = analysisTocState.currentAssistantElement instanceof HTMLElement
-      ? [analysisTocState.currentAssistantElement]
-      : getAssistantMessages();
-    const searchRoots = roots.length > 0
-      ? roots
-      : Array.from(document.getElementsByClassName(AUTO_SCROLL_MARKDOWN_CLASS));
-    const candidates = searchRoots.flatMap((root) => Array.from(root.querySelectorAll("*"))).filter((element) => {
-      if (!(element instanceof HTMLElement)) {
-        return false;
-      }
-
-      const elementText = normalizeSearchText(element.innerText || element.textContent || "");
-      if (!elementText.includes(targetText)) {
-        return false;
-      }
-
-      return !Array.from(element.children).some((child) => {
-        if (!(child instanceof HTMLElement)) {
-          return false;
-        }
-
-        const childText = normalizeSearchText(child.innerText || child.textContent || "");
-        return childText.includes(targetText);
-      });
-    });
-
-    let nextTarget = null;
-    let nextTop = Number.POSITIVE_INFINITY;
-    for (const candidate of candidates) {
-      const rect = candidate.getBoundingClientRect();
-      if (rect.top <= 0) {
-        continue;
-      }
-
-      if (rect.top < nextTop) {
-        nextTop = rect.top;
-        nextTarget = candidate;
-      }
-    }
-
-    return nextTarget;
-  }
-
-  function getAssistantRatingCount() {
-    return Array.from(document.querySelectorAll(ASSISTANT_MESSAGE_SELECTOR))
-      .reduce((total, element) => {
-        const matches = element.textContent?.match(/Rating: /g);
-        return total + (matches ? matches.length : 0);
-      }, 0);
-  }
-
-  function ensureRatingScrollButtonStyles() {
-    if (document.getElementById(RATING_SCROLL_STYLE_ID)) {
-      return;
-    }
-
-    const style = document.createElement("style");
-    style.id = RATING_SCROLL_STYLE_ID;
-    style.textContent = `
-      #${RATING_SCROLL_BUTTON_ID} {
-        position: fixed;
-        right: 18px;
-        top: 50%;
-        z-index: 2147483647;
-        transform: translateY(-50%);
-        border: 1px solid rgba(37, 99, 235, 0.35);
-        border-radius: 8px;
-        background: #2563eb;
-        color: #ffffff;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
-        cursor: pointer;
-        font: 650 14px/1.2 "Segoe UI", system-ui, sans-serif;
-        padding: 10px 14px;
-      }
-
-      #${RATING_SCROLL_BUTTON_ID}:hover {
-        background: #1d4ed8;
-      }
-
-      #${RATING_SCROLL_BUTTON_ID}:focus {
-        outline: 3px solid rgba(37, 99, 235, 0.25);
-        outline-offset: 2px;
-      }
-    `;
-    document.documentElement.append(style);
-  }
-
-  function hideRatingScrollButton() {
-    document.getElementById(RATING_SCROLL_BUTTON_ID)?.remove();
-  }
-
-  function showRatingScrollButton() {
-    ensureRatingScrollButtonStyles();
-    let button = document.getElementById(RATING_SCROLL_BUTTON_ID);
-    if (!(button instanceof HTMLButtonElement)) {
-      button = document.createElement("button");
-      button.id = RATING_SCROLL_BUTTON_ID;
-      button.type = "button";
-      button.textContent = "Rating";
-      button.addEventListener("click", () => {
-        if (scrollToNextPositionRationaleNow()) {
-          hideRatingScrollButton();
-        }
-      });
-      document.body.append(button);
-    }
-  }
-
   function applyAutoScrollOffset(offsetPx) {
     if (!Number.isFinite(offsetPx) || offsetPx === 0) {
       return;
@@ -1879,40 +1861,13 @@ Base everything strictly on the screenshot attachment.`;
     window.scrollBy({ top: offsetPx, left: 0, behavior: "auto" });
   }
 
-  function scrollToNextPositionRationaleNow() {
-    const nextTarget = getNextAutoScrollTarget();
-    if (!(nextTarget instanceof HTMLElement)) {
-      console.log("Local Query Bridge found no auto-scroll target", {
-        rootClass: AUTO_SCROLL_MARKDOWN_CLASS,
-        targetText: AUTO_SCROLL_TARGET_TEXT,
-      });
-      return false;
-    }
-
-    nextTarget.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-      behavior: "auto",
-    });
-    applyAutoScrollOffset(AUTO_SCROLL_TARGET_OFFSET_PX);
-
-    console.log("Local Query Bridge auto-scrolled to target text", {
-      tagName: nextTarget.tagName,
-      targetText: AUTO_SCROLL_TARGET_TEXT,
-      textSnippet: normalizeSearchText(nextTarget.innerText || nextTarget.textContent || "").slice(0, 80),
-    });
-    return true;
-  }
-
-  async function watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineAssistantCount) {
+  async function watchResponseGenerationAndHeadings(runId, baselineAssistantCount) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
-    let ratingButtonShown = false;
     let sawGenerating = false;
     let responseCompleted = false;
 
     console.log("Local Query Bridge watching response generation", {
       runId,
-      baselineRatingCount,
       baselineAssistantCount,
     });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
@@ -1922,17 +1877,6 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       syncAnalysisHeadingCountsForRun(runId);
-
-      const ratingCount = getAssistantRatingCount();
-      if (!ratingButtonShown && ratingCount > baselineRatingCount) {
-        ratingButtonShown = true;
-        showRatingScrollButton();
-        console.log("Local Query Bridge showed rating scroll button", {
-          runId,
-          baselineRatingCount,
-          ratingCount,
-        });
-      }
 
       if (isResponseGenerating()) {
         sawGenerating = true;
@@ -1966,12 +1910,10 @@ Base everything strictly on the screenshot attachment.`;
     autoScrollState.runId += 1;
     autoScrollState.userScrolled = false;
     const runId = autoScrollState.runId;
-    const baselineRatingCount = getAssistantRatingCount();
     const baselineAssistantCount = getAssistantMessages().length;
     const baselineHeadingCounts = getAnalysisHeadingCounts();
-    hideRatingScrollButton();
     resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts);
-    void watchResponseGenerationAndRatingButton(runId, baselineRatingCount, baselineAssistantCount);
+    void watchResponseGenerationAndHeadings(runId, baselineAssistantCount);
   }
 
   window.addEventListener("wheel", () => {
