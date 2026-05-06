@@ -51,6 +51,8 @@ Base everything strictly on the screenshot attachment.`;
   const ASSISTANT_MESSAGE_SELECTOR = '[data-message-author-role="assistant"]';
   const ANALYSIS_TOC_BUTTON_CLASS = "local-query-bridge-analysis-toc-button";
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
+  const ANALYSIS_TOC_TOGGLE_BUTTON_CLASS = "local-query-bridge-analysis-toc-toggle-button";
+  const ANALYSIS_TOC_TOGGLE_BUTTON_ID_PREFIX = "local-query-bridge-analysis-toc-toggle";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
   const ANALYSIS_TOC_DEFAULT_LEFT_X_PX = 224;
@@ -182,6 +184,7 @@ Base everything strictly on the screenshot attachment.`;
       leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
       rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
     },
+    collapsedSides: new Set(),
   };
 
   const hotkeyState = {
@@ -1662,6 +1665,32 @@ Base everything strictly on the screenshot attachment.`;
         outline: 3px solid rgba(15, 23, 42, 0.2);
         outline-offset: 2px;
       }
+
+      .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS} {
+        position: fixed;
+        left: ${ANALYSIS_TOC_DEFAULT_LEFT_X_PX}px;
+        z-index: 2147483647;
+        transform: translateY(-50%);
+        width: 26px;
+        height: 24px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        border-radius: 999px;
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 7px 16px rgba(15, 23, 42, 0.16);
+        cursor: pointer;
+        font: 800 12px/1 "Segoe UI", system-ui, sans-serif;
+        padding: 0;
+      }
+
+      .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}:hover {
+        background: #f8fafc;
+      }
+
+      .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}:focus {
+        outline: 3px solid rgba(15, 23, 42, 0.18);
+        outline-offset: 2px;
+      }
     `;
     document.documentElement.append(style);
   }
@@ -1671,24 +1700,86 @@ Base everything strictly on the screenshot attachment.`;
       .find((button) => button instanceof HTMLButtonElement && button.dataset.headingKey === headingKey) ?? null;
   }
 
+  function getAnalysisTocToggleButtonId(side) {
+    return `${ANALYSIS_TOC_TOGGLE_BUTTON_ID_PREFIX}-${side}`;
+  }
+
+  function getAnalysisTocToggleButton(side) {
+    const button = document.getElementById(getAnalysisTocToggleButtonId(side));
+    return button instanceof HTMLButtonElement ? button : null;
+  }
+
+  function isAnalysisTocSideCollapsed(side) {
+    return analysisTocState.collapsedSides.has(side);
+  }
+
+  function getAnalysisTocSideLabel(side) {
+    return side === ANALYSIS_TOC_SIDE_RIGHT ? "right" : "left";
+  }
+
+  function ensureAnalysisTocToggleButton(side) {
+    let button = getAnalysisTocToggleButton(side);
+    if (button instanceof HTMLButtonElement) {
+      return button;
+    }
+
+    button = document.createElement("button");
+    button.id = getAnalysisTocToggleButtonId(side);
+    button.className = ANALYSIS_TOC_TOGGLE_BUTTON_CLASS;
+    button.type = "button";
+    button.dataset.tocSide = side;
+    button.addEventListener("click", () => {
+      if (isAnalysisTocSideCollapsed(side)) {
+        analysisTocState.collapsedSides.delete(side);
+      } else {
+        analysisTocState.collapsedSides.add(side);
+      }
+
+      applyAnalysisTocButtonSettings();
+    });
+    document.body.append(button);
+    return button;
+  }
+
+  function ensureAnalysisTocToggleButtons() {
+    ensureAnalysisTocToggleButton(ANALYSIS_TOC_SIDE_LEFT);
+    ensureAnalysisTocToggleButton(ANALYSIS_TOC_SIDE_RIGHT);
+  }
+
   function setAnalysisTocButtonColorVariables(button, headingKey) {
     const backgroundColor = getAnalysisTocButtonColor(headingKey);
     button.style.setProperty("--local-query-bridge-analysis-active-color", backgroundColor);
     button.style.setProperty("--local-query-bridge-analysis-active-text-color", getReadableTextColor(backgroundColor));
   }
 
-  function applyAnalysisTocButtonPlacement(button, headingKey, verticalOffsetPx) {
-    const side = getAnalysisTocButtonSettings(headingKey).side;
+  function applyAnalysisTocColumnSidePosition(element, side) {
     const columnPositions = getAnalysisTocColumnPositions();
     if (side === ANALYSIS_TOC_SIDE_RIGHT) {
-      button.style.left = "auto";
-      button.style.right = `${columnPositions.rightInsetPx}px`;
+      element.style.left = "auto";
+      element.style.right = `${columnPositions.rightInsetPx}px`;
     } else {
-      button.style.left = `${columnPositions.leftPx}px`;
-      button.style.right = "auto";
+      element.style.left = `${columnPositions.leftPx}px`;
+      element.style.right = "auto";
     }
+  }
+
+  function applyAnalysisTocButtonPlacement(button, headingKey, verticalOffsetPx) {
+    const side = getAnalysisTocButtonSettings(headingKey).side;
+    applyAnalysisTocColumnSidePosition(button, side);
 
     button.style.top = `calc(50% + ${verticalOffsetPx}px)`;
+  }
+
+  function applyAnalysisTocToggleButtonState(button, side, verticalOffsetPx, hasEntries) {
+    const isCollapsed = isAnalysisTocSideCollapsed(side);
+    const sideLabel = getAnalysisTocSideLabel(side);
+    button.hidden = !hasEntries;
+    button.textContent = isCollapsed ? "v" : "^";
+    button.title = `${isCollapsed ? "Expand" : "Collapse"} ${sideLabel} TOC column`;
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-expanded", String(!isCollapsed));
+    button.style.top = `calc(50% + ${verticalOffsetPx}px)`;
+    applyAnalysisTocColumnSidePosition(button, side);
   }
 
   function applyAnalysisTocButtonLabel(button, headingKey) {
@@ -1727,15 +1818,31 @@ Base everything strictly on the screenshot attachment.`;
       sideGroups[side === ANALYSIS_TOC_SIDE_RIGHT ? ANALYSIS_TOC_SIDE_RIGHT : ANALYSIS_TOC_SIDE_LEFT].push(headingEntry);
     }
 
-    for (const entries of Object.values(sideGroups)) {
-      const midpoint = (entries.length - 1) / 2;
+    for (const side of [ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]) {
+      const entries = sideGroups[side];
+      const toggleButton = getAnalysisTocToggleButton(side);
+      const isCollapsed = isAnalysisTocSideCollapsed(side);
+      const visibleButtonCount = isCollapsed ? 0 : entries.length;
+      const totalVisibleItems = entries.length > 0 ? visibleButtonCount + 1 : 0;
+      const midpoint = (totalVisibleItems - 1) / 2;
+
+      if (toggleButton instanceof HTMLButtonElement) {
+        applyAnalysisTocToggleButtonState(
+          toggleButton,
+          side,
+          totalVisibleItems > 0 ? -midpoint * ANALYSIS_TOC_GAP_PX : 0,
+          entries.length > 0,
+        );
+      }
+
       entries.forEach((headingEntry, groupIndex) => {
         const button = getAnalysisTocButton(headingEntry.key);
         if (button instanceof HTMLButtonElement) {
+          button.hidden = isCollapsed;
           applyAnalysisTocButtonPlacement(
             button,
             headingEntry.key,
-            (groupIndex - midpoint) * ANALYSIS_TOC_GAP_PX,
+            ((groupIndex + 1) - midpoint) * ANALYSIS_TOC_GAP_PX,
           );
         }
       });
@@ -1765,6 +1872,7 @@ Base everything strictly on the screenshot attachment.`;
     }
 
     ensureAnalysisTocStyles();
+    ensureAnalysisTocToggleButtons();
     for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
       if (getAnalysisTocButton(headingEntry.key) instanceof HTMLButtonElement) {
         continue;
