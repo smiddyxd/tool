@@ -198,6 +198,7 @@ Base everything strictly on the screenshot attachment.`;
     baselineHeadingCounts: {},
     detectedHeadingKeys: new Set(),
     highlightRefreshAllowed: false,
+    responseCompletedRunId: 0,
     buttonColors: {},
     buttonSettings: {},
     buttonLabels: {},
@@ -1467,7 +1468,7 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function noteManualScroll(source) {
-    armAnalysisHeadingHighlightRefresh(source);
+    handleAnalysisTextHighlightSignal(source);
 
     if (autoScrollState.runId === 0 || autoScrollState.userScrolled) {
       return;
@@ -1960,6 +1961,7 @@ Base everything strictly on the screenshot attachment.`;
     button.dataset.tocSide = side;
     bindAnalysisTocColumnHover(button);
     button.addEventListener("click", () => {
+      handleAnalysisTextHighlightSignal("analysis-toc-toggle-click");
       if (isAnalysisTocSideCollapsed(side)) {
         analysisTocState.collapsedSides.delete(side);
       } else {
@@ -2119,7 +2121,7 @@ Base everything strictly on the screenshot attachment.`;
       setAnalysisTocButtonColorVariables(button, headingEntry.key);
       applyAnalysisTocButtonLabel(button, headingEntry.key);
       button.addEventListener("click", () => {
-        armAnalysisHeadingHighlightRefresh("analysis-toc-click");
+        handleAnalysisTextHighlightSignal("analysis-toc-click");
         void scrollToAnalysisTocTarget(headingEntry.key);
       });
       document.body.append(button);
@@ -2144,9 +2146,40 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.baselineHeadingCounts = baselineHeadingCounts;
     analysisTocState.detectedHeadingKeys = new Set();
     analysisTocState.highlightRefreshAllowed = false;
+    analysisTocState.responseCompletedRunId = 0;
     ensureAnalysisTocButtons();
     resetAnalysisTocButtonStates();
     setAnalysisTocButtonActive(LATEST_USER_PROMPT_TOC_KEY, getLatestUserMessage() instanceof HTMLElement);
+  }
+
+  function isAnalysisResponseCompletedForCurrentRun() {
+    const runId = analysisTocState.currentRunId;
+    return runId !== 0 && analysisTocState.responseCompletedRunId === runId;
+  }
+
+  function scheduleCompletedResponseHighlightRefresh(source) {
+    if (!isAnalysisResponseCompletedForCurrentRun()) {
+      return false;
+    }
+
+    const runId = analysisTocState.currentRunId;
+    syncAnalysisHeadingCountsForRun(runId);
+    scheduleHighlightPass();
+    if (source === "analysis-toc-click") {
+      console.log("Local Query Bridge scheduled completed-response highlight refresh", {
+        source,
+        runId,
+      });
+    }
+    return true;
+  }
+
+  function handleAnalysisTextHighlightSignal(source) {
+    if (scheduleCompletedResponseHighlightRefresh(source)) {
+      return;
+    }
+
+    armAnalysisHeadingHighlightRefresh(source);
   }
 
   function armAnalysisHeadingHighlightRefresh(source) {
@@ -2359,6 +2392,7 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.baselineHeadingCounts = {};
     analysisTocState.detectedHeadingKeys = new Set();
     analysisTocState.highlightRefreshAllowed = false;
+    analysisTocState.responseCompletedRunId = 0;
     syncAnalysisTocButtonsForAssistantElement(latestAssistantElement);
     refreshHighlightsNow();
 
@@ -2448,6 +2482,8 @@ Base everything strictly on the screenshot attachment.`;
 
         syncAnalysisHeadingCountsForRun(runId);
         refreshHighlightsNow();
+        analysisTocState.responseCompletedRunId = runId;
+        analysisTocState.highlightRefreshAllowed = false;
         console.log("Local Query Bridge refreshed highlights after response completion", {
           runId,
         });
@@ -2473,6 +2509,14 @@ Base everything strictly on the screenshot attachment.`;
 
   window.addEventListener("touchmove", () => {
     noteManualScroll("touchmove");
+  }, { passive: true });
+
+  document.addEventListener("scroll", () => {
+    scheduleCompletedResponseHighlightRefresh("scroll");
+  }, { passive: true, capture: true });
+
+  window.addEventListener("scroll", () => {
+    scheduleCompletedResponseHighlightRefresh("scroll");
   }, { passive: true });
 
   window.addEventListener("keydown", (event) => {
