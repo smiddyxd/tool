@@ -417,10 +417,10 @@
       <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">Edit each jump button's name, active color, screen side, and scroll offset in pixels.</p>
+          <p class="hint">Edit each jump button's name, active color, screen side, scroll offset, column position, and idle opacity.</p>
         </div>
 
-        <div class="toc-column-position-grid" aria-label="TOC column positions">
+        <div class="toc-column-position-grid" aria-label="TOC column position and opacity">
           <label for="analysis-toc-left-x">
             Left column x
             <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">
@@ -431,6 +431,18 @@
             Right column inset
             <input id="analysis-toc-right-inset" type="number" min="0" max="5000" step="1" inputmode="numeric">
             <p class="hint">Pixels from the right edge of the ChatGPT viewport.</p>
+          </label>
+
+          <label for="analysis-toc-left-opacity">
+            Left idle opacity
+            <input id="analysis-toc-left-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
+            <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
+          </label>
+
+          <label for="analysis-toc-right-opacity">
+            Right idle opacity
+            <input id="analysis-toc-right-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
+            <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
           </label>
         </div>
 

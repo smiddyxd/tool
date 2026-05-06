@@ -59,6 +59,9 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX = 18;
   const ANALYSIS_TOC_MIN_COLUMN_POSITION_PX = 0;
   const ANALYSIS_TOC_MAX_COLUMN_POSITION_PX = 5000;
+  const ANALYSIS_TOC_DEFAULT_IDLE_OPACITY = 1;
+  const ANALYSIS_TOC_MIN_IDLE_OPACITY = 0.05;
+  const ANALYSIS_TOC_MAX_IDLE_OPACITY = 1;
   const ANALYSIS_TOC_SIDE_LEFT = "left";
   const ANALYSIS_TOC_SIDE_RIGHT = "right";
   const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
@@ -70,6 +73,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
   const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
+  const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
@@ -184,6 +188,11 @@ Base everything strictly on the screenshot attachment.`;
       leftPx: ANALYSIS_TOC_DEFAULT_LEFT_X_PX,
       rightInsetPx: ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX,
     },
+    columnOpacity: {
+      [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+      [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+    },
+    hoveredSides: new Set(),
     collapsedSides: new Set(),
   };
 
@@ -307,6 +316,52 @@ Base everything strictly on the screenshot attachment.`;
 
   function getAnalysisTocColumnPositions() {
     return analysisTocState.columnPositions ?? getDefaultAnalysisTocColumnPositions();
+  }
+
+  function getDefaultAnalysisTocColumnOpacity() {
+    return {
+      [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+      [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+    };
+  }
+
+  function sanitizeAnalysisTocColumnOpacityValue(value, fallback) {
+    const parsedValue = Number.parseFloat(`${value}`);
+    if (!Number.isFinite(parsedValue)) {
+      return fallback;
+    }
+
+    const normalizedValue = parsedValue > 1 ? parsedValue / 100 : parsedValue;
+    return Math.min(
+      ANALYSIS_TOC_MAX_IDLE_OPACITY,
+      Math.max(ANALYSIS_TOC_MIN_IDLE_OPACITY, normalizedValue),
+    );
+  }
+
+  function sanitizeAnalysisTocColumnOpacity(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocColumnOpacity();
+
+    return {
+      [ANALYSIS_TOC_SIDE_LEFT]: sanitizeAnalysisTocColumnOpacityValue(
+        source[ANALYSIS_TOC_SIDE_LEFT],
+        defaults[ANALYSIS_TOC_SIDE_LEFT],
+      ),
+      [ANALYSIS_TOC_SIDE_RIGHT]: sanitizeAnalysisTocColumnOpacityValue(
+        source[ANALYSIS_TOC_SIDE_RIGHT],
+        defaults[ANALYSIS_TOC_SIDE_RIGHT],
+      ),
+    };
+  }
+
+  function getAnalysisTocColumnIdleOpacity(side) {
+    const columnOpacity = analysisTocState.columnOpacity ?? getDefaultAnalysisTocColumnOpacity();
+    return sanitizeAnalysisTocColumnOpacityValue(
+      columnOpacity[side],
+      ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+    );
   }
 
   function getDefaultAnalysisTocButtonSettings() {
@@ -1163,6 +1218,7 @@ Base everything strictly on the screenshot attachment.`;
       [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
+      [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
     });
 
     highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
@@ -1170,6 +1226,7 @@ Base everything strictly on the screenshot attachment.`;
     analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
     analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
     analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
+    analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
     applyAnalysisTocButtonLabels();
@@ -1205,6 +1262,11 @@ Base everything strictly on the screenshot attachment.`;
       if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]) {
         analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS].newValue);
         applyAnalysisTocButtonSettings();
+      }
+
+      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]) {
+        analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY].newValue);
+        applyAnalysisTocColumnOpacities();
       }
     });
 
@@ -1644,6 +1706,7 @@ Base everything strictly on the screenshot attachment.`;
         cursor: pointer;
         font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
         padding: 6px 9px;
+        transition: opacity 120ms ease, filter 120ms ease, background-color 120ms ease;
       }
 
       .${ANALYSIS_TOC_BUTTON_CLASS}:hover {
@@ -1681,6 +1744,7 @@ Base everything strictly on the screenshot attachment.`;
         cursor: pointer;
         font: 800 12px/1 "Segoe UI", system-ui, sans-serif;
         padding: 0;
+        transition: opacity 120ms ease, background-color 120ms ease;
       }
 
       .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}:hover {
@@ -1709,6 +1773,67 @@ Base everything strictly on the screenshot attachment.`;
     return button instanceof HTMLButtonElement ? button : null;
   }
 
+  function getAnalysisTocColumnElements(side) {
+    return Array.from(document.querySelectorAll(
+      `.${ANALYSIS_TOC_BUTTON_CLASS}[data-toc-side="${side}"], .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}[data-toc-side="${side}"]`,
+    )).filter((element) => element instanceof HTMLElement);
+  }
+
+  function getClosestAnalysisTocColumnElement(target) {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    const element = target.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`);
+    return element instanceof HTMLElement ? element : null;
+  }
+
+  function isPointerStillInAnalysisTocColumn(relatedTarget, side) {
+    const element = getClosestAnalysisTocColumnElement(relatedTarget);
+    return element instanceof HTMLElement && element.dataset.tocSide === side;
+  }
+
+  function applyAnalysisTocColumnOpacity(side) {
+    const opacity = analysisTocState.hoveredSides.has(side)
+      ? 1
+      : getAnalysisTocColumnIdleOpacity(side);
+
+    for (const element of getAnalysisTocColumnElements(side)) {
+      element.style.opacity = String(opacity);
+    }
+  }
+
+  function applyAnalysisTocColumnOpacities() {
+    applyAnalysisTocColumnOpacity(ANALYSIS_TOC_SIDE_LEFT);
+    applyAnalysisTocColumnOpacity(ANALYSIS_TOC_SIDE_RIGHT);
+  }
+
+  function bindAnalysisTocColumnHover(element) {
+    if (element.dataset.tocHoverBound === "true") {
+      return;
+    }
+
+    element.dataset.tocHoverBound = "true";
+    element.addEventListener("pointerenter", (event) => {
+      const side = event.currentTarget?.dataset?.tocSide;
+      if (!ANALYSIS_TOC_ALLOWED_SIDES.has(side)) {
+        return;
+      }
+
+      analysisTocState.hoveredSides.add(side);
+      applyAnalysisTocColumnOpacity(side);
+    });
+    element.addEventListener("pointerleave", (event) => {
+      const side = event.currentTarget?.dataset?.tocSide;
+      if (!ANALYSIS_TOC_ALLOWED_SIDES.has(side) || isPointerStillInAnalysisTocColumn(event.relatedTarget, side)) {
+        return;
+      }
+
+      analysisTocState.hoveredSides.delete(side);
+      applyAnalysisTocColumnOpacity(side);
+    });
+  }
+
   function isAnalysisTocSideCollapsed(side) {
     return analysisTocState.collapsedSides.has(side);
   }
@@ -1728,6 +1853,7 @@ Base everything strictly on the screenshot attachment.`;
     button.className = ANALYSIS_TOC_TOGGLE_BUTTON_CLASS;
     button.type = "button";
     button.dataset.tocSide = side;
+    bindAnalysisTocColumnHover(button);
     button.addEventListener("click", () => {
       if (isAnalysisTocSideCollapsed(side)) {
         analysisTocState.collapsedSides.delete(side);
@@ -1754,6 +1880,8 @@ Base everything strictly on the screenshot attachment.`;
 
   function applyAnalysisTocColumnSidePosition(element, side) {
     const columnPositions = getAnalysisTocColumnPositions();
+    element.dataset.tocSide = side;
+    bindAnalysisTocColumnHover(element);
     if (side === ANALYSIS_TOC_SIDE_RIGHT) {
       element.style.left = "auto";
       element.style.right = `${columnPositions.rightInsetPx}px`;
@@ -1846,6 +1974,8 @@ Base everything strictly on the screenshot attachment.`;
         }
       });
     }
+
+    applyAnalysisTocColumnOpacities();
   }
 
   function applyAnalysisTocButtonLabels() {
