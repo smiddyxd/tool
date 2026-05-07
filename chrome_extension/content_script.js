@@ -2405,9 +2405,10 @@ Base everything strictly on the screenshot attachment.`;
       .local-query-bridge-server-control-content {
         display: grid;
         grid-template-columns: minmax(160px, 0.8fr) minmax(130px, 0.65fr) minmax(360px, 1.4fr) minmax(150px, 0.7fr);
+        align-items: stretch;
         gap: 14px;
         min-height: 0;
-        overflow: auto;
+        overflow: hidden;
         padding-bottom: 2px;
       }
 
@@ -2417,24 +2418,37 @@ Base everything strictly on the screenshot attachment.`;
 
       .local-query-bridge-server-control-region-panel {
         min-width: 0;
+        min-height: 0;
         display: grid;
         gap: 10px;
         align-content: start;
+        overflow: auto;
       }
 
       .local-query-bridge-server-control-group-title {
-        margin: 0 0 8px;
+        margin: 0;
+        padding: 10px 11px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.14);
+        background: #f8fafc;
         color: #334155;
         font-size: 12px;
         font-weight: 750;
+        line-height: 1.2;
         text-transform: uppercase;
       }
 
       .local-query-bridge-server-control-column {
         min-width: 0;
+        min-height: 0;
+        height: 100%;
         display: grid;
-        align-content: start;
-        gap: 8px;
+        grid-template-rows: auto minmax(0, 1fr);
+        align-content: stretch;
+        gap: 0;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.18);
+        border-radius: 8px;
+        background: #ffffff;
       }
 
       .local-query-bridge-server-control-segment-bar,
@@ -2448,10 +2462,19 @@ Base everything strictly on the screenshot attachment.`;
         background: #ffffff;
       }
 
+      .local-query-bridge-server-control-column > .local-query-bridge-server-control-segment-bar {
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border: 0;
+        border-radius: 0;
+        align-content: start;
+      }
+
       .local-query-bridge-server-control-button {
         width: 100%;
         min-width: 0;
-        min-height: 34px;
+        min-height: 38px;
         border: 0;
         border-bottom: 1px solid rgba(51, 65, 85, 0.14);
         border-radius: 0;
@@ -2654,6 +2677,7 @@ Base everything strictly on the screenshot attachment.`;
 
         .local-query-bridge-server-control-content {
           grid-template-columns: 1fr;
+          overflow: auto;
         }
 
         .local-query-bridge-server-control-region-cross {
