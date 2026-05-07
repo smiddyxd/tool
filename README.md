@@ -18,7 +18,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
    Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
-6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its test buttons are relayed through the service worker and logged by the Python bridge.
+6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its region definitions and test buttons are relayed through the service worker and logged by the Python bridge.
 
 ## Project layout
 
@@ -90,7 +90,20 @@ Current JSON contract:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
 - `GET /b`: repeat-capture endpoint for the active repeatable task
-- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, and `processingMode`
+- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, `processingMode`, selected region bounds, and the full region map
+
+## Bridge control menu
+
+The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. It currently supports test logging for:
+- task type and processing mode selection
+- editable region definitions for full task screenshot, query, product, Google results, and product description
+- region actions for selected-region OCR/screenshot, Google-results OCR/next-scroll/screenshot, product-description OCR/next-scroll, and OCR review confirm/redo
+
+Region coordinates are stored in Chrome extension local storage as side coordinates:
+- `top`: top Y coordinate
+- `left`: left X coordinate
+- `right`: right X coordinate
+- `bottom`: bottom Y coordinate
 
 ## Task detection
 

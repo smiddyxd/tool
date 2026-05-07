@@ -515,6 +515,15 @@ def receive_control_command() -> Any:
     value = sanitize_control_command_field(payload.get("value"), 120)
     current_task_type = sanitize_control_command_field(payload.get("currentTaskType"), 120)
     processing_mode = sanitize_control_command_field(payload.get("processingMode"), 120)
+    selected_region = sanitize_control_command_field(payload.get("selectedRegion"), 120)
+    selected_region_label = sanitize_control_command_field(payload.get("selectedRegionLabel"), 160)
+    selected_region_bounds = sanitize_control_json_field(payload.get("selectedRegionBounds"), 500)
+    regions = sanitize_control_json_field(payload.get("regions"), 2000)
+    ocr_review_text_length = len(str(payload.get("ocrReviewText") or ""))
+    ocr_review_text_length = max(
+        ocr_review_text_length,
+        int(payload.get("ocrReviewTextLength") or 0) if str(payload.get("ocrReviewTextLength") or "").isdigit() else 0,
+    )
     source = sanitize_control_command_field(payload.get("source"), 120)
     page_url = sanitize_control_command_field(
         payload.get("pageUrl") or payload.get("tabUrl"),
@@ -527,6 +536,8 @@ def receive_control_command() -> Any:
         f"{timestamp_now()}] command={command or '-'} value={value or '-'} "
         f"group={group or '-'} label={label or '-'} "
         f"current_task_type={current_task_type or '-'} processing_mode={processing_mode or '-'} "
+        f"selected_region={selected_region or '-'} selected_region_label={selected_region_label or '-'} "
+        f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
         f"tab={tab_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
@@ -540,6 +551,16 @@ def timestamp_now() -> str:
 def sanitize_control_command_field(value: Any, max_length: int = MAX_CONTROL_COMMAND_FIELD_LENGTH) -> str:
     text = "" if value is None else str(value)
     return " ".join(text.replace("\r", " ").replace("\n", " ").split())[:max_length]
+
+
+def sanitize_control_json_field(value: Any, max_length: int = MAX_CONTROL_COMMAND_FIELD_LENGTH) -> str:
+    if value is None:
+        return ""
+    try:
+        text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        text = str(value)
+    return sanitize_control_command_field(text, max_length)
 
 
 def maybe_log_handshake() -> None:

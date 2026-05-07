@@ -94,6 +94,13 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
   const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
+  const STORAGE_KEY_SERVER_CONTROL_REGIONS = "serverControlRegions";
+  const STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION = "serverControlSelectedRegion";
+  const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
+  const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
+  const SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS = 250;
+  const SERVER_CONTROL_REGION_COORDINATE_MIN = -100000;
+  const SERVER_CONTROL_REGION_COORDINATE_MAX = 100000;
   const HIGHLIGHT_DEBOUNCE_MS = 250;
   const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
   const TERM_PATTERN_PART_PATTERN = /\.{3}[\p{L}\p{N}]+\.{3}|\.{3}[\p{L}\p{N}]+|[\p{L}\p{N}]+\.{3}|[\p{L}\p{N}]+/gu;
@@ -203,6 +210,103 @@ Base everything strictly on the screenshot attachment.`;
       ],
     },
   ];
+  const SERVER_CONTROL_REGION_COORDINATES = [
+    { key: "top", label: "Top Y", gridClass: "top" },
+    { key: "left", label: "Left X", gridClass: "left" },
+    { key: "right", label: "Right X", gridClass: "right" },
+    { key: "bottom", label: "Bottom Y", gridClass: "bottom" },
+  ];
+  const SERVER_CONTROL_REGION_DEFINITIONS = [
+    {
+      key: SERVER_CONTROL_REGION_DEFAULT_KEY,
+      label: "Full task screenshot",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    {
+      key: "query",
+      label: "Query",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    {
+      key: "product",
+      label: "Product",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    {
+      key: "googleResults",
+      label: "Google results",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    {
+      key: "productDescription",
+      label: "Product description",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+  ];
+  const SERVER_CONTROL_REGION_ACTIONS = [
+    {
+      label: "Log region",
+      command: "log_region",
+      value: "selected-region",
+    },
+    {
+      label: "Task screenshot",
+      command: "set_task_screenshot_region",
+      value: "selected-region",
+    },
+    {
+      label: "OCR selected",
+      command: "ocr_region",
+      value: "selected-region",
+    },
+    {
+      label: "Screenshot selected",
+      command: "screenshot_region",
+      value: "selected-region",
+    },
+    {
+      label: "OCR Google results",
+      command: "ocr_google_results",
+      value: "google-results",
+      regionKey: "googleResults",
+    },
+    {
+      label: "OCR next scroll",
+      command: "ocr_next_scroll_position",
+      value: "google-results",
+      regionKey: "googleResults",
+    },
+    {
+      label: "OCR description",
+      command: "ocr_product_description",
+      value: "product-description",
+      regionKey: "productDescription",
+    },
+    {
+      label: "OCR desc scroll",
+      command: "ocr_product_description_next_scroll",
+      value: "product-description",
+      regionKey: "productDescription",
+    },
+    {
+      label: "Confirm OCR",
+      command: "confirm_ocr_review",
+      value: "review-text",
+      includeReviewText: true,
+    },
+    {
+      label: "Redo OCR",
+      command: "redo_ocr",
+      value: "selected-region",
+      includeReviewText: true,
+    },
+    {
+      label: "Screenshot Google results",
+      command: "screenshot_google_results",
+      value: "google-results",
+      regionKey: "googleResults",
+    },
+  ];
   const ANALYSIS_SECTION_HEADINGS = [
     {
       key: LATEST_USER_PROMPT_TOC_KEY,
@@ -298,6 +402,10 @@ Base everything strictly on the screenshot attachment.`;
     isOpen: false,
     currentTaskType: "search-usefulness",
     processingMode: "standard",
+    selectedRegionKey: SERVER_CONTROL_REGION_DEFAULT_KEY,
+    regions: getDefaultServerControlRegions(),
+    ocrReviewText: "",
+    persistTimerId: null,
     lastCommand: "",
   };
 
@@ -2290,7 +2398,7 @@ Base everything strictly on the screenshot attachment.`;
 
       .local-query-bridge-server-control-content {
         display: grid;
-        grid-template-columns: repeat(3, minmax(180px, 1fr));
+        grid-template-columns: minmax(360px, 1.35fr) repeat(3, minmax(180px, 1fr));
         gap: 14px;
         min-height: 0;
         overflow: auto;
@@ -2299,6 +2407,12 @@ Base everything strictly on the screenshot attachment.`;
 
       .local-query-bridge-server-control-group {
         min-width: 0;
+      }
+
+      .local-query-bridge-server-control-region-panel {
+        min-width: 0;
+        display: grid;
+        gap: 10px;
       }
 
       .local-query-bridge-server-control-group-title {
@@ -2313,6 +2427,12 @@ Base everything strictly on the screenshot attachment.`;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+      }
+
+      .local-query-bridge-server-control-region-picker {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
       }
 
       .local-query-bridge-server-control-button {
@@ -2350,6 +2470,120 @@ Base everything strictly on the screenshot attachment.`;
         box-shadow: 0 8px 18px rgba(22, 101, 52, 0.2);
       }
 
+      .local-query-bridge-server-control-region-button {
+        min-width: auto;
+        min-height: 30px;
+        padding: 6px 9px;
+      }
+
+      .local-query-bridge-server-control-region-cross {
+        display: grid;
+        grid-template-columns: minmax(88px, 1fr) minmax(128px, 1.15fr) minmax(88px, 1fr);
+        grid-template-rows: auto auto auto;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .local-query-bridge-server-control-coordinate {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .local-query-bridge-server-control-coordinate[data-grid-position="top"] {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .local-query-bridge-server-control-coordinate[data-grid-position="left"] {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .local-query-bridge-server-control-coordinate[data-grid-position="right"] {
+        grid-column: 3;
+        grid-row: 2;
+      }
+
+      .local-query-bridge-server-control-coordinate[data-grid-position="bottom"] {
+        grid-column: 2;
+        grid-row: 3;
+      }
+
+      .local-query-bridge-server-control-coordinate-label {
+        color: #475569;
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .local-query-bridge-server-control-coordinate input {
+        width: 100%;
+        min-height: 32px;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #0f172a;
+        font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
+        padding: 7px 8px;
+      }
+
+      .local-query-bridge-server-control-coordinate input:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.18);
+        outline-offset: 1px;
+      }
+
+      .local-query-bridge-server-control-region-center {
+        grid-column: 2;
+        grid-row: 2;
+        min-height: 56px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed rgba(51, 65, 85, 0.32);
+        border-radius: 8px;
+        background: rgba(241, 245, 249, 0.78);
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 800;
+        text-align: center;
+        padding: 10px;
+      }
+
+      .local-query-bridge-server-control-region-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .local-query-bridge-server-control-review {
+        display: grid;
+        gap: 5px;
+      }
+
+      .local-query-bridge-server-control-review label {
+        color: #475569;
+        font-size: 11px;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .local-query-bridge-server-control-review textarea {
+        width: 100%;
+        min-height: 54px;
+        max-height: 120px;
+        resize: vertical;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #0f172a;
+        font: 12px/1.35 "Segoe UI", system-ui, sans-serif;
+        padding: 8px 9px;
+      }
+
+      .local-query-bridge-server-control-review textarea:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.18);
+        outline-offset: 1px;
+      }
+
       @media (max-width: 720px) {
         #${SERVER_CONTROL_MENU_ID} {
           padding: 14px;
@@ -2364,6 +2598,16 @@ Base everything strictly on the screenshot attachment.`;
         .local-query-bridge-server-control-content {
           grid-template-columns: 1fr;
         }
+
+        .local-query-bridge-server-control-region-cross {
+          grid-template-columns: 1fr;
+        }
+
+        .local-query-bridge-server-control-coordinate[data-grid-position],
+        .local-query-bridge-server-control-region-center {
+          grid-column: 1;
+          grid-row: auto;
+        }
       }
     `;
     document.documentElement.append(style);
@@ -2372,6 +2616,128 @@ Base everything strictly on the screenshot attachment.`;
   function getServerControlMenu() {
     const menu = document.getElementById(SERVER_CONTROL_MENU_ID);
     return menu instanceof HTMLElement ? menu : null;
+  }
+
+  function getDefaultServerControlRegions() {
+    return Object.fromEntries(
+      SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
+        definition.key,
+        { ...definition.defaultBounds },
+      ]),
+    );
+  }
+
+  function sanitizeServerControlCoordinate(value, fallback = 0) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return fallback;
+    }
+
+    return Math.min(
+      SERVER_CONTROL_REGION_COORDINATE_MAX,
+      Math.max(SERVER_CONTROL_REGION_COORDINATE_MIN, parsedValue),
+    );
+  }
+
+  function sanitizeServerControlRegionBounds(rawValue, fallbackBounds) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+
+    return Object.fromEntries(
+      SERVER_CONTROL_REGION_COORDINATES.map((coordinate) => [
+        coordinate.key,
+        sanitizeServerControlCoordinate(source[coordinate.key], fallbackBounds[coordinate.key] ?? 0),
+      ]),
+    );
+  }
+
+  function sanitizeServerControlRegions(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+
+    return Object.fromEntries(
+      SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
+        definition.key,
+        sanitizeServerControlRegionBounds(source[definition.key], definition.defaultBounds),
+      ]),
+    );
+  }
+
+  function getServerControlRegionDefinition(regionKey) {
+    return SERVER_CONTROL_REGION_DEFINITIONS.find((definition) => definition.key === regionKey)
+      ?? SERVER_CONTROL_REGION_DEFINITIONS[0];
+  }
+
+  function sanitizeServerControlRegionKey(value) {
+    return getServerControlRegionDefinition(value)?.key ?? SERVER_CONTROL_REGION_DEFAULT_KEY;
+  }
+
+  function getSelectedServerControlRegionDefinition() {
+    return getServerControlRegionDefinition(serverControlMenuState.selectedRegionKey);
+  }
+
+  function getServerControlRegionBounds(regionKey = serverControlMenuState.selectedRegionKey) {
+    const sanitizedRegionKey = sanitizeServerControlRegionKey(regionKey);
+    return serverControlMenuState.regions[sanitizedRegionKey]
+      ?? getServerControlRegionDefinition(sanitizedRegionKey).defaultBounds;
+  }
+
+  function cloneServerControlRegions() {
+    return Object.fromEntries(
+      Object.entries(sanitizeServerControlRegions(serverControlMenuState.regions)).map(([key, bounds]) => [
+        key,
+        { ...bounds },
+      ]),
+    );
+  }
+
+  function scheduleServerControlMenuSettingsPersist() {
+    if (serverControlMenuState.persistTimerId !== null) {
+      window.clearTimeout(serverControlMenuState.persistTimerId);
+    }
+
+    serverControlMenuState.persistTimerId = window.setTimeout(() => {
+      serverControlMenuState.persistTimerId = null;
+      void persistServerControlMenuSettings();
+    }, SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS);
+  }
+
+  async function persistServerControlMenuSettings() {
+    try {
+      await chrome.storage.local.set({
+        [STORAGE_KEY_SERVER_CONTROL_REGIONS]: cloneServerControlRegions(),
+        [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: serverControlMenuState.selectedRegionKey,
+        [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: serverControlMenuState.ocrReviewText,
+      });
+    } catch (error) {
+      console.warn("Local Query Bridge failed to persist server control menu settings", error);
+    }
+  }
+
+  async function loadServerControlMenuSettings() {
+    try {
+      const stored = await chrome.storage.local.get({
+        [STORAGE_KEY_SERVER_CONTROL_REGIONS]: getDefaultServerControlRegions(),
+        [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: SERVER_CONTROL_REGION_DEFAULT_KEY,
+        [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: "",
+      });
+
+      serverControlMenuState.regions = sanitizeServerControlRegions(
+        stored[STORAGE_KEY_SERVER_CONTROL_REGIONS],
+      );
+      serverControlMenuState.selectedRegionKey = sanitizeServerControlRegionKey(
+        stored[STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION],
+      );
+      serverControlMenuState.ocrReviewText = typeof stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT] === "string"
+        ? stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]
+        : "";
+      syncServerControlRegionControls();
+      updateServerControlMenuStatus();
+    } catch (error) {
+      console.warn("Local Query Bridge failed to load server control menu settings", error);
+    }
   }
 
   function getServerControlMenuStateLabel(stateKey, value) {
@@ -2395,7 +2761,8 @@ Base everything strictly on the screenshot attachment.`;
       "processingMode",
       serverControlMenuState.processingMode,
     );
-    return `Task: ${taskLabel} | Mode: ${modeLabel}`;
+    const regionLabel = getSelectedServerControlRegionDefinition().label;
+    return `Task: ${taskLabel} | Mode: ${modeLabel} | Region: ${regionLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -2430,6 +2797,50 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
+  function syncServerControlRegionControls() {
+    const menu = getServerControlMenu();
+    if (!(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    const selectedRegionKey = sanitizeServerControlRegionKey(serverControlMenuState.selectedRegionKey);
+    serverControlMenuState.selectedRegionKey = selectedRegionKey;
+    const selectedRegionDefinition = getSelectedServerControlRegionDefinition();
+    const selectedRegionBounds = getServerControlRegionBounds(selectedRegionKey);
+
+    for (const button of menu.querySelectorAll("[data-control-region-key]")) {
+      if (!(button instanceof HTMLButtonElement)) {
+        continue;
+      }
+
+      button.classList.toggle(
+        SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
+        button.dataset.controlRegionKey === selectedRegionKey,
+      );
+    }
+
+    for (const input of menu.querySelectorAll("[data-control-region-coordinate]")) {
+      if (!(input instanceof HTMLInputElement)) {
+        continue;
+      }
+
+      const coordinateKey = input.dataset.controlRegionCoordinate;
+      if (coordinateKey && coordinateKey in selectedRegionBounds) {
+        input.value = `${selectedRegionBounds[coordinateKey]}`;
+      }
+    }
+
+    const center = menu.querySelector("[data-control-region-center]");
+    if (center instanceof HTMLElement) {
+      center.textContent = selectedRegionDefinition.label;
+    }
+
+    const reviewTextArea = menu.querySelector("[data-control-review-text]");
+    if (reviewTextArea instanceof HTMLTextAreaElement && reviewTextArea.value !== serverControlMenuState.ocrReviewText) {
+      reviewTextArea.value = serverControlMenuState.ocrReviewText;
+    }
+  }
+
   function applyServerControlMenuCommandState(buttonConfig) {
     if (buttonConfig.stateKey) {
       serverControlMenuState[buttonConfig.stateKey] = buttonConfig.value;
@@ -2441,7 +2852,10 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function buildServerControlMenuPayload(buttonConfig, groupLabel) {
-    return {
+    const regionKey = sanitizeServerControlRegionKey(buttonConfig.regionKey ?? serverControlMenuState.selectedRegionKey);
+    const regionDefinition = getServerControlRegionDefinition(regionKey);
+    const regionBounds = getServerControlRegionBounds(regionKey);
+    const payload = {
       source: "chatgpt-content-control-menu",
       command: buttonConfig.command,
       value: buttonConfig.value,
@@ -2449,9 +2863,61 @@ Base everything strictly on the screenshot attachment.`;
       group: groupLabel,
       currentTaskType: serverControlMenuState.currentTaskType,
       processingMode: serverControlMenuState.processingMode,
+      selectedRegion: regionKey,
+      selectedRegionLabel: regionDefinition.label,
+      selectedRegionBounds: { ...regionBounds },
+      regions: cloneServerControlRegions(),
       pageUrl: window.location.href,
       sentAt: new Date().toISOString(),
     };
+
+    if (buttonConfig.includeReviewText) {
+      payload.ocrReviewText = serverControlMenuState.ocrReviewText;
+    } else if (serverControlMenuState.ocrReviewText) {
+      payload.ocrReviewTextLength = serverControlMenuState.ocrReviewText.length;
+    }
+
+    return payload;
+  }
+
+  function handleServerControlRegionPickerClick(regionKey) {
+    serverControlMenuState.selectedRegionKey = sanitizeServerControlRegionKey(regionKey);
+    syncServerControlRegionControls();
+    updateServerControlMenuStatus();
+    scheduleServerControlMenuSettingsPersist();
+  }
+
+  function handleServerControlCoordinateInput(event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const coordinateKey = input.dataset.controlRegionCoordinate;
+    if (!SERVER_CONTROL_REGION_COORDINATES.some((coordinate) => coordinate.key === coordinateKey)) {
+      return;
+    }
+
+    const selectedRegionKey = sanitizeServerControlRegionKey(serverControlMenuState.selectedRegionKey);
+    const selectedRegionBounds = {
+      ...getServerControlRegionBounds(selectedRegionKey),
+      [coordinateKey]: sanitizeServerControlCoordinate(input.value),
+    };
+    serverControlMenuState.regions = {
+      ...serverControlMenuState.regions,
+      [selectedRegionKey]: selectedRegionBounds,
+    };
+    scheduleServerControlMenuSettingsPersist();
+  }
+
+  function handleServerControlReviewTextInput(event) {
+    const textArea = event.target;
+    if (!(textArea instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    serverControlMenuState.ocrReviewText = textArea.value;
+    scheduleServerControlMenuSettingsPersist();
   }
 
   async function sendServerControlMenuCommand(buttonConfig, groupLabel, button) {
@@ -2516,6 +2982,116 @@ Base everything strictly on the screenshot attachment.`;
     return groupElement;
   }
 
+  function createServerControlRegionPicker() {
+    const picker = document.createElement("div");
+    picker.className = "local-query-bridge-server-control-region-picker";
+
+    for (const regionDefinition of SERVER_CONTROL_REGION_DEFINITIONS) {
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-region-button";
+      button.type = "button";
+      button.textContent = regionDefinition.label;
+      button.dataset.controlRegionKey = regionDefinition.key;
+      button.addEventListener("click", () => {
+        handleServerControlRegionPickerClick(regionDefinition.key);
+      });
+      picker.append(button);
+    }
+
+    return picker;
+  }
+
+  function createServerControlCoordinateInput(coordinate) {
+    const wrapper = document.createElement("label");
+    wrapper.className = "local-query-bridge-server-control-coordinate";
+    wrapper.dataset.gridPosition = coordinate.gridClass;
+
+    const label = document.createElement("span");
+    label.className = "local-query-bridge-server-control-coordinate-label";
+    label.textContent = coordinate.label;
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "1";
+    input.min = `${SERVER_CONTROL_REGION_COORDINATE_MIN}`;
+    input.max = `${SERVER_CONTROL_REGION_COORDINATE_MAX}`;
+    input.inputMode = "numeric";
+    input.dataset.controlRegionCoordinate = coordinate.key;
+    input.addEventListener("input", handleServerControlCoordinateInput);
+
+    wrapper.append(label, input);
+    return wrapper;
+  }
+
+  function createServerControlRegionCross() {
+    const cross = document.createElement("div");
+    cross.className = "local-query-bridge-server-control-region-cross";
+
+    for (const coordinate of SERVER_CONTROL_REGION_COORDINATES) {
+      cross.append(createServerControlCoordinateInput(coordinate));
+    }
+
+    const center = document.createElement("div");
+    center.className = "local-query-bridge-server-control-region-center";
+    center.dataset.controlRegionCenter = "true";
+    cross.append(center);
+    return cross;
+  }
+
+  function createServerControlRegionActions() {
+    const actions = document.createElement("div");
+    actions.className = "local-query-bridge-server-control-region-actions";
+
+    for (const buttonConfig of SERVER_CONTROL_REGION_ACTIONS) {
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-button";
+      button.type = "button";
+      button.textContent = buttonConfig.label;
+      button.dataset.command = buttonConfig.command;
+      button.dataset.value = buttonConfig.value;
+      button.addEventListener("click", () => {
+        void sendServerControlMenuCommand(buttonConfig, "Region action", button);
+      });
+      actions.append(button);
+    }
+
+    return actions;
+  }
+
+  function createServerControlReviewTextArea() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "local-query-bridge-server-control-review";
+
+    const label = document.createElement("label");
+    label.textContent = "OCR review text";
+
+    const textArea = document.createElement("textarea");
+    textArea.dataset.controlReviewText = "true";
+    textArea.spellcheck = false;
+    textArea.addEventListener("input", handleServerControlReviewTextInput);
+
+    wrapper.append(label, textArea);
+    return wrapper;
+  }
+
+  function createServerControlRegionPanel() {
+    const panel = document.createElement("section");
+    panel.className = "local-query-bridge-server-control-region-panel";
+
+    const title = document.createElement("h2");
+    title.className = "local-query-bridge-server-control-group-title";
+    title.textContent = "Regions";
+
+    panel.append(
+      title,
+      createServerControlRegionPicker(),
+      createServerControlRegionCross(),
+      createServerControlRegionActions(),
+      createServerControlReviewTextArea(),
+    );
+    return panel;
+  }
+
   function ensureServerControlMenu() {
     if (!document.body) {
       return null;
@@ -2525,6 +3101,7 @@ Base everything strictly on the screenshot attachment.`;
     let menu = getServerControlMenu();
     if (menu instanceof HTMLElement) {
       syncServerControlMenuButtonStates();
+      syncServerControlRegionControls();
       updateServerControlMenuStatus();
       return menu;
     }
@@ -2549,6 +3126,7 @@ Base everything strictly on the screenshot attachment.`;
 
     const content = document.createElement("div");
     content.className = "local-query-bridge-server-control-content";
+    content.append(createServerControlRegionPanel());
     for (const group of SERVER_CONTROL_MENU_GROUPS) {
       content.append(createServerControlMenuGroup(group));
     }
@@ -2564,6 +3142,7 @@ Base everything strictly on the screenshot attachment.`;
     document.body.append(menu);
 
     syncServerControlMenuButtonStates();
+    syncServerControlRegionControls();
     updateServerControlMenuStatus();
     return menu;
   }
@@ -2620,8 +3199,12 @@ Base everything strictly on the screenshot attachment.`;
   function initializeServerControlMenu() {
     if (document.body) {
       ensureServerControlMenu();
+      void loadServerControlMenuSettings();
     } else {
-      document.addEventListener("DOMContentLoaded", ensureServerControlMenu, { once: true });
+      document.addEventListener("DOMContentLoaded", () => {
+        ensureServerControlMenu();
+        void loadServerControlMenuSettings();
+      }, { once: true });
     }
 
     document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
