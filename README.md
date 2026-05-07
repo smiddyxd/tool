@@ -109,6 +109,12 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable OCR and add one or more OCR regions
 - edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
 
+Prompt placeholder behavior:
+- Put placeholder fields on their own labeled line, for example `Query: [query]`.
+- If an optional placeholder has no OCR text, the whole line is omitted before submission.
+- If a placeholder starts with `!`, for example `[!query]`, it is required and submission is stopped when no value is available.
+- If the current processing button is `Screenshot`, all placeholders are treated as optional.
+
 Configured task types:
 - `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
 - `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.

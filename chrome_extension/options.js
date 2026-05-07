@@ -1279,7 +1279,7 @@ function syncTaskTypeDefinitionEditorValues() {
     return {
       ...definition,
       label: labelInput instanceof HTMLInputElement
-        ? normalizeTaskConfigText(labelInput.value, definition.label)
+        ? labelInput.value
         : definition.label,
       boilerplatePrompt: promptInput instanceof HTMLTextAreaElement
         ? promptInput.value
@@ -2088,7 +2088,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   taskTypeLabelInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
-    renderTaskTypeProjectIds();
     setStatus("Task type label changed. Save settings to apply it.");
   });
   taskTypePromptInput?.addEventListener("input", () => {

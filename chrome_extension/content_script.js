@@ -3387,6 +3387,76 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
   }
 
+  function normalizePromptPlaceholderKey(value) {
+    return (typeof value === "string" ? value : "")
+      .replace(/^!/, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase();
+  }
+
+  function getServerControlPromptPlaceholderValues() {
+    return {};
+  }
+
+  function replacePromptPlaceholdersInLine(line, placeholderValues, options = {}) {
+    let hasPlaceholder = false;
+    let hasMissingOptionalPlaceholder = false;
+    const missingRequiredKeys = [];
+    const screenshotMode = options.screenshotMode === true;
+    const nextLine = line.replace(/\[(!?)([^\]\r\n]+)\]/g, (match, requiredPrefix, rawKey) => {
+      hasPlaceholder = true;
+      const placeholderKey = normalizePromptPlaceholderKey(rawKey);
+      const value = placeholderValues[placeholderKey];
+      const textValue = typeof value === "string" ? value.trim() : "";
+      if (textValue) {
+        return textValue;
+      }
+
+      if (requiredPrefix === "!" && !screenshotMode) {
+        missingRequiredKeys.push(placeholderKey || match);
+      } else {
+        hasMissingOptionalPlaceholder = true;
+      }
+      return "";
+    });
+
+    return {
+      line: nextLine,
+      shouldSkip: hasPlaceholder && hasMissingOptionalPlaceholder && missingRequiredKeys.length === 0,
+      missingRequiredKeys,
+    };
+  }
+
+  function prepareServerControlBoilerplatePromptForSubmission() {
+    const prompt = getActiveServerControlBoilerplatePrompt();
+    const placeholderValues = getServerControlPromptPlaceholderValues();
+    const screenshotMode = serverControlMenuState.processingMode === "screenshot";
+    const missingRequiredKeys = new Set();
+    const lines = [];
+
+    for (const line of prompt.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")) {
+      const result = replacePromptPlaceholdersInLine(line, placeholderValues, { screenshotMode });
+      for (const key of result.missingRequiredKeys) {
+        if (key) {
+          missingRequiredKeys.add(key);
+        }
+      }
+      if (!result.shouldSkip) {
+        lines.push(result.line);
+      }
+    }
+
+    if (missingRequiredKeys.size > 0) {
+      const missingList = Array.from(missingRequiredKeys).join(", ");
+      const message = `Missing required OCR placeholder value(s): ${missingList}`;
+      window.alert(message);
+      throw new Error(message);
+    }
+
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
   function getServerControlMenuStatusText() {
     const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
     const regionLabel = getSelectedServerControlRegionDefinition().label;
@@ -4635,7 +4705,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : getActiveServerControlBoilerplatePrompt();
+      : prepareServerControlBoilerplatePromptForSubmission();
 
     await ensureWebSearchEnabled();
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
@@ -4667,7 +4737,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ));
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : getActiveServerControlBoilerplatePrompt();
+      : prepareServerControlBoilerplatePromptForSubmission();
 
     console.log("Local Query Bridge ensuring web search before inserting prompt", {
       taskCount,
