@@ -94,10 +94,14 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
   const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
-  const STORAGE_KEY_SERVER_CONTROL_REGIONS = "serverControlRegions";
+  const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE = "serverControlTaskType";
+  const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
+  const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
   const STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION = "serverControlSelectedRegion";
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
+  const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
+  const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS = 250;
   const SERVER_CONTROL_REGION_COORDINATE_MIN = -100000;
   const SERVER_CONTROL_REGION_COORDINATE_MAX = 100000;
@@ -142,74 +146,6 @@ Base everything strictly on the screenshot attachment.`;
       enabled: true,
     },
   ];
-  const SERVER_CONTROL_MENU_GROUPS = [
-    {
-      label: "Task type",
-      buttons: [
-        {
-          label: "Search usefulness",
-          command: "set_task_type",
-          value: "search-usefulness",
-          stateKey: "currentTaskType",
-        },
-        {
-          label: "Downloadable utilities",
-          command: "set_task_type",
-          value: "downloadable-utilities",
-          stateKey: "currentTaskType",
-        },
-        {
-          label: "Product usefulness",
-          command: "set_task_type",
-          value: "product-usefulness",
-          stateKey: "currentTaskType",
-        },
-      ],
-    },
-    {
-      label: "Processing",
-      buttons: [
-        {
-          label: "Standard",
-          command: "set_processing_mode",
-          value: "standard",
-          stateKey: "processingMode",
-        },
-        {
-          label: "OCR text",
-          command: "set_processing_mode",
-          value: "ocr-text",
-          stateKey: "processingMode",
-        },
-        {
-          label: "Repeat review",
-          command: "set_processing_mode",
-          value: "repeat-review",
-          stateKey: "processingMode",
-        },
-      ],
-    },
-    {
-      label: "Test action",
-      buttons: [
-        {
-          label: "Log state",
-          command: "log_state",
-          value: "current-state",
-        },
-        {
-          label: "Queue test",
-          command: "queue_test_task",
-          value: "test-task",
-        },
-        {
-          label: "Skip test",
-          command: "skip_test_task",
-          value: "test-task",
-        },
-      ],
-    },
-  ];
   const SERVER_CONTROL_REGION_COORDINATES = [
     { key: "top", label: "Top Y", gridClass: "top" },
     { key: "left", label: "Left X", gridClass: "left" },
@@ -223,13 +159,18 @@ Base everything strictly on the screenshot attachment.`;
       defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
     },
     {
+      key: "fullTaskOcr",
+      label: "Full task OCR",
+      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+    },
+    {
       key: "query",
       label: "Query",
       defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
     },
     {
-      key: "product",
-      label: "Product",
+      key: "productCard",
+      label: "Product card",
       defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
     },
     {
@@ -243,68 +184,52 @@ Base everything strictly on the screenshot attachment.`;
       defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
     },
   ];
-  const SERVER_CONTROL_REGION_ACTIONS = [
-    {
-      label: "Log region",
-      command: "log_region",
-      value: "selected-region",
+  const SERVER_CONTROL_ACTION_DEFINITIONS = {
+    ocr: {
+      label: "OCR",
+      command: "start_task_ocr",
+      value: "ocr",
     },
-    {
-      label: "Task screenshot",
-      command: "set_task_screenshot_region",
-      value: "selected-region",
+    screenshot: {
+      label: "Screenshot",
+      command: "start_task_screenshot",
+      value: "screenshot",
     },
-    {
-      label: "OCR selected",
-      command: "ocr_region",
-      value: "selected-region",
-    },
-    {
-      label: "Screenshot selected",
-      command: "screenshot_region",
-      value: "selected-region",
-    },
-    {
-      label: "OCR Google results",
+    googleSearch: {
+      label: "Google search",
       command: "ocr_google_results",
-      value: "google-results",
+      value: "google-search",
       regionKey: "googleResults",
     },
+  };
+  const SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
-      label: "OCR next scroll",
-      command: "ocr_next_scroll_position",
-      value: "google-results",
-      regionKey: "googleResults",
+      key: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+      label: "Search Experience to Product Usefulness",
+      regions: ["query", "productCard", "productDescription", "googleResults", SERVER_CONTROL_REGION_DEFAULT_KEY],
+      actions: ["ocr", "screenshot", "googleSearch"],
+      boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task. Extract the query and product card details, use product description and OCRed Google results context if supplied, and judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and any bridge-provided OCR text.`,
     },
     {
-      label: "OCR description",
-      command: "ocr_product_description",
-      value: "product-description",
-      regionKey: "productDescription",
+      key: "get-rich-quick",
+      label: "Get Rich Quick",
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
+      actions: ["ocr", "screenshot"],
+      boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
     },
     {
-      label: "OCR desc scroll",
-      command: "ocr_product_description_next_scroll",
-      value: "product-description",
-      regionKey: "productDescription",
+      key: "video-games",
+      label: "Video Games",
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
+      actions: ["ocr", "screenshot"],
+      boilerplatePrompt: `The attached screenshot contains a Video Games task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
     },
     {
-      label: "Confirm OCR",
-      command: "confirm_ocr_review",
-      value: "review-text",
-      includeReviewText: true,
-    },
-    {
-      label: "Redo OCR",
-      command: "redo_ocr",
-      value: "selected-region",
-      includeReviewText: true,
-    },
-    {
-      label: "Screenshot Google results",
-      command: "screenshot_google_results",
-      value: "google-results",
-      regionKey: "googleResults",
+      key: "weight-loss",
+      label: "Weight Loss",
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
+      actions: ["ocr", "screenshot"],
+      boilerplatePrompt: `The attached screenshot contains a Weight Loss task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
     },
   ];
   const ANALYSIS_SECTION_HEADINGS = [
@@ -400,10 +325,11 @@ Base everything strictly on the screenshot attachment.`;
 
   const serverControlMenuState = {
     isOpen: false,
-    currentTaskType: "search-usefulness",
-    processingMode: "standard",
+    currentTaskType: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+    processingMode: "idle",
     selectedRegionKey: SERVER_CONTROL_REGION_DEFAULT_KEY,
-    regions: getDefaultServerControlRegions(),
+    taskRegions: getDefaultServerControlTaskRegions(),
+    universalRegions: getDefaultServerControlUniversalRegions(),
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -2398,7 +2324,7 @@ Base everything strictly on the screenshot attachment.`;
 
       .local-query-bridge-server-control-content {
         display: grid;
-        grid-template-columns: minmax(360px, 1.35fr) repeat(3, minmax(180px, 1fr));
+        grid-template-columns: minmax(160px, 0.8fr) minmax(130px, 0.65fr) minmax(360px, 1.4fr) minmax(150px, 0.7fr);
         gap: 14px;
         min-height: 0;
         overflow: auto;
@@ -2413,6 +2339,7 @@ Base everything strictly on the screenshot attachment.`;
         min-width: 0;
         display: grid;
         gap: 10px;
+        align-content: start;
       }
 
       .local-query-bridge-server-control-group-title {
@@ -2423,6 +2350,13 @@ Base everything strictly on the screenshot attachment.`;
         text-transform: uppercase;
       }
 
+      .local-query-bridge-server-control-column {
+        min-width: 0;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+      }
+
       .local-query-bridge-server-control-buttons {
         display: flex;
         flex-wrap: wrap;
@@ -2430,8 +2364,8 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       .local-query-bridge-server-control-region-picker {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        align-content: start;
         gap: 6px;
       }
 
@@ -2445,6 +2379,8 @@ Base everything strictly on the screenshot attachment.`;
         cursor: pointer;
         font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
         padding: 8px 11px;
+        white-space: normal;
+        overflow-wrap: anywhere;
         transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
       }
 
@@ -2471,9 +2407,15 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       .local-query-bridge-server-control-region-button {
+        width: 100%;
         min-width: auto;
         min-height: 30px;
         padding: 6px 9px;
+      }
+
+      .local-query-bridge-server-control-column-button {
+        width: 100%;
+        min-width: 0;
       }
 
       .local-query-bridge-server-control-region-cross {
@@ -2618,15 +2560,6 @@ Base everything strictly on the screenshot attachment.`;
     return menu instanceof HTMLElement ? menu : null;
   }
 
-  function getDefaultServerControlRegions() {
-    return Object.fromEntries(
-      SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
-        definition.key,
-        { ...definition.defaultBounds },
-      ]),
-    );
-  }
-
   function sanitizeServerControlCoordinate(value, fallback = 0) {
     const parsedValue = Number.parseInt(`${value}`, 10);
     if (!Number.isFinite(parsedValue)) {
@@ -2652,16 +2585,94 @@ Base everything strictly on the screenshot attachment.`;
     );
   }
 
-  function sanitizeServerControlRegions(rawValue) {
+  function getServerControlTaskTypeDefinition(taskTypeKey) {
+    return SERVER_CONTROL_TASK_TYPE_DEFINITIONS.find((definition) => definition.key === taskTypeKey)
+      ?? SERVER_CONTROL_TASK_TYPE_DEFINITIONS[0];
+  }
+
+  function sanitizeServerControlTaskTypeKey(value) {
+    return getServerControlTaskTypeDefinition(value)?.key ?? SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+  }
+
+  function getCurrentServerControlTaskTypeDefinition() {
+    return getServerControlTaskTypeDefinition(serverControlMenuState.currentTaskType);
+  }
+
+  function getTaskRegionDefinitions(taskTypeKey = serverControlMenuState.currentTaskType) {
+    const taskDefinition = getServerControlTaskTypeDefinition(taskTypeKey);
+    return taskDefinition.regions
+      .map((regionKey) => getServerControlRegionDefinition(regionKey))
+      .filter(Boolean);
+  }
+
+  function isServerControlUniversalRegion(regionKey) {
+    return SERVER_CONTROL_UNIVERSAL_REGION_KEYS.has(regionKey);
+  }
+
+  function getDefaultServerControlTaskRegions() {
+    return Object.fromEntries(
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => [
+        taskDefinition.key,
+        Object.fromEntries(
+          taskDefinition.regions
+            .filter((regionKey) => !isServerControlUniversalRegion(regionKey))
+            .map((regionKey) => {
+              const regionDefinition = getServerControlRegionDefinition(regionKey);
+              return [regionKey, { ...regionDefinition.defaultBounds }];
+            }),
+        ),
+      ]),
+    );
+  }
+
+  function getDefaultServerControlUniversalRegions() {
+    return Object.fromEntries(
+      Array.from(SERVER_CONTROL_UNIVERSAL_REGION_KEYS).map((regionKey) => {
+        const regionDefinition = getServerControlRegionDefinition(regionKey);
+        return [regionKey, { ...regionDefinition.defaultBounds }];
+      }),
+    );
+  }
+
+  function sanitizeServerControlTaskRegions(rawValue) {
     const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
       ? rawValue
       : {};
 
     return Object.fromEntries(
-      SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
-        definition.key,
-        sanitizeServerControlRegionBounds(source[definition.key], definition.defaultBounds),
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => [
+        taskDefinition.key,
+        Object.fromEntries(
+          taskDefinition.regions
+            .filter((regionKey) => !isServerControlUniversalRegion(regionKey))
+            .map((regionKey) => {
+              const regionDefinition = getServerControlRegionDefinition(regionKey);
+              return [
+                regionKey,
+                sanitizeServerControlRegionBounds(
+                  source[taskDefinition.key]?.[regionKey],
+                  regionDefinition.defaultBounds,
+                ),
+              ];
+            }),
+        ),
       ]),
+    );
+  }
+
+  function sanitizeServerControlUniversalRegions(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+
+    return Object.fromEntries(
+      Array.from(SERVER_CONTROL_UNIVERSAL_REGION_KEYS).map((regionKey) => {
+        const regionDefinition = getServerControlRegionDefinition(regionKey);
+        return [
+          regionKey,
+          sanitizeServerControlRegionBounds(source[regionKey], regionDefinition.defaultBounds),
+        ];
+      }),
     );
   }
 
@@ -2670,8 +2681,10 @@ Base everything strictly on the screenshot attachment.`;
       ?? SERVER_CONTROL_REGION_DEFINITIONS[0];
   }
 
-  function sanitizeServerControlRegionKey(value) {
-    return getServerControlRegionDefinition(value)?.key ?? SERVER_CONTROL_REGION_DEFAULT_KEY;
+  function sanitizeServerControlRegionKey(value, taskTypeKey = serverControlMenuState.currentTaskType) {
+    const regionDefinitions = getTaskRegionDefinitions(taskTypeKey);
+    const matchingRegion = regionDefinitions.find((definition) => definition.key === value);
+    return matchingRegion?.key ?? regionDefinitions[0]?.key ?? SERVER_CONTROL_REGION_DEFAULT_KEY;
   }
 
   function getSelectedServerControlRegionDefinition() {
@@ -2680,17 +2693,28 @@ Base everything strictly on the screenshot attachment.`;
 
   function getServerControlRegionBounds(regionKey = serverControlMenuState.selectedRegionKey) {
     const sanitizedRegionKey = sanitizeServerControlRegionKey(regionKey);
-    return serverControlMenuState.regions[sanitizedRegionKey]
-      ?? getServerControlRegionDefinition(sanitizedRegionKey).defaultBounds;
+    const regionDefinition = getServerControlRegionDefinition(sanitizedRegionKey);
+    if (isServerControlUniversalRegion(sanitizedRegionKey)) {
+      return serverControlMenuState.universalRegions[sanitizedRegionKey]
+        ?? regionDefinition.defaultBounds;
+    }
+
+    return serverControlMenuState.taskRegions[serverControlMenuState.currentTaskType]?.[sanitizedRegionKey]
+      ?? regionDefinition.defaultBounds;
   }
 
   function cloneServerControlRegions() {
-    return Object.fromEntries(
-      Object.entries(sanitizeServerControlRegions(serverControlMenuState.regions)).map(([key, bounds]) => [
-        key,
-        { ...bounds },
-      ]),
-    );
+    const taskRegions = sanitizeServerControlTaskRegions(serverControlMenuState.taskRegions);
+    const universalRegions = sanitizeServerControlUniversalRegions(serverControlMenuState.universalRegions);
+    const currentTaskRegions = taskRegions[serverControlMenuState.currentTaskType] ?? {};
+    return {
+      ...Object.fromEntries(
+        Object.entries(currentTaskRegions).map(([key, bounds]) => [key, { ...bounds }]),
+      ),
+      ...Object.fromEntries(
+        Object.entries(universalRegions).map(([key, bounds]) => [key, { ...bounds }]),
+      ),
+    };
   }
 
   function scheduleServerControlMenuSettingsPersist() {
@@ -2707,7 +2731,9 @@ Base everything strictly on the screenshot attachment.`;
   async function persistServerControlMenuSettings() {
     try {
       await chrome.storage.local.set({
-        [STORAGE_KEY_SERVER_CONTROL_REGIONS]: cloneServerControlRegions(),
+        [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE]: serverControlMenuState.currentTaskType,
+        [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: sanitizeServerControlTaskRegions(serverControlMenuState.taskRegions),
+        [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: sanitizeServerControlUniversalRegions(serverControlMenuState.universalRegions),
         [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: serverControlMenuState.selectedRegionKey,
         [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: serverControlMenuState.ocrReviewText,
       });
@@ -2719,13 +2745,21 @@ Base everything strictly on the screenshot attachment.`;
   async function loadServerControlMenuSettings() {
     try {
       const stored = await chrome.storage.local.get({
-        [STORAGE_KEY_SERVER_CONTROL_REGIONS]: getDefaultServerControlRegions(),
+        [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE]: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+        [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: getDefaultServerControlTaskRegions(),
+        [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: getDefaultServerControlUniversalRegions(),
         [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: SERVER_CONTROL_REGION_DEFAULT_KEY,
         [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: "",
       });
 
-      serverControlMenuState.regions = sanitizeServerControlRegions(
-        stored[STORAGE_KEY_SERVER_CONTROL_REGIONS],
+      serverControlMenuState.currentTaskType = sanitizeServerControlTaskTypeKey(
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE],
+      );
+      serverControlMenuState.taskRegions = sanitizeServerControlTaskRegions(
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS],
+      );
+      serverControlMenuState.universalRegions = sanitizeServerControlUniversalRegions(
+        stored[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS],
       );
       serverControlMenuState.selectedRegionKey = sanitizeServerControlRegionKey(
         stored[STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION],
@@ -2733,6 +2767,8 @@ Base everything strictly on the screenshot attachment.`;
       serverControlMenuState.ocrReviewText = typeof stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT] === "string"
         ? stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]
         : "";
+      syncServerControlTaskTypeControls();
+      syncServerControlActionControls();
       syncServerControlRegionControls();
       updateServerControlMenuStatus();
     } catch (error) {
@@ -2740,29 +2776,14 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function getServerControlMenuStateLabel(stateKey, value) {
-    for (const group of SERVER_CONTROL_MENU_GROUPS) {
-      for (const buttonConfig of group.buttons) {
-        if (buttonConfig.stateKey === stateKey && buttonConfig.value === value) {
-          return buttonConfig.label;
-        }
-      }
-    }
-
-    return value;
+  function getActiveServerControlBoilerplatePrompt() {
+    return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
   }
 
   function getServerControlMenuStatusText() {
-    const taskLabel = getServerControlMenuStateLabel(
-      "currentTaskType",
-      serverControlMenuState.currentTaskType,
-    );
-    const modeLabel = getServerControlMenuStateLabel(
-      "processingMode",
-      serverControlMenuState.processingMode,
-    );
+    const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
     const regionLabel = getSelectedServerControlRegionDefinition().label;
-    return `Task: ${taskLabel} | Mode: ${modeLabel} | Region: ${regionLabel}`;
+    return `${taskLabel} | Region: ${regionLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -2778,22 +2799,63 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function syncServerControlMenuButtonStates() {
+    syncServerControlTaskTypeControls();
+    syncServerControlActionControls();
+    syncServerControlRegionControls();
+  }
+
+  function syncServerControlTaskTypeControls() {
     const menu = getServerControlMenu();
     if (!(menu instanceof HTMLElement)) {
       return;
     }
 
-    for (const button of menu.querySelectorAll(".local-query-bridge-server-control-button")) {
+    for (const button of menu.querySelectorAll("[data-control-task-type-key]")) {
       if (!(button instanceof HTMLButtonElement)) {
         continue;
       }
 
-      const stateKey = button.dataset.stateKey;
-      const value = button.dataset.value;
       button.classList.toggle(
         SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
-        Boolean(stateKey && serverControlMenuState[stateKey] === value),
+        button.dataset.controlTaskTypeKey === serverControlMenuState.currentTaskType,
       );
+    }
+  }
+
+  function syncServerControlActionControls() {
+    const menu = getServerControlMenu();
+    if (!(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    const container = menu.querySelector("[data-control-action-column]");
+    if (!(container instanceof HTMLElement)) {
+      return;
+    }
+
+    const currentTaskDefinition = getCurrentServerControlTaskTypeDefinition();
+    container.replaceChildren();
+    for (const actionKey of currentTaskDefinition.actions) {
+      const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
+      if (!actionDefinition) {
+        continue;
+      }
+
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
+      button.type = "button";
+      button.textContent = actionDefinition.label;
+      button.dataset.command = actionDefinition.command;
+      button.dataset.value = actionDefinition.value;
+      button.dataset.controlActionKey = actionKey;
+      button.addEventListener("click", () => {
+        void sendServerControlMenuCommand(
+          { ...actionDefinition, actionKey },
+          "Action",
+          button,
+        );
+      });
+      container.append(button);
     }
   }
 
@@ -2807,6 +2869,22 @@ Base everything strictly on the screenshot attachment.`;
     serverControlMenuState.selectedRegionKey = selectedRegionKey;
     const selectedRegionDefinition = getSelectedServerControlRegionDefinition();
     const selectedRegionBounds = getServerControlRegionBounds(selectedRegionKey);
+
+    const picker = menu.querySelector("[data-control-region-picker]");
+    if (picker instanceof HTMLElement) {
+      picker.replaceChildren();
+      for (const regionDefinition of getTaskRegionDefinitions()) {
+        const button = document.createElement("button");
+        button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-region-button";
+        button.type = "button";
+        button.textContent = regionDefinition.label;
+        button.dataset.controlRegionKey = regionDefinition.key;
+        button.addEventListener("click", () => {
+          handleServerControlRegionPickerClick(regionDefinition.key);
+        });
+        picker.append(button);
+      }
+    }
 
     for (const button of menu.querySelectorAll("[data-control-region-key]")) {
       if (!(button instanceof HTMLButtonElement)) {
@@ -2842,8 +2920,17 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function applyServerControlMenuCommandState(buttonConfig) {
-    if (buttonConfig.stateKey) {
-      serverControlMenuState[buttonConfig.stateKey] = buttonConfig.value;
+    if (buttonConfig.command === "set_task_type") {
+      serverControlMenuState.currentTaskType = sanitizeServerControlTaskTypeKey(buttonConfig.value);
+      serverControlMenuState.selectedRegionKey = sanitizeServerControlRegionKey(
+        serverControlMenuState.selectedRegionKey,
+        serverControlMenuState.currentTaskType,
+      );
+      scheduleServerControlMenuSettingsPersist();
+    }
+
+    if (buttonConfig.actionKey) {
+      serverControlMenuState.processingMode = buttonConfig.actionKey;
     }
 
     serverControlMenuState.lastCommand = buttonConfig.command;
@@ -2862,11 +2949,15 @@ Base everything strictly on the screenshot attachment.`;
       label: buttonConfig.label,
       group: groupLabel,
       currentTaskType: serverControlMenuState.currentTaskType,
+      currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
       processingMode: serverControlMenuState.processingMode,
+      boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
       selectedRegion: regionKey,
       selectedRegionLabel: regionDefinition.label,
       selectedRegionBounds: { ...regionBounds },
       regions: cloneServerControlRegions(),
+      taskRegions: sanitizeServerControlTaskRegions(serverControlMenuState.taskRegions),
+      universalRegions: sanitizeServerControlUniversalRegions(serverControlMenuState.universalRegions),
       pageUrl: window.location.href,
       sentAt: new Date().toISOString(),
     };
@@ -2903,10 +2994,21 @@ Base everything strictly on the screenshot attachment.`;
       ...getServerControlRegionBounds(selectedRegionKey),
       [coordinateKey]: sanitizeServerControlCoordinate(input.value),
     };
-    serverControlMenuState.regions = {
-      ...serverControlMenuState.regions,
-      [selectedRegionKey]: selectedRegionBounds,
-    };
+
+    if (isServerControlUniversalRegion(selectedRegionKey)) {
+      serverControlMenuState.universalRegions = {
+        ...serverControlMenuState.universalRegions,
+        [selectedRegionKey]: selectedRegionBounds,
+      };
+    } else {
+      serverControlMenuState.taskRegions = {
+        ...serverControlMenuState.taskRegions,
+        [serverControlMenuState.currentTaskType]: {
+          ...(serverControlMenuState.taskRegions[serverControlMenuState.currentTaskType] ?? {}),
+          [selectedRegionKey]: selectedRegionBounds,
+        },
+      };
+    }
     scheduleServerControlMenuSettingsPersist();
   }
 
@@ -2922,6 +3024,9 @@ Base everything strictly on the screenshot attachment.`;
 
   async function sendServerControlMenuCommand(buttonConfig, groupLabel, button) {
     applyServerControlMenuCommandState(buttonConfig);
+    if (buttonConfig.command === "set_task_type") {
+      await persistServerControlMenuSettings();
+    }
     const payload = buildServerControlMenuPayload(buttonConfig, groupLabel);
     if (button instanceof HTMLButtonElement) {
       button.disabled = true;
@@ -2950,55 +3055,62 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function createServerControlMenuGroup(group) {
-    const groupElement = document.createElement("section");
-    groupElement.className = "local-query-bridge-server-control-group";
+  function createServerControlColumn(titleText) {
+    const column = document.createElement("section");
+    column.className = "local-query-bridge-server-control-column";
 
     const title = document.createElement("h2");
     title.className = "local-query-bridge-server-control-group-title";
-    title.textContent = group.label;
+    title.textContent = titleText;
 
-    const buttons = document.createElement("div");
-    buttons.className = "local-query-bridge-server-control-buttons";
-
-    for (const buttonConfig of group.buttons) {
-      const button = document.createElement("button");
-      button.className = "local-query-bridge-server-control-button";
-      button.type = "button";
-      button.textContent = buttonConfig.label;
-      button.dataset.command = buttonConfig.command;
-      button.dataset.value = buttonConfig.value;
-      if (buttonConfig.stateKey) {
-        button.dataset.stateKey = buttonConfig.stateKey;
-      }
-
-      button.addEventListener("click", () => {
-        void sendServerControlMenuCommand(buttonConfig, group.label, button);
-      });
-      buttons.append(button);
-    }
-
-    groupElement.append(title, buttons);
-    return groupElement;
+    column.append(title);
+    return column;
   }
 
-  function createServerControlRegionPicker() {
-    const picker = document.createElement("div");
-    picker.className = "local-query-bridge-server-control-region-picker";
+  function createServerControlTaskTypeColumn() {
+    const column = createServerControlColumn("Task types");
 
-    for (const regionDefinition of SERVER_CONTROL_REGION_DEFINITIONS) {
+    for (const taskDefinition of SERVER_CONTROL_TASK_TYPE_DEFINITIONS) {
       const button = document.createElement("button");
-      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-region-button";
+      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
       button.type = "button";
-      button.textContent = regionDefinition.label;
-      button.dataset.controlRegionKey = regionDefinition.key;
+      button.textContent = taskDefinition.label;
+      button.dataset.command = "set_task_type";
+      button.dataset.value = taskDefinition.key;
+      button.dataset.controlTaskTypeKey = taskDefinition.key;
       button.addEventListener("click", () => {
-        handleServerControlRegionPickerClick(regionDefinition.key);
+        void sendServerControlMenuCommand(
+          {
+            label: taskDefinition.label,
+            command: "set_task_type",
+            value: taskDefinition.key,
+          },
+          "Task type",
+          button,
+        );
       });
-      picker.append(button);
+      column.append(button);
     }
 
-    return picker;
+    return column;
+  }
+
+  function createServerControlActionColumn() {
+    const column = createServerControlColumn("Processing");
+    const actions = document.createElement("div");
+    actions.className = "local-query-bridge-server-control-column";
+    actions.dataset.controlActionColumn = "true";
+    column.append(actions);
+    return column;
+  }
+
+  function createServerControlRegionPickerColumn() {
+    const column = createServerControlColumn("Regions");
+    const picker = document.createElement("div");
+    picker.className = "local-query-bridge-server-control-region-picker";
+    picker.dataset.controlRegionPicker = "true";
+    column.append(picker);
+    return column;
   }
 
   function createServerControlCoordinateInput(coordinate) {
@@ -3038,57 +3150,10 @@ Base everything strictly on the screenshot attachment.`;
     return cross;
   }
 
-  function createServerControlRegionActions() {
-    const actions = document.createElement("div");
-    actions.className = "local-query-bridge-server-control-region-actions";
-
-    for (const buttonConfig of SERVER_CONTROL_REGION_ACTIONS) {
-      const button = document.createElement("button");
-      button.className = "local-query-bridge-server-control-button";
-      button.type = "button";
-      button.textContent = buttonConfig.label;
-      button.dataset.command = buttonConfig.command;
-      button.dataset.value = buttonConfig.value;
-      button.addEventListener("click", () => {
-        void sendServerControlMenuCommand(buttonConfig, "Region action", button);
-      });
-      actions.append(button);
-    }
-
-    return actions;
-  }
-
-  function createServerControlReviewTextArea() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "local-query-bridge-server-control-review";
-
-    const label = document.createElement("label");
-    label.textContent = "OCR review text";
-
-    const textArea = document.createElement("textarea");
-    textArea.dataset.controlReviewText = "true";
-    textArea.spellcheck = false;
-    textArea.addEventListener("input", handleServerControlReviewTextInput);
-
-    wrapper.append(label, textArea);
-    return wrapper;
-  }
-
   function createServerControlRegionPanel() {
     const panel = document.createElement("section");
     panel.className = "local-query-bridge-server-control-region-panel";
-
-    const title = document.createElement("h2");
-    title.className = "local-query-bridge-server-control-group-title";
-    title.textContent = "Regions";
-
-    panel.append(
-      title,
-      createServerControlRegionPicker(),
-      createServerControlRegionCross(),
-      createServerControlRegionActions(),
-      createServerControlReviewTextArea(),
-    );
+    panel.append(createServerControlRegionCross());
     return panel;
   }
 
@@ -3114,22 +3179,20 @@ Base everything strictly on the screenshot attachment.`;
     const header = document.createElement("header");
     header.className = "local-query-bridge-server-control-header";
 
-    const title = document.createElement("div");
-    title.className = "local-query-bridge-server-control-title";
-    title.textContent = "Bridge Control";
-
     const status = document.createElement("div");
     status.className = "local-query-bridge-server-control-status";
     status.dataset.controlMenuStatus = "true";
 
-    header.append(title, status);
+    header.append(status);
 
     const content = document.createElement("div");
     content.className = "local-query-bridge-server-control-content";
-    content.append(createServerControlRegionPanel());
-    for (const group of SERVER_CONTROL_MENU_GROUPS) {
-      content.append(createServerControlMenuGroup(group));
-    }
+    content.append(
+      createServerControlTaskTypeColumn(),
+      createServerControlActionColumn(),
+      createServerControlRegionPanel(),
+      createServerControlRegionPickerColumn(),
+    );
 
     menu.append(header, content);
     menu.addEventListener("pointerleave", (event) => {
@@ -3815,7 +3878,7 @@ Base everything strictly on the screenshot attachment.`;
     });
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : BOILERPLATE_PROMPT;
+      : getActiveServerControlBoilerplatePrompt();
 
     await ensureWebSearchEnabled();
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
@@ -3847,7 +3910,7 @@ Base everything strictly on the screenshot attachment.`;
     ));
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : BOILERPLATE_PROMPT;
+      : getActiveServerControlBoilerplatePrompt();
 
     console.log("Local Query Bridge ensuring web search before inserting prompt", {
       taskCount,

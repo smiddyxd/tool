@@ -90,14 +90,23 @@ Current JSON contract:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
 - `GET /b`: repeat-capture endpoint for the active repeatable task
-- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, `processingMode`, selected region bounds, and the full region map
+- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, `processingMode`, selected region bounds, project URL details, and the full region map
 
 ## Bridge control menu
 
-The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. It currently supports test logging for:
-- task type and processing mode selection
-- editable region definitions for full task screenshot, query, product, Google results, and product description
-- region actions for selected-region OCR/screenshot, Google-results OCR/next-scroll/screenshot, product-description OCR/next-scroll, and OCR review confirm/redo
+The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. The menu is arranged left to right as:
+- task type column
+- processing action column
+- coordinate cross for the selected region
+- region selection column
+
+Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Per-task project ID lists are editable on the extension options page and stored in Chrome sync storage under `taskTypeProjectIds`; until task-specific IDs are configured, each task type uses the existing default project ID.
+
+Configured task types:
+- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`.
+- `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
+- `Video Games`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
+- `Weight Loss`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
 
 Region coordinates are stored in Chrome extension local storage as side coordinates:
 - `top`: top Y coordinate

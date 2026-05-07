@@ -96,6 +96,7 @@ const ANALYSIS_SECTION_HEADINGS = [
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
+const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
@@ -105,11 +106,33 @@ const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
+const BRIDGE_TASK_TYPE_DEFINITIONS = [
+  {
+    key: "search-experience-to-product-usefulness",
+    label: "Search Experience to Product Usefulness",
+  },
+  {
+    key: "get-rich-quick",
+    label: "Get Rich Quick",
+  },
+  {
+    key: "video-games",
+    label: "Video Games",
+  },
+  {
+    key: "weight-loss",
+    label: "Weight Loss",
+  },
+];
+const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, [DEFAULT_PROJECT_ID]]),
+);
 
 const highlightState = {
   rules: [],
   projectIds: [DEFAULT_PROJECT_ID],
   activeProjectId: DEFAULT_PROJECT_ID,
+  taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -213,6 +236,19 @@ function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
   }
 
   return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
+}
+
+function sanitizeTaskTypeProjectIds(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
+    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+      definition.key,
+      sanitizeProjectIds(source[definition.key], DEFAULT_PROJECT_ID),
+    ]),
+  );
 }
 
 function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
@@ -725,6 +761,34 @@ function addProjectIdFromInput() {
   setStatus("Project ID added and selected. Save settings to apply it.");
 }
 
+function renderTaskTypeProjectIds() {
+  const taskTypeProjectIds = sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds);
+  highlightState.taskTypeProjectIds = taskTypeProjectIds;
+
+  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
+    if (!(textArea instanceof HTMLTextAreaElement)) {
+      continue;
+    }
+
+    const taskType = textArea.dataset.taskTypeProjectIds;
+    textArea.value = (taskTypeProjectIds[taskType] ?? [DEFAULT_PROJECT_ID]).join("\n");
+  }
+}
+
+function getTaskTypeProjectIdsFromInputs() {
+  const rawProjectIds = {};
+
+  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
+    if (!(textArea instanceof HTMLTextAreaElement)) {
+      continue;
+    }
+
+    rawProjectIds[textArea.dataset.taskTypeProjectIds] = textArea.value.split(/\r?\n/);
+  }
+
+  return sanitizeTaskTypeProjectIds(rawProjectIds);
+}
+
 function fillRuleForm(rule) {
   const colorInput = document.querySelector("#highlight-rule-color");
   const hexInput = document.querySelector("#highlight-rule-color-hex");
@@ -1123,6 +1187,7 @@ async function loadOptions() {
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_PROJECT_IDS]: null,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: DEFAULT_TASK_TYPE_PROJECT_IDS,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
@@ -1142,6 +1207,7 @@ async function loadOptions() {
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
   highlightState.projectIds = projectSettings.projectIds;
   highlightState.activeProjectId = projectSettings.activeProjectId;
+  highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]);
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
   highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
@@ -1155,6 +1221,7 @@ async function loadOptions() {
 
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderProjectIds();
+  renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
@@ -1179,11 +1246,13 @@ async function saveOptions(event) {
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
+  const taskTypeProjectIds = getTaskTypeProjectIdsFromInputs();
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: projectSettings.defaultStartPageUrl,
     [STORAGE_KEY_PROJECT_IDS]: projectSettings.projectIds,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: projectSettings.activeProjectId,
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
@@ -1197,6 +1266,7 @@ async function saveOptions(event) {
 
   highlightState.projectIds = projectSettings.projectIds;
   highlightState.activeProjectId = projectSettings.activeProjectId;
+  highlightState.taskTypeProjectIds = taskTypeProjectIds;
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
@@ -1206,6 +1276,7 @@ async function saveOptions(event) {
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderProjectIds();
+  renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
@@ -1245,6 +1316,11 @@ document.addEventListener("DOMContentLoaded", () => {
       addProjectIdFromInput();
     }
   });
+  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
+    textArea.addEventListener("input", () => {
+      setStatus("Task type project IDs changed. Save settings to apply them.");
+    });
+  }
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();
   });

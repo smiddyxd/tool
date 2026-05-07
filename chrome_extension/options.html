@@ -288,6 +288,22 @@
       align-items: end;
     }
 
+    .task-project-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .task-project-grid textarea {
+      min-height: 74px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
     .toc-settings-list {
       display: grid;
       gap: 10px;
@@ -410,6 +426,7 @@
       }
 
       .grid-2,
+      .task-project-grid,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
@@ -463,6 +480,33 @@
           <label for="active-project-url">
             Active project URL
             <input id="active-project-url" type="url" readonly>
+          </label>
+        </div>
+
+        <div>
+          <h3>Task type project IDs</h3>
+          <p class="hint">Each task type can use its own ChatGPT project list. The first valid ID in a task type's list is opened when you switch to that task type from the bridge control menu.</p>
+        </div>
+
+        <div class="task-project-grid" aria-label="Task type ChatGPT project IDs">
+          <label for="task-project-search-experience-to-product-usefulness">
+            Search Experience to Product Usefulness
+            <textarea id="task-project-search-experience-to-product-usefulness" data-task-type-project-ids="search-experience-to-product-usefulness" spellcheck="false"></textarea>
+          </label>
+
+          <label for="task-project-get-rich-quick">
+            Get Rich Quick
+            <textarea id="task-project-get-rich-quick" data-task-type-project-ids="get-rich-quick" spellcheck="false"></textarea>
+          </label>
+
+          <label for="task-project-video-games">
+            Video Games
+            <textarea id="task-project-video-games" data-task-type-project-ids="video-games" spellcheck="false"></textarea>
+          </label>
+
+          <label for="task-project-weight-loss">
+            Weight Loss
+            <textarea id="task-project-weight-loss" data-task-type-project-ids="weight-loss" spellcheck="false"></textarea>
           </label>
         </div>
 

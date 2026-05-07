@@ -519,6 +519,9 @@ def receive_control_command() -> Any:
     selected_region_label = sanitize_control_command_field(payload.get("selectedRegionLabel"), 160)
     selected_region_bounds = sanitize_control_json_field(payload.get("selectedRegionBounds"), 500)
     regions = sanitize_control_json_field(payload.get("regions"), 2000)
+    project_url = sanitize_control_command_field(payload.get("projectUrl"), MAX_CONTROL_COMMAND_FIELD_LENGTH)
+    active_project_id = sanitize_control_command_field(payload.get("activeProjectId"), 120)
+    boilerplate_prompt_length = len(str(payload.get("boilerplatePrompt") or ""))
     ocr_review_text_length = len(str(payload.get("ocrReviewText") or ""))
     ocr_review_text_length = max(
         ocr_review_text_length,
@@ -538,6 +541,7 @@ def receive_control_command() -> Any:
         f"current_task_type={current_task_type or '-'} processing_mode={processing_mode or '-'} "
         f"selected_region={selected_region or '-'} selected_region_label={selected_region_label or '-'} "
         f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
+        f"project={active_project_id or '-'} project_url={project_url or '-'} prompt_chars={boilerplate_prompt_length} "
         f"tab={tab_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )

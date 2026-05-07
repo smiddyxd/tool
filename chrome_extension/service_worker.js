@@ -29,9 +29,34 @@ const DEFAULT_RESET_LIMIT = 0;
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
+const STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE = "activeBridgeTaskType";
+const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
+
+const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+const BRIDGE_TASK_TYPE_DEFINITIONS = [
+  {
+    key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+    label: "Search Experience to Product Usefulness",
+  },
+  {
+    key: "get-rich-quick",
+    label: "Get Rich Quick",
+  },
+  {
+    key: "video-games",
+    label: "Video Games",
+  },
+  {
+    key: "weight-loss",
+    label: "Weight Loss",
+  },
+];
+const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, [DEFAULT_PROJECT_ID]]),
+);
 
 // ChatGPT tab matching and content-script injection settings.
 const CHATGPT_URL_PATTERNS = ["https://chat.openai.com/*", "https://chatgpt.com/*"];
@@ -226,6 +251,39 @@ function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
   return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
 }
 
+function sanitizeBridgeTaskType(value) {
+  const taskType = typeof value === "string" ? value.trim() : "";
+  return BRIDGE_TASK_TYPE_DEFINITIONS.some((definition) => definition.key === taskType)
+    ? taskType
+    : BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+}
+
+function getBridgeTaskTypeLabel(taskType) {
+  return BRIDGE_TASK_TYPE_DEFINITIONS.find((definition) => definition.key === taskType)?.label
+    ?? taskType;
+}
+
+function sanitizeTaskTypeProjectIds(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
+    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+      definition.key,
+      sanitizeProjectIds(source[definition.key], DEFAULT_PROJECT_ID),
+    ]),
+  );
+}
+
+async function getTaskTypeProjectIds() {
+  const stored = await chrome.storage.sync.get({
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: DEFAULT_TASK_TYPE_PROJECT_IDS,
+  });
+
+  return sanitizeTaskTypeProjectIds(stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]);
+}
+
 function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
   const legacyProjectId = sanitizeProjectId(rawStartPageUrl, DEFAULT_PROJECT_ID);
   const projectIds = sanitizeProjectIds(rawProjectIds, legacyProjectId);
@@ -328,6 +386,7 @@ async function getOptions() {
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_PROJECT_IDS]: null,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
   });
   const projectSettings = normalizeProjectSettings(
@@ -338,16 +397,20 @@ async function getOptions() {
 
   return {
     ...projectSettings,
+    activeBridgeTaskType: sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]),
     resetLimit: sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]),
   };
 }
 
 async function ensureDefaultOptions() {
   const options = await getOptions();
+  const taskTypeProjectIds = await getTaskTypeProjectIds();
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: options.defaultStartPageUrl,
     [STORAGE_KEY_PROJECT_IDS]: options.projectIds,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: options.activeProjectId,
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: sanitizeBridgeTaskType(options.activeBridgeTaskType),
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_RESET_LIMIT]: options.resetLimit,
   });
 }
@@ -1029,11 +1092,57 @@ async function fetchRepeatCapturePayload() {
   }
 }
 
+async function switchBridgeTaskType(taskType, sender) {
+  const activeBridgeTaskType = sanitizeBridgeTaskType(taskType);
+  const taskTypeProjectIds = await getTaskTypeProjectIds();
+  const projectIds = taskTypeProjectIds[activeBridgeTaskType] ?? [DEFAULT_PROJECT_ID];
+  const activeProjectId = sanitizeProjectId(projectIds[0], DEFAULT_PROJECT_ID);
+  const projectUrl = buildProjectStartPageUrl(activeProjectId);
+
+  await chrome.storage.sync.set({
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: activeBridgeTaskType,
+    [STORAGE_KEY_PROJECT_IDS]: projectIds,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: activeProjectId,
+    [STORAGE_KEY_START_PAGE_URL]: projectUrl,
+  });
+
+  const navigateTabId = sender?.tab?.id && isChatGptUrl(sender.tab.url) ? sender.tab.id : null;
+  if (navigateTabId !== null) {
+    state.lastChatGptTabId = navigateTabId;
+  }
+
+  console.log("Local Query Bridge switched task type project", {
+    taskType: activeBridgeTaskType,
+    taskLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    activeProjectId,
+    projectCount: projectIds.length,
+  });
+
+  return {
+    activeBridgeTaskType,
+    activeBridgeTaskTypeLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    activeProjectId,
+    projectIds,
+    projectUrl,
+    navigateTabId,
+  };
+}
+
+async function applyServerControlCommandSideEffects(command, sender) {
+  if (command?.command === "set_task_type") {
+    return switchBridgeTaskType(command.value, sender);
+  }
+
+  return {};
+}
+
 async function sendServerControlCommand(command, sender) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const sideEffects = await applyServerControlCommandSideEffects(command, sender);
   const payload = {
     ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
+    ...sideEffects,
     tabId: sender?.tab?.id ?? null,
     tabUrl: sender?.tab?.url ?? "",
   };
@@ -1060,6 +1169,14 @@ async function sendServerControlCommand(command, sender) {
       group: payload.group,
       tabId: payload.tabId,
     });
+    if (Number.isInteger(sideEffects.navigateTabId) && sideEffects.projectUrl) {
+      void chrome.tabs.update(sideEffects.navigateTabId, {
+        active: true,
+        url: sideEffects.projectUrl,
+      }).catch((error) => {
+        console.warn("Local Query Bridge task type project navigation failed", error);
+      });
+    }
     return true;
   } finally {
     clearTimeout(timeoutId);
