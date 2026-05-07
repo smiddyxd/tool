@@ -102,9 +102,13 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
   const STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION = "serverControlSelectedRegion";
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
+  const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
+  const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
+  const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
+  const SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS = "google-results";
   const SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS = 250;
   const SERVER_CONTROL_REGION_COORDINATE_MIN = -100000;
   const SERVER_CONTROL_REGION_COORDINATE_MAX = 100000;
@@ -167,38 +171,49 @@ Base everything strictly on the screenshot attachment.`;
     { key: "right", label: "Right X", gridClass: "right" },
     { key: "bottom", label: "Bottom Y", gridClass: "bottom" },
   ];
-  const SERVER_CONTROL_REGION_DEFINITIONS = [
+  const DEFAULT_SERVER_CONTROL_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
+  const DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS = [
     {
       key: SERVER_CONTROL_REGION_DEFAULT_KEY,
       label: "Full task screenshot",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_SCREENSHOT,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
       key: "fullTaskOcr",
       label: "Full task OCR",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_OCR,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
       key: "query",
       label: "Query",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_OCR,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
       key: "productCard",
       label: "Product card",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_OCR,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
       key: "googleResults",
       label: "Google results",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
       key: "productDescription",
       label: "Product description",
-      defaultBounds: { top: 0, left: 0, right: 0, bottom: 0 },
+      kind: SERVER_CONTROL_REGION_KIND_OCR,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
   ];
+  let SERVER_CONTROL_REGION_DEFINITIONS = DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => ({
+    ...definition,
+    defaultBounds: { ...definition.defaultBounds },
+  }));
   const SERVER_CONTROL_ACTION_DEFINITIONS = {
     ocr: {
       label: "OCR",
@@ -217,36 +232,60 @@ Base everything strictly on the screenshot attachment.`;
       regionKey: "googleResults",
     },
   };
-  const SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
+  const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
       key: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
       label: "Search Experience to Product Usefulness",
       regions: ["query", "productCard", "productDescription", "googleResults", SERVER_CONTROL_REGION_DEFAULT_KEY],
       actions: ["ocr", "screenshot", "googleSearch"],
-      boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task. Extract the query and product card details, use product description and OCRed Google results context if supplied, and judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and any bridge-provided OCR text.`,
+      boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
+
+Query: [query]
+Product card: [product card]
+Product description: [product description]
+Google results: [google results]
+
+Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
     },
     {
       key: "get-rich-quick",
       label: "Get Rich Quick",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
-      boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
+      boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
     },
     {
       key: "video-games",
       label: "Video Games",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
-      boilerplatePrompt: `The attached screenshot contains a Video Games task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
+      boilerplatePrompt: `The attached screenshot contains a Video Games task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
     },
     {
       key: "weight-loss",
       label: "Weight Loss",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
-      boilerplatePrompt: `The attached screenshot contains a Weight Loss task. Use the full screenshot and any bridge-provided OCR text to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
+      boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
     },
   ];
+  let SERVER_CONTROL_TASK_TYPE_DEFINITIONS = DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((definition) => ({
+    ...definition,
+    regions: [...definition.regions],
+    actions: [...definition.actions],
+  }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
       key: LATEST_USER_PROMPT_TOC_KEY,
@@ -2712,6 +2751,222 @@ Base everything strictly on the screenshot attachment.`;
     );
   }
 
+  function normalizeServerControlConfigText(value, fallback = "") {
+    const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+    return text || fallback;
+  }
+
+  function createServerControlConfigKey(value, fallbackPrefix = "task") {
+    const rawValue = typeof value === "string" ? value : "";
+    const normalized = rawValue
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return normalized || `${fallbackPrefix}-${Date.now().toString(36)}`;
+  }
+
+  function makeUniqueServerControlConfigKey(baseKey, usedKeys) {
+    let candidateKey = baseKey;
+    let suffix = 2;
+    while (usedKeys.has(candidateKey)) {
+      candidateKey = `${baseKey}-${suffix}`;
+      suffix += 1;
+    }
+    usedKeys.add(candidateKey);
+    return candidateKey;
+  }
+
+  function getDefaultServerControlRegionDefinition(regionKey) {
+    return DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS.find((definition) => definition.key === regionKey) ?? null;
+  }
+
+  function normalizeServerControlRegionKind(value) {
+    const kind = typeof value === "string" ? value.trim() : "";
+    if ([
+      SERVER_CONTROL_REGION_KIND_OCR,
+      SERVER_CONTROL_REGION_KIND_SCREENSHOT,
+      SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS,
+    ].includes(kind)) {
+      return kind;
+    }
+
+    return SERVER_CONTROL_REGION_KIND_OCR;
+  }
+
+  function sanitizeServerControlRegionDefinition(rawRegion, fallbackLabel = "OCR region") {
+    if (typeof rawRegion === "string") {
+      const defaultRegion = getDefaultServerControlRegionDefinition(rawRegion);
+      if (defaultRegion) {
+        return {
+          ...defaultRegion,
+          defaultBounds: { ...defaultRegion.defaultBounds },
+        };
+      }
+
+      const label = normalizeServerControlConfigText(rawRegion, fallbackLabel);
+      return {
+        key: createServerControlConfigKey(label, "region"),
+        label,
+        kind: SERVER_CONTROL_REGION_KIND_OCR,
+        defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
+      };
+    }
+
+    const source = rawRegion && typeof rawRegion === "object" && !Array.isArray(rawRegion)
+      ? rawRegion
+      : {};
+    const label = normalizeServerControlConfigText(source.label, fallbackLabel);
+    const kind = normalizeServerControlRegionKind(source.kind);
+    let key = normalizeServerControlConfigText(source.key, "");
+    if (kind === SERVER_CONTROL_REGION_KIND_SCREENSHOT) {
+      key = SERVER_CONTROL_REGION_DEFAULT_KEY;
+    } else if (kind === SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS) {
+      key = "googleResults";
+    } else {
+      key = createServerControlConfigKey(key || label, "region");
+    }
+
+    return {
+      key,
+      label,
+      kind,
+      defaultBounds: sanitizeServerControlRegionBounds(source.defaultBounds, DEFAULT_SERVER_CONTROL_REGION_BOUNDS),
+    };
+  }
+
+  function normalizeServerControlActionKeys(rawValue) {
+    const allowedActionKeys = new Set(Object.keys(SERVER_CONTROL_ACTION_DEFINITIONS));
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const seenKeys = new Set();
+    return source
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => allowedActionKeys.has(value))
+      .filter((value) => {
+        if (seenKeys.has(value)) {
+          return false;
+        }
+
+        seenKeys.add(value);
+        return true;
+      });
+  }
+
+  function ensureServerControlTaskDefinitionFeatures(taskDefinition, regionDefinitionsByKey) {
+    const actions = new Set(normalizeServerControlActionKeys(taskDefinition.actions));
+    const regions = taskDefinition.regions.filter((regionKey) => {
+      if (regionKey === SERVER_CONTROL_REGION_DEFAULT_KEY) {
+        return actions.has("screenshot");
+      }
+      if (regionKey === "googleResults") {
+        return actions.has("googleSearch");
+      }
+
+      return true;
+    });
+    if (actions.has("screenshot") && !regions.includes(SERVER_CONTROL_REGION_DEFAULT_KEY)) {
+      regions.push(SERVER_CONTROL_REGION_DEFAULT_KEY);
+      regionDefinitionsByKey.set(SERVER_CONTROL_REGION_DEFAULT_KEY, sanitizeServerControlRegionDefinition({
+        ...getDefaultServerControlRegionDefinition(SERVER_CONTROL_REGION_DEFAULT_KEY),
+      }));
+    }
+    if (actions.has("googleSearch") && !regions.includes("googleResults")) {
+      regions.push("googleResults");
+      regionDefinitionsByKey.set("googleResults", sanitizeServerControlRegionDefinition({
+        ...getDefaultServerControlRegionDefinition("googleResults"),
+      }));
+    }
+    if (actions.has("ocr")) {
+      const hasOcrRegion = regions.some((regionKey) => (
+        regionDefinitionsByKey.get(regionKey)?.kind === SERVER_CONTROL_REGION_KIND_OCR
+      ));
+      if (!hasOcrRegion) {
+        const fullTaskOcrRegion = sanitizeServerControlRegionDefinition({
+          key: "fullTaskOcr",
+          label: "Full task OCR",
+          kind: SERVER_CONTROL_REGION_KIND_OCR,
+        });
+        regions.push(fullTaskOcrRegion.key);
+        regionDefinitionsByKey.set(fullTaskOcrRegion.key, fullTaskOcrRegion);
+      }
+    }
+
+    return {
+      ...taskDefinition,
+      actions: Array.from(actions),
+      regions,
+    };
+  }
+
+  function sanitizeServerControlTaskTypeDefinitions(rawValue) {
+    const sourceDefinitions = Array.isArray(rawValue) && rawValue.length > 0
+      ? rawValue
+      : DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS;
+    const usedTaskKeys = new Set();
+    const regionDefinitionsByKey = new Map(
+      DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
+        definition.key,
+        {
+          ...definition,
+          defaultBounds: { ...definition.defaultBounds },
+        },
+      ]),
+    );
+    const taskDefinitions = [];
+
+    for (const [index, rawDefinition] of sourceDefinitions.entries()) {
+      if (!rawDefinition || typeof rawDefinition !== "object" || Array.isArray(rawDefinition)) {
+        continue;
+      }
+
+      const label = normalizeServerControlConfigText(rawDefinition.label, `Task type ${index + 1}`);
+      const key = makeUniqueServerControlConfigKey(
+        createServerControlConfigKey(rawDefinition.key || label, "task"),
+        usedTaskKeys,
+      );
+      const rawRegions = Array.isArray(rawDefinition.regions) ? rawDefinition.regions : [];
+      const seenRegionKeys = new Set();
+      const regions = [];
+      for (const [regionIndex, rawRegion] of rawRegions.entries()) {
+        const regionDefinition = sanitizeServerControlRegionDefinition(rawRegion, `OCR region ${regionIndex + 1}`);
+        if (!regionDefinition.key || seenRegionKeys.has(regionDefinition.key)) {
+          continue;
+        }
+
+        seenRegionKeys.add(regionDefinition.key);
+        regions.push(regionDefinition.key);
+        regionDefinitionsByKey.set(regionDefinition.key, regionDefinition);
+      }
+
+      taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
+        key,
+        label,
+        regions,
+        actions: normalizeServerControlActionKeys(rawDefinition.actions),
+        boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
+          ? rawDefinition.boilerplatePrompt.trim()
+          : "",
+      }, regionDefinitionsByKey));
+    }
+
+    if (taskDefinitions.length === 0) {
+      return sanitizeServerControlTaskTypeDefinitions(DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS);
+    }
+
+    return {
+      taskDefinitions,
+      regionDefinitions: Array.from(regionDefinitionsByKey.values()),
+    };
+  }
+
+  function applyServerControlTaskTypeDefinitions(rawValue) {
+    const sanitizedDefinitions = sanitizeServerControlTaskTypeDefinitions(rawValue);
+    SERVER_CONTROL_TASK_TYPE_DEFINITIONS = sanitizedDefinitions.taskDefinitions;
+    SERVER_CONTROL_REGION_DEFINITIONS = sanitizedDefinitions.regionDefinitions;
+  }
+
   function getServerControlTaskTypeDefinition(taskTypeKey) {
     return SERVER_CONTROL_TASK_TYPE_DEFINITIONS.find((definition) => definition.key === taskTypeKey)
       ?? SERVER_CONTROL_TASK_TYPE_DEFINITIONS[0];
@@ -2733,7 +2988,9 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function isServerControlUniversalRegion(regionKey) {
-    return SERVER_CONTROL_UNIVERSAL_REGION_KEYS.has(regionKey);
+    const regionDefinition = getServerControlRegionDefinition(regionKey);
+    return SERVER_CONTROL_UNIVERSAL_REGION_KEYS.has(regionKey)
+      || regionDefinition.kind === SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS;
   }
 
   function getDefaultServerControlTaskRegions() {
@@ -3070,25 +3327,27 @@ Base everything strictly on the screenshot attachment.`;
 
   async function loadServerControlMenuSettings() {
     try {
-      const stored = await chrome.storage.local.get({
-        [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE]: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
-        [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: getDefaultServerControlTaskRegions(),
-        [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: getDefaultServerControlUniversalRegions(),
-        [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: SERVER_CONTROL_REGION_DEFAULT_KEY,
-        [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: "",
-      });
+      const stored = await chrome.storage.local.get([
+        STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS,
+        STORAGE_KEY_SERVER_CONTROL_TASK_TYPE,
+        STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS,
+        STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS,
+        STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION,
+        STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT,
+      ]);
+      applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]);
 
       serverControlMenuState.currentTaskType = sanitizeServerControlTaskTypeKey(
-        stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE],
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE] ?? SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
       );
       serverControlMenuState.taskRegions = sanitizeServerControlTaskRegions(
-        stored[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS],
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS] ?? getDefaultServerControlTaskRegions(),
       );
       serverControlMenuState.universalRegions = sanitizeServerControlUniversalRegions(
-        stored[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS],
+        stored[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS] ?? getDefaultServerControlUniversalRegions(),
       );
       serverControlMenuState.selectedRegionKey = sanitizeServerControlRegionKey(
-        stored[STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION],
+        stored[STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION] ?? SERVER_CONTROL_REGION_DEFAULT_KEY,
       );
       serverControlMenuState.ocrReviewText = typeof stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT] === "string"
         ? stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]
@@ -3158,6 +3417,32 @@ Base everything strictly on the screenshot attachment.`;
     const menu = getServerControlMenu();
     if (!(menu instanceof HTMLElement)) {
       return;
+    }
+
+    const taskBar = menu.querySelector("[data-control-task-type-bar]");
+    if (taskBar instanceof HTMLElement) {
+      taskBar.replaceChildren();
+      for (const taskDefinition of SERVER_CONTROL_TASK_TYPE_DEFINITIONS) {
+        const button = document.createElement("button");
+        button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
+        button.type = "button";
+        button.textContent = taskDefinition.label;
+        button.dataset.command = "set_task_type";
+        button.dataset.value = taskDefinition.key;
+        button.dataset.controlTaskTypeKey = taskDefinition.key;
+        button.addEventListener("click", () => {
+          void sendServerControlMenuCommand(
+            {
+              label: taskDefinition.label,
+              command: "set_task_type",
+              value: taskDefinition.key,
+            },
+            "Task type",
+            button,
+          );
+        });
+        taskBar.append(button);
+      }
     }
 
     for (const button of menu.querySelectorAll("[data-control-task-type-key]")) {
@@ -3516,28 +3801,7 @@ Base everything strictly on the screenshot attachment.`;
   function createServerControlTaskTypeColumn() {
     const column = createServerControlColumn("Task types");
     const bar = createServerControlSegmentBar();
-
-    for (const taskDefinition of SERVER_CONTROL_TASK_TYPE_DEFINITIONS) {
-      const button = document.createElement("button");
-      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
-      button.type = "button";
-      button.textContent = taskDefinition.label;
-      button.dataset.command = "set_task_type";
-      button.dataset.value = taskDefinition.key;
-      button.dataset.controlTaskTypeKey = taskDefinition.key;
-      button.addEventListener("click", () => {
-        void sendServerControlMenuCommand(
-          {
-            label: taskDefinition.label,
-            command: "set_task_type",
-            value: taskDefinition.key,
-          },
-          "Task type",
-          button,
-        );
-      });
-      bar.append(button);
-    }
+    bar.dataset.controlTaskTypeBar = "true";
 
     column.append(bar);
     return column;
@@ -3737,15 +4001,16 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function handleServerControlProjectStorageChange(changes, areaName) {
-    if (areaName !== "sync") {
+    if (areaName === "local" && changes[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]) {
+      void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       return;
     }
 
-    if (
+    if (areaName === "sync" && (
       changes[STORAGE_KEY_PROJECT_IDS]
       || changes[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]
       || changes[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]
-    ) {
+    )) {
       void loadServerControlProjectSettings();
     }
   }
@@ -3753,13 +4018,11 @@ Base everything strictly on the screenshot attachment.`;
   function initializeServerControlMenu() {
     if (document.body) {
       ensureServerControlMenu();
-      void loadServerControlMenuSettings();
-      void loadServerControlProjectSettings();
+      void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
     } else {
       document.addEventListener("DOMContentLoaded", () => {
         ensureServerControlMenu();
-        void loadServerControlMenuSettings();
-        void loadServerControlProjectSettings();
+        void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       }, { once: true });
     }
 

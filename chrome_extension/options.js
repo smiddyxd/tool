@@ -108,7 +108,30 @@ const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
+const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+const TASK_REGION_KIND_OCR = "ocr";
+const TASK_REGION_KIND_SCREENSHOT = "full-task-screenshot";
+const TASK_REGION_KIND_GOOGLE_RESULTS = "google-results";
+const TASK_ACTION_OCR = "ocr";
+const TASK_ACTION_SCREENSHOT = "screenshot";
+const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
+const TASK_ACTION_KEYS = [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH];
+const TASK_ACTION_LABELS = {
+  [TASK_ACTION_OCR]: "OCR",
+  [TASK_ACTION_SCREENSHOT]: "Screenshot",
+  [TASK_ACTION_GOOGLE_SEARCH]: "Google search",
+};
+const FULL_TASK_SCREENSHOT_REGION = {
+  key: "fullTaskScreenshot",
+  label: "Full task screenshot",
+  kind: TASK_REGION_KIND_SCREENSHOT,
+};
+const GOOGLE_RESULTS_REGION = {
+  key: "googleResults",
+  label: "Google results",
+  kind: TASK_REGION_KIND_GOOGLE_RESULTS,
+};
 const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
 const PROJECT_ACCOUNT_DEFINITIONS = [
   {
@@ -120,26 +143,72 @@ const PROJECT_ACCOUNT_DEFINITIONS = [
     label: "aoizxcaoi",
   },
 ];
-const BRIDGE_TASK_TYPE_DEFINITIONS = [
+const DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS = [
   {
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH],
+    regions: [
+      { key: "query", label: "Query", kind: TASK_REGION_KIND_OCR },
+      { key: "productCard", label: "Product card", kind: TASK_REGION_KIND_OCR },
+      { key: "productDescription", label: "Product description", kind: TASK_REGION_KIND_OCR },
+      GOOGLE_RESULTS_REGION,
+      FULL_TASK_SCREENSHOT_REGION,
+    ],
+    boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
+
+Query: [query]
+Product card: [product card]
+Product description: [product description]
+Google results: [google results]
+
+Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
   },
   {
     key: "get-rich-quick",
     label: "Get Rich Quick",
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    regions: [
+      FULL_TASK_SCREENSHOT_REGION,
+      { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+    ],
+    boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
   },
   {
     key: "video-games",
     label: "Video Games",
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    regions: [
+      FULL_TASK_SCREENSHOT_REGION,
+      { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+    ],
+    boilerplatePrompt: `The attached screenshot contains a Video Games task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
   },
   {
     key: "weight-loss",
     label: "Weight Loss",
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    regions: [
+      FULL_TASK_SCREENSHOT_REGION,
+      { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+    ],
+    boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
+
+Full task OCR: [full task ocr]
+
+Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
   },
 ];
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
-  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+  DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
     definition.key,
     {
       [PROJECT_ACCOUNT_DEFAULT_KEY]: DEFAULT_PROJECT_ID,
@@ -148,12 +217,13 @@ const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
   ]),
 );
 const DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = Object.fromEntries(
-  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, PROJECT_ACCOUNT_DEFAULT_KEY]),
+  DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, PROJECT_ACCOUNT_DEFAULT_KEY]),
 );
 
 const highlightState = {
   rules: [],
   activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+  taskTypeDefinitions: DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS,
   taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
   taskTypeActiveProjectAccounts: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   tocButtonColors: {},
@@ -261,13 +331,248 @@ function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
   return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
 }
 
+function cloneTaskTypeDefinitions(definitions = DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS) {
+  return definitions.map((definition) => ({
+    ...definition,
+    actions: Array.isArray(definition.actions) ? [...definition.actions] : [],
+    regions: Array.isArray(definition.regions)
+      ? definition.regions.map((region) => ({ ...region }))
+      : [],
+  }));
+}
+
+function normalizeTaskConfigText(value, fallback = "") {
+  const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  return text || fallback;
+}
+
+function createTaskConfigKey(value, fallbackPrefix = "task") {
+  const rawValue = typeof value === "string" ? value : "";
+  const normalized = rawValue
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || `${fallbackPrefix}-${Date.now().toString(36)}`;
+}
+
+function makeUniqueTaskConfigKey(baseKey, usedKeys) {
+  let candidateKey = baseKey;
+  let suffix = 2;
+  while (usedKeys.has(candidateKey)) {
+    candidateKey = `${baseKey}-${suffix}`;
+    suffix += 1;
+  }
+  usedKeys.add(candidateKey);
+  return candidateKey;
+}
+
+function normalizeTaskActionKeys(rawValue) {
+  const source = Array.isArray(rawValue) ? rawValue : [];
+  const seenKeys = new Set();
+  return source
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => TASK_ACTION_KEYS.includes(value))
+    .filter((value) => {
+      if (seenKeys.has(value)) {
+        return false;
+      }
+
+      seenKeys.add(value);
+      return true;
+    });
+}
+
+function normalizeTaskRegionKind(value) {
+  const kind = typeof value === "string" ? value.trim() : "";
+  if ([TASK_REGION_KIND_OCR, TASK_REGION_KIND_SCREENSHOT, TASK_REGION_KIND_GOOGLE_RESULTS].includes(kind)) {
+    return kind;
+  }
+
+  return TASK_REGION_KIND_OCR;
+}
+
+function getDefaultTaskRegionByKey(regionKey) {
+  for (const taskDefinition of DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS) {
+    for (const region of taskDefinition.regions) {
+      if (region.key === regionKey) {
+        return { ...region };
+      }
+    }
+  }
+
+  if (regionKey === FULL_TASK_SCREENSHOT_REGION.key) {
+    return { ...FULL_TASK_SCREENSHOT_REGION };
+  }
+  if (regionKey === GOOGLE_RESULTS_REGION.key) {
+    return { ...GOOGLE_RESULTS_REGION };
+  }
+
+  return null;
+}
+
+function sanitizeTaskRegionDefinition(rawRegion, fallbackLabel = "OCR region") {
+  if (typeof rawRegion === "string") {
+    const defaultRegion = getDefaultTaskRegionByKey(rawRegion);
+    if (defaultRegion) {
+      return defaultRegion;
+    }
+
+    const label = normalizeTaskConfigText(rawRegion, fallbackLabel);
+    return {
+      key: createTaskConfigKey(label, "region"),
+      label,
+      kind: TASK_REGION_KIND_OCR,
+    };
+  }
+
+  const source = rawRegion && typeof rawRegion === "object" && !Array.isArray(rawRegion)
+    ? rawRegion
+    : {};
+  const label = normalizeTaskConfigText(source.label, fallbackLabel);
+  const kind = normalizeTaskRegionKind(source.kind);
+  let key = normalizeTaskConfigText(source.key, "");
+
+  if (kind === TASK_REGION_KIND_SCREENSHOT) {
+    key = FULL_TASK_SCREENSHOT_REGION.key;
+  } else if (kind === TASK_REGION_KIND_GOOGLE_RESULTS) {
+    key = GOOGLE_RESULTS_REGION.key;
+  } else {
+    key = createTaskConfigKey(key || label, "region");
+  }
+
+  return { key, label, kind };
+}
+
+function hasTaskRegionKind(taskDefinition, kind) {
+  return taskDefinition.regions.some((region) => region.kind === kind);
+}
+
+function getTaskRegionByKind(taskDefinition, kind) {
+  return taskDefinition.regions.find((region) => region.kind === kind) ?? null;
+}
+
+function getTaskOcrRegions(taskDefinition) {
+  return taskDefinition.regions.filter((region) => region.kind === TASK_REGION_KIND_OCR);
+}
+
+function ensureTaskDefinitionFeatures(taskDefinition) {
+  const actions = new Set(normalizeTaskActionKeys(taskDefinition.actions));
+  const regions = taskDefinition.regions.filter((region) => {
+    if (region.key === FULL_TASK_SCREENSHOT_REGION.key) {
+      return actions.has(TASK_ACTION_SCREENSHOT);
+    }
+    if (region.key === GOOGLE_RESULTS_REGION.key) {
+      return actions.has(TASK_ACTION_GOOGLE_SEARCH);
+    }
+
+    return true;
+  });
+
+  if (actions.has(TASK_ACTION_SCREENSHOT) && !regions.some((region) => region.key === FULL_TASK_SCREENSHOT_REGION.key)) {
+    regions.push({ ...FULL_TASK_SCREENSHOT_REGION });
+  }
+
+  if (actions.has(TASK_ACTION_GOOGLE_SEARCH) && !regions.some((region) => region.key === GOOGLE_RESULTS_REGION.key)) {
+    regions.push({ ...GOOGLE_RESULTS_REGION });
+  }
+
+  if (actions.has(TASK_ACTION_OCR) && !regions.some((region) => region.kind === TASK_REGION_KIND_OCR)) {
+    regions.push({ key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR });
+  }
+
+  return {
+    ...taskDefinition,
+    actions: Array.from(actions),
+    regions,
+  };
+}
+
+function sanitizeTaskTypeDefinitions(rawValue) {
+  const sourceDefinitions = Array.isArray(rawValue) && rawValue.length > 0
+    ? rawValue
+    : cloneTaskTypeDefinitions();
+  const usedTaskKeys = new Set();
+  const sanitizedDefinitions = [];
+
+  for (const [index, rawDefinition] of sourceDefinitions.entries()) {
+    if (!rawDefinition || typeof rawDefinition !== "object" || Array.isArray(rawDefinition)) {
+      continue;
+    }
+
+    const label = normalizeTaskConfigText(rawDefinition.label, `Task type ${index + 1}`);
+    const baseKey = createTaskConfigKey(rawDefinition.key || label, "task");
+    const key = makeUniqueTaskConfigKey(baseKey, usedTaskKeys);
+    const rawRegions = Array.isArray(rawDefinition.regions) ? rawDefinition.regions : [];
+    const seenRegionKeys = new Set();
+    const regions = rawRegions
+      .map((region, regionIndex) => sanitizeTaskRegionDefinition(region, `OCR region ${regionIndex + 1}`))
+      .filter((region) => {
+        if (!region?.key || seenRegionKeys.has(region.key)) {
+          return false;
+        }
+
+        seenRegionKeys.add(region.key);
+        return true;
+      });
+    const taskDefinition = ensureTaskDefinitionFeatures({
+      key,
+      label,
+      actions: normalizeTaskActionKeys(rawDefinition.actions),
+      regions,
+      boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
+        ? rawDefinition.boilerplatePrompt.trim()
+        : "",
+    });
+
+    sanitizedDefinitions.push(taskDefinition);
+  }
+
+  return sanitizedDefinitions.length > 0 ? sanitizedDefinitions : cloneTaskTypeDefinitions();
+}
+
+function getTaskTypeDefinitions() {
+  highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(highlightState.taskTypeDefinitions);
+  return highlightState.taskTypeDefinitions;
+}
+
+function getTaskTypeDefinition(taskTypeKey = highlightState.activeBridgeTaskType) {
+  const definitions = getTaskTypeDefinitions();
+  return definitions.find((definition) => definition.key === taskTypeKey) ?? definitions[0];
+}
+
+function getDefaultTaskTypeProjectIds(definitions = getTaskTypeDefinitions()) {
+  return Object.fromEntries(
+    definitions.map((definition) => [
+      definition.key,
+      Object.fromEntries(
+        PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition) => [
+          accountDefinition.key,
+          accountDefinition.key === PROJECT_ACCOUNT_DEFAULT_KEY
+            && definition.key === BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS
+            ? DEFAULT_PROJECT_ID
+            : "",
+        ]),
+      ),
+    ]),
+  );
+}
+
+function getDefaultTaskTypeActiveProjectAccounts(definitions = getTaskTypeDefinitions()) {
+  return Object.fromEntries(
+    definitions.map((definition) => [definition.key, PROJECT_ACCOUNT_DEFAULT_KEY]),
+  );
+}
+
 function sanitizeTaskTypeProjectIds(rawValue) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
     : {};
 
   return Object.fromEntries(
-    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => {
+    getTaskTypeDefinitions().map((definition) => {
       const rawTaskProjects = source[definition.key];
       const legacyProjectIds = Array.isArray(rawTaskProjects)
         ? sanitizeProjectIds(rawTaskProjects, "")
@@ -326,9 +631,9 @@ function migrateTaskTypeProjectIds(rawTaskTypeProjectIds, legacyProjectIds) {
 
 function sanitizeBridgeTaskType(value) {
   const taskType = typeof value === "string" ? value.trim() : "";
-  return BRIDGE_TASK_TYPE_DEFINITIONS.some((definition) => definition.key === taskType)
+  return getTaskTypeDefinitions().some((definition) => definition.key === taskType)
     ? taskType
-    : BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+    : getTaskTypeDefinitions()[0]?.key ?? BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
 }
 
 function sanitizeProjectAccountKey(value) {
@@ -344,7 +649,7 @@ function sanitizeTaskTypeActiveProjectAccounts(rawValue) {
     : {};
 
   return Object.fromEntries(
-    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+    getTaskTypeDefinitions().map((definition) => [
       definition.key,
       sanitizeProjectAccountKey(source[definition.key]),
     ]),
@@ -797,7 +1102,7 @@ function renderTaskTypeProjectIds() {
   const taskBar = document.querySelector("#task-project-task-bar");
   if (taskBar instanceof HTMLElement) {
     taskBar.replaceChildren();
-    for (const taskDefinition of BRIDGE_TASK_TYPE_DEFINITIONS) {
+    for (const taskDefinition of getTaskTypeDefinitions()) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "task-project-task-button";
@@ -815,6 +1120,7 @@ function renderTaskTypeProjectIds() {
 
   syncTaskTypeProjectInputs();
   renderTaskTypeProjectAccountChoices();
+  renderTaskTypeConfiguration();
 }
 
 function syncTaskTypeProjectInputs() {
@@ -896,6 +1202,325 @@ function getTaskTypeProjectSettingsFromInputs() {
       highlightState.taskTypeActiveProjectAccounts,
     ),
   };
+}
+
+function getPromptPlaceholderText(region) {
+  const label = normalizeTaskConfigText(region?.label, region?.key ?? "")
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ");
+  return label ? `[${label}]` : "";
+}
+
+function setTaskActionEnabled(taskDefinition, actionKey, enabled) {
+  const actions = new Set(normalizeTaskActionKeys(taskDefinition.actions));
+  if (enabled) {
+    actions.add(actionKey);
+  } else {
+    actions.delete(actionKey);
+  }
+
+  let regions = [...taskDefinition.regions];
+  if (actionKey === TASK_ACTION_SCREENSHOT && enabled) {
+    regions = regions.some((region) => region.key === FULL_TASK_SCREENSHOT_REGION.key)
+      ? regions
+      : [...regions, { ...FULL_TASK_SCREENSHOT_REGION }];
+  } else if (actionKey === TASK_ACTION_SCREENSHOT && !enabled) {
+    regions = regions.filter((region) => region.key !== FULL_TASK_SCREENSHOT_REGION.key);
+  }
+  if (actionKey === TASK_ACTION_GOOGLE_SEARCH && enabled) {
+    regions = regions.some((region) => region.key === GOOGLE_RESULTS_REGION.key)
+      ? regions
+      : [...regions, { ...GOOGLE_RESULTS_REGION }];
+  } else if (actionKey === TASK_ACTION_GOOGLE_SEARCH && !enabled) {
+    regions = regions.filter((region) => region.key !== GOOGLE_RESULTS_REGION.key);
+  }
+  if (actionKey === TASK_ACTION_OCR && enabled && !regions.some((region) => region.kind === TASK_REGION_KIND_OCR)) {
+    regions = [...regions, { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR }];
+  }
+
+  return ensureTaskDefinitionFeatures({
+    ...taskDefinition,
+    actions: Array.from(actions),
+    regions,
+  });
+}
+
+function updateActiveTaskTypeDefinition(updater) {
+  syncTaskTypeProjectInputValues();
+  syncTaskTypeDefinitionEditorValues();
+  const activeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
+  highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
+    getTaskTypeDefinitions().map((definition) => (
+      definition.key === activeTaskType ? updater(definition) : definition
+    )),
+  );
+  highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(activeTaskType);
+  highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds);
+  highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(
+    highlightState.taskTypeActiveProjectAccounts,
+  );
+  renderTaskTypeProjectIds();
+  renderTaskTypeConfiguration();
+}
+
+function syncTaskTypeDefinitionEditorValues() {
+  const activeTaskType = highlightState.activeBridgeTaskType;
+  const labelInput = document.querySelector("#task-type-label");
+  const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  if (!(labelInput instanceof HTMLInputElement) && !(promptInput instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  highlightState.taskTypeDefinitions = getTaskTypeDefinitions().map((definition) => {
+    if (definition.key !== activeTaskType) {
+      return definition;
+    }
+
+    return {
+      ...definition,
+      label: labelInput instanceof HTMLInputElement
+        ? normalizeTaskConfigText(labelInput.value, definition.label)
+        : definition.label,
+      boilerplatePrompt: promptInput instanceof HTMLTextAreaElement
+        ? promptInput.value
+        : definition.boilerplatePrompt,
+    };
+  });
+}
+
+function insertTextAtCursor(textArea, text) {
+  const start = textArea.selectionStart ?? textArea.value.length;
+  const end = textArea.selectionEnd ?? textArea.value.length;
+  textArea.value = `${textArea.value.slice(0, start)}${text}${textArea.value.slice(end)}`;
+  const cursorPosition = start + text.length;
+  textArea.focus();
+  textArea.setSelectionRange(cursorPosition, cursorPosition);
+  syncTaskTypeDefinitionEditorValues();
+}
+
+function renderPromptPlaceholderButtons(taskDefinition) {
+  const container = document.querySelector("#task-type-placeholder-buttons");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  container.replaceChildren();
+  const placeholderRegions = taskDefinition.regions.filter((region) => (
+    region.kind === TASK_REGION_KIND_OCR || region.kind === TASK_REGION_KIND_GOOGLE_RESULTS
+  ));
+  if (placeholderRegions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "Add an OCR region to get prompt placeholder buttons.";
+    container.append(empty);
+    return;
+  }
+
+  const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  for (const region of placeholderRegions) {
+    const placeholder = getPromptPlaceholderText(region);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = placeholder;
+    button.addEventListener("click", () => {
+      if (promptInput instanceof HTMLTextAreaElement) {
+        insertTextAtCursor(promptInput, placeholder);
+        setStatus(`${placeholder} inserted. Save settings to apply it.`);
+      }
+    });
+    container.append(button);
+  }
+}
+
+function renderOcrRegionEditor(taskDefinition) {
+  const list = document.querySelector("#task-type-ocr-regions");
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  list.replaceChildren();
+  const ocrRegions = getTaskOcrRegions(taskDefinition);
+  if (ocrRegions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "OCR is enabled with no regions. Add at least one OCR region before saving.";
+    list.append(empty);
+    return;
+  }
+
+  for (const region of ocrRegions) {
+    const row = document.createElement("div");
+    row.className = "ocr-region-row";
+
+    const label = document.createElement("label");
+    label.textContent = "Region label";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = region.label;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.addEventListener("input", () => {
+      const nextLabel = normalizeTaskConfigText(input.value, region.label);
+      highlightState.taskTypeDefinitions = getTaskTypeDefinitions().map((definition) => {
+        if (definition.key !== taskDefinition.key) {
+          return definition;
+        }
+
+        return {
+          ...definition,
+          regions: definition.regions.map((candidate) => (
+            candidate.key === region.key
+              ? {
+                  ...candidate,
+                  label: nextLabel,
+                }
+              : candidate
+          )),
+        };
+      });
+      setStatus("OCR region label changed. Save settings to apply it.");
+      placeholder.textContent = getPromptPlaceholderText({ ...region, label: nextLabel });
+      renderPromptPlaceholderButtons(getTaskTypeDefinition(taskDefinition.key));
+    });
+
+    label.append(input);
+
+    const placeholder = document.createElement("code");
+    placeholder.textContent = getPromptPlaceholderText(region);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => {
+      updateActiveTaskTypeDefinition((definition) => ({
+        ...definition,
+        regions: definition.regions.filter((candidate) => candidate.key !== region.key),
+      }));
+      setStatus(`${region.label} deleted. Save settings to apply it.`);
+    });
+
+    row.append(label, placeholder, deleteButton);
+    list.append(row);
+  }
+}
+
+function renderTaskTypeConfiguration() {
+  const taskDefinition = getTaskTypeDefinition();
+  const labelInput = document.querySelector("#task-type-label");
+  const keyText = document.querySelector("#task-type-key");
+  const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const screenshotInput = document.querySelector("#task-type-enable-screenshot");
+  const googleInput = document.querySelector("#task-type-enable-google-results");
+  const ocrInput = document.querySelector("#task-type-enable-ocr");
+  const deleteButton = document.querySelector("#delete-task-type");
+
+  if (labelInput instanceof HTMLInputElement) {
+    labelInput.value = taskDefinition.label;
+  }
+  if (keyText instanceof HTMLElement) {
+    keyText.textContent = taskDefinition.key;
+  }
+  if (promptInput instanceof HTMLTextAreaElement) {
+    promptInput.value = taskDefinition.boilerplatePrompt || "";
+  }
+  if (screenshotInput instanceof HTMLInputElement) {
+    screenshotInput.checked = taskDefinition.actions.includes(TASK_ACTION_SCREENSHOT);
+  }
+  if (googleInput instanceof HTMLInputElement) {
+    googleInput.checked = taskDefinition.actions.includes(TASK_ACTION_GOOGLE_SEARCH);
+  }
+  if (ocrInput instanceof HTMLInputElement) {
+    ocrInput.checked = taskDefinition.actions.includes(TASK_ACTION_OCR);
+  }
+  if (deleteButton instanceof HTMLButtonElement) {
+    deleteButton.disabled = getTaskTypeDefinitions().length <= 1;
+  }
+
+  renderOcrRegionEditor(taskDefinition);
+  renderPromptPlaceholderButtons(taskDefinition);
+}
+
+function addTaskTypeDefinition() {
+  syncTaskTypeProjectInputValues();
+  syncTaskTypeDefinitionEditorValues();
+  const usedKeys = new Set(getTaskTypeDefinitions().map((definition) => definition.key));
+  const key = makeUniqueTaskConfigKey(createTaskConfigKey("New task type", "task"), usedKeys);
+  const taskDefinition = {
+    key,
+    label: "New task type",
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    regions: [
+      { ...FULL_TASK_SCREENSHOT_REGION },
+      { key: `${key}-ocr`, label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+    ],
+    boilerplatePrompt: `The attached screenshot contains a task.
+
+Full task OCR: [full task ocr]
+
+Use the screenshot and OCR text above to complete the task.`,
+  };
+
+  highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions([
+    ...getTaskTypeDefinitions(),
+    taskDefinition,
+  ]);
+  highlightState.activeBridgeTaskType = key;
+  highlightState.taskTypeProjectIds = {
+    ...sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds),
+    [key]: Object.fromEntries(PROJECT_ACCOUNT_DEFINITIONS.map((definition) => [definition.key, ""])),
+  };
+  highlightState.taskTypeActiveProjectAccounts = {
+    ...sanitizeTaskTypeActiveProjectAccounts(highlightState.taskTypeActiveProjectAccounts),
+    [key]: PROJECT_ACCOUNT_DEFAULT_KEY,
+  };
+  renderTaskTypeProjectIds();
+  renderTaskTypeConfiguration();
+  setStatus("New task type added. Save settings to apply it.");
+}
+
+function deleteActiveTaskTypeDefinition() {
+  const definitions = getTaskTypeDefinitions();
+  if (definitions.length <= 1) {
+    return;
+  }
+
+  const activeTaskType = highlightState.activeBridgeTaskType;
+  const activeDefinition = getTaskTypeDefinition(activeTaskType);
+  const nextDefinitions = definitions.filter((definition) => definition.key !== activeTaskType);
+  highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(nextDefinitions);
+  highlightState.activeBridgeTaskType = highlightState.taskTypeDefinitions[0].key;
+  const nextProjectIds = { ...highlightState.taskTypeProjectIds };
+  delete nextProjectIds[activeTaskType];
+  highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(nextProjectIds);
+  const nextAccounts = { ...highlightState.taskTypeActiveProjectAccounts };
+  delete nextAccounts[activeTaskType];
+  highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(nextAccounts);
+  renderTaskTypeProjectIds();
+  renderTaskTypeConfiguration();
+  setStatus(`${activeDefinition.label} deleted. Save settings to apply it.`);
+}
+
+function addOcrRegionToActiveTaskType() {
+  updateActiveTaskTypeDefinition((definition) => {
+    const usedKeys = new Set(definition.regions.map((region) => region.key));
+    const nextIndex = getTaskOcrRegions(definition).length + 1;
+    const label = nextIndex === 1 ? "Full task OCR" : `OCR region ${nextIndex}`;
+    return {
+      ...definition,
+      actions: Array.from(new Set([...definition.actions, TASK_ACTION_OCR])),
+      regions: [
+        ...definition.regions,
+        {
+          key: makeUniqueTaskConfigKey(createTaskConfigKey(label, "region"), usedKeys),
+          label,
+          kind: TASK_REGION_KIND_OCR,
+        },
+      ],
+    };
+  });
+  setStatus("OCR region added. Save settings to apply it.");
 }
 
 function fillRuleForm(rule) {
@@ -1292,6 +1917,13 @@ async function deleteHighlightRule(ruleId) {
 }
 
 async function loadOptions() {
+  const localStored = await chrome.storage.local.get({
+    [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
+  });
+  highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
+    localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+  );
+
   const stored = await chrome.storage.sync.get({
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_PROJECT_IDS]: null,
@@ -1347,7 +1979,11 @@ async function loadOptions() {
 
 async function saveOptions(event) {
   event.preventDefault();
+  syncTaskTypeDefinitionEditorValues();
 
+  const taskTypeDefinitions = sanitizeTaskTypeDefinitions(highlightState.taskTypeDefinitions);
+  highlightState.taskTypeDefinitions = taskTypeDefinitions;
+  highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
@@ -1367,6 +2003,10 @@ async function saveOptions(event) {
   const activeProjectId = searchTaskProjects[activeSearchAccount]
     || searchProjectIds[0]
     || DEFAULT_PROJECT_ID;
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: taskTypeDefinitions,
+  });
 
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: buildProjectStartPageUrl(activeProjectId),
@@ -1416,6 +2056,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
   const highlightColorInput = document.querySelector("#highlight-rule-color");
   const highlightHexInput = document.querySelector("#highlight-rule-color-hex");
+  const addTaskTypeButton = document.querySelector("#add-task-type");
+  const deleteTaskTypeButton = document.querySelector("#delete-task-type");
+  const taskTypeLabelInput = document.querySelector("#task-type-label");
+  const taskTypePromptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const screenshotToggle = document.querySelector("#task-type-enable-screenshot");
+  const googleResultsToggle = document.querySelector("#task-type-enable-google-results");
+  const ocrToggle = document.querySelector("#task-type-enable-ocr");
+  const addOcrRegionButton = document.querySelector("#add-ocr-region");
 
   void loadOptions();
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
@@ -1432,6 +2080,48 @@ document.addEventListener("DOMContentLoaded", () => {
       setStatus("Task type project IDs changed. Save settings to apply them.");
     });
   }
+  addTaskTypeButton?.addEventListener("click", () => {
+    addTaskTypeDefinition();
+  });
+  deleteTaskTypeButton?.addEventListener("click", () => {
+    deleteActiveTaskTypeDefinition();
+  });
+  taskTypeLabelInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    renderTaskTypeProjectIds();
+    setStatus("Task type label changed. Save settings to apply it.");
+  });
+  taskTypePromptInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Boilerplate prompt changed. Save settings to apply it.");
+  });
+  screenshotToggle?.addEventListener("change", () => {
+    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
+      definition,
+      TASK_ACTION_SCREENSHOT,
+      screenshotToggle.checked,
+    ));
+    setStatus("Screenshot processing changed. Save settings to apply it.");
+  });
+  googleResultsToggle?.addEventListener("change", () => {
+    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
+      definition,
+      TASK_ACTION_GOOGLE_SEARCH,
+      googleResultsToggle.checked,
+    ));
+    setStatus("Google search results processing changed. Save settings to apply it.");
+  });
+  ocrToggle?.addEventListener("change", () => {
+    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
+      definition,
+      TASK_ACTION_OCR,
+      ocrToggle.checked,
+    ));
+    setStatus("OCR processing changed. Save settings to apply it.");
+  });
+  addOcrRegionButton?.addEventListener("click", () => {
+    addOcrRegionToActiveTaskType();
+  });
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();
   });

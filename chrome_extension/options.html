@@ -304,6 +304,88 @@
       font-size: 13px;
     }
 
+    .task-type-config-editor {
+      display: grid;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .task-type-config-header {
+      display: flex;
+      gap: 12px;
+      align-items: end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .task-type-key {
+      margin: 0;
+      color: var(--muted);
+      font: 13px/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .task-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .feature-toggle {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .feature-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .ocr-region-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ocr-region-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 180px) auto;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .ocr-region-row code {
+      min-height: 42px;
+      display: grid;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    .placeholder-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .toc-settings-list {
       display: grid;
       gap: 10px;
@@ -428,6 +510,8 @@
       .grid-2,
       .task-project-editor,
       .task-project-account-inputs,
+      .task-feature-grid,
+      .ocr-region-row,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
@@ -481,6 +565,60 @@
 
             <div id="task-project-account-choices" class="task-project-account-choices" aria-label="Active project account"></div>
           </div>
+        </div>
+
+        <div class="task-type-config-editor" aria-label="Task type regions and prompt editor">
+          <div class="task-type-config-header">
+            <label for="task-type-label">
+              Task type name
+              <input id="task-type-label" type="text" autocomplete="off" spellcheck="false">
+            </label>
+
+            <div class="actions">
+              <button id="add-task-type" type="button">Add task type</button>
+              <button id="delete-task-type" class="danger-button" type="button">Delete task type</button>
+            </div>
+          </div>
+
+          <p class="task-type-key">Key: <span id="task-type-key"></span></p>
+
+          <div>
+            <h3>Processing and regions</h3>
+            <p class="hint">Google search results adds the Google search processing button and Google results region. Full task screenshot adds the Screenshot button and Full task screenshot region. OCR enables the OCR button and any OCR regions below.</p>
+          </div>
+
+          <div class="task-feature-grid">
+            <label class="feature-toggle" for="task-type-enable-google-results">
+              <input id="task-type-enable-google-results" type="checkbox">
+              Google search results
+            </label>
+
+            <label class="feature-toggle" for="task-type-enable-screenshot">
+              <input id="task-type-enable-screenshot" type="checkbox">
+              Full task screenshot
+            </label>
+
+            <label class="feature-toggle" for="task-type-enable-ocr">
+              <input id="task-type-enable-ocr" type="checkbox">
+              OCR
+            </label>
+          </div>
+
+          <div>
+            <div class="actions">
+              <h3>OCR regions</h3>
+              <button id="add-ocr-region" type="button">Add OCR region</button>
+            </div>
+            <div id="task-type-ocr-regions" class="ocr-region-list"></div>
+          </div>
+
+          <label for="task-type-boilerplate-prompt">
+            Boilerplate prompt
+            <textarea id="task-type-boilerplate-prompt" rows="9" spellcheck="true"></textarea>
+            <p class="hint">Placeholders are based on region labels and are case-insensitive, for example Query becomes [query].</p>
+          </label>
+
+          <div id="task-type-placeholder-buttons" class="placeholder-buttons" aria-label="Prompt placeholders"></div>
         </div>
 
         <label for="reset-limit">

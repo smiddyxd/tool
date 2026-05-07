@@ -102,8 +102,15 @@ The ChatGPT content script creates a half-viewport control menu when the pointer
 
 Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
+The options page also edits the control-menu task type definitions stored in Chrome local storage under `serverControlTaskTypeDefinitions`. For each task type, you can:
+- add or delete task types
+- enable Google search results, which adds the `Google search` processing button and `Google results` region
+- enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
+- enable OCR and add one or more OCR regions
+- edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
+
 Configured task types:
-- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`.
+- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
 - `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
 - `Video Games`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
 - `Weight Loss`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.

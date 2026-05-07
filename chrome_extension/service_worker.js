@@ -272,11 +272,23 @@ function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
   return [sanitizeProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
 }
 
+function getKnownBridgeTaskTypeDefinitions(rawSource = {}) {
+  const source = rawSource && typeof rawSource === "object" && !Array.isArray(rawSource)
+    ? rawSource
+    : {};
+  const definitionsByKey = new Map(BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, definition]));
+  for (const key of Object.keys(source)) {
+    if (!definitionsByKey.has(key)) {
+      definitionsByKey.set(key, { key, label: key });
+    }
+  }
+
+  return Array.from(definitionsByKey.values());
+}
+
 function sanitizeBridgeTaskType(value) {
   const taskType = typeof value === "string" ? value.trim() : "";
-  return BRIDGE_TASK_TYPE_DEFINITIONS.some((definition) => definition.key === taskType)
-    ? taskType
-    : BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+  return taskType || BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
 }
 
 function getBridgeTaskTypeLabel(taskType) {
@@ -302,7 +314,7 @@ function sanitizeTaskTypeProjectIds(rawValue) {
     : {};
 
   return Object.fromEntries(
-    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => {
+    getKnownBridgeTaskTypeDefinitions(source).map((definition) => {
       const rawTaskProjects = source[definition.key];
       const legacyProjectIds = Array.isArray(rawTaskProjects)
         ? sanitizeProjectIds(rawTaskProjects, "")
@@ -365,7 +377,7 @@ function sanitizeTaskTypeActiveProjectAccounts(rawValue) {
     : {};
 
   return Object.fromEntries(
-    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+    getKnownBridgeTaskTypeDefinitions(source).map((definition) => [
       definition.key,
       sanitizeProjectAccountKey(source[definition.key]),
     ]),
