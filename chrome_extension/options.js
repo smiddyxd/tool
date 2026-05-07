@@ -96,7 +96,9 @@ const ANALYSIS_SECTION_HEADINGS = [
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
+const STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE = "activeBridgeTaskType";
 const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
+const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
@@ -106,9 +108,21 @@ const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
+const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
+const PROJECT_ACCOUNT_DEFINITIONS = [
+  {
+    key: PROJECT_ACCOUNT_DEFAULT_KEY,
+    label: "ascasdqwe",
+  },
+  {
+    key: "aoizxcaoi",
+    label: "aoizxcaoi",
+  },
+];
 const BRIDGE_TASK_TYPE_DEFINITIONS = [
   {
-    key: "search-experience-to-product-usefulness",
+    key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
   },
   {
@@ -125,14 +139,23 @@ const BRIDGE_TASK_TYPE_DEFINITIONS = [
   },
 ];
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
-  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, [DEFAULT_PROJECT_ID]]),
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+    definition.key,
+    {
+      [PROJECT_ACCOUNT_DEFAULT_KEY]: DEFAULT_PROJECT_ID,
+      aoizxcaoi: "",
+    },
+  ]),
+);
+const DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = Object.fromEntries(
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, PROJECT_ACCOUNT_DEFAULT_KEY]),
 );
 
 const highlightState = {
   rules: [],
-  projectIds: [DEFAULT_PROJECT_ID],
-  activeProjectId: DEFAULT_PROJECT_ID,
+  activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
   taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
+  taskTypeActiveProjectAccounts: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -244,11 +267,113 @@ function sanitizeTaskTypeProjectIds(rawValue) {
     : {};
 
   return Object.fromEntries(
+    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => {
+      const rawTaskProjects = source[definition.key];
+      const legacyProjectIds = Array.isArray(rawTaskProjects)
+        ? sanitizeProjectIds(rawTaskProjects, "")
+        : [];
+      const taskSource = rawTaskProjects && typeof rawTaskProjects === "object" && !Array.isArray(rawTaskProjects)
+        ? rawTaskProjects
+        : {};
+
+      return [
+        definition.key,
+        Object.fromEntries(
+          PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+            accountDefinition.key,
+            sanitizeProjectId(taskSource[accountDefinition.key] ?? legacyProjectIds[accountIndex] ?? ""),
+          ]),
+        ),
+      ];
+    }),
+  );
+}
+
+function migrateTaskTypeProjectIds(rawTaskTypeProjectIds, legacyProjectIds) {
+  const taskTypeProjectIds = sanitizeTaskTypeProjectIds(rawTaskTypeProjectIds);
+  const rawSource = rawTaskTypeProjectIds && typeof rawTaskTypeProjectIds === "object" && !Array.isArray(rawTaskTypeProjectIds)
+    ? rawTaskTypeProjectIds
+    : {};
+  const rawSearchProjects = rawSource[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS];
+  const hasAccountProjectMap = rawSearchProjects
+    && typeof rawSearchProjects === "object"
+    && !Array.isArray(rawSearchProjects)
+    && PROJECT_ACCOUNT_DEFINITIONS.some((accountDefinition) => (
+      Object.prototype.hasOwnProperty.call(rawSearchProjects, accountDefinition.key)
+    ));
+  if (hasAccountProjectMap) {
+    return taskTypeProjectIds;
+  }
+
+  const currentSearchProjects = PROJECT_ACCOUNT_DEFINITIONS
+    .map((accountDefinition) => taskTypeProjectIds[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]?.[accountDefinition.key])
+    .filter(Boolean);
+  const migratedSearchProjects = sanitizeProjectIds([
+    ...currentSearchProjects,
+    ...(Array.isArray(legacyProjectIds) ? legacyProjectIds : []),
+  ], "");
+
+  return {
+    ...taskTypeProjectIds,
+    [BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]: Object.fromEntries(
+      PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+        accountDefinition.key,
+        migratedSearchProjects[accountIndex] ?? "",
+      ]),
+    ),
+  };
+}
+
+function sanitizeBridgeTaskType(value) {
+  const taskType = typeof value === "string" ? value.trim() : "";
+  return BRIDGE_TASK_TYPE_DEFINITIONS.some((definition) => definition.key === taskType)
+    ? taskType
+    : BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+}
+
+function sanitizeProjectAccountKey(value) {
+  const accountKey = typeof value === "string" ? value.trim() : "";
+  return PROJECT_ACCOUNT_DEFINITIONS.some((definition) => definition.key === accountKey)
+    ? accountKey
+    : PROJECT_ACCOUNT_DEFAULT_KEY;
+}
+
+function sanitizeTaskTypeActiveProjectAccounts(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
     BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
       definition.key,
-      sanitizeProjectIds(source[definition.key], DEFAULT_PROJECT_ID),
+      sanitizeProjectAccountKey(source[definition.key]),
     ]),
   );
+}
+
+function getProjectIdForTaskTypeAccount(taskType, accountKey) {
+  const taskProjects = highlightState.taskTypeProjectIds[taskType] ?? {};
+  const requestedProjectId = sanitizeProjectId(taskProjects[sanitizeProjectAccountKey(accountKey)]);
+  if (requestedProjectId) {
+    return requestedProjectId;
+  }
+
+  for (const accountDefinition of PROJECT_ACCOUNT_DEFINITIONS) {
+    const projectId = sanitizeProjectId(taskProjects[accountDefinition.key]);
+    if (projectId) {
+      return projectId;
+    }
+  }
+
+  return DEFAULT_PROJECT_ID;
+}
+
+function getProjectIdsForTaskType(taskType) {
+  const taskProjects = highlightState.taskTypeProjectIds[taskType] ?? {};
+  const projectIds = PROJECT_ACCOUNT_DEFINITIONS
+    .map((accountDefinition) => sanitizeProjectId(taskProjects[accountDefinition.key]))
+    .filter(Boolean);
+  return projectIds.length > 0 ? projectIds : [DEFAULT_PROJECT_ID];
 }
 
 function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
@@ -662,131 +787,115 @@ function setStatus(message) {
   document.querySelector("#status").textContent = message;
 }
 
-function setActiveProjectUrlInput(projectId) {
-  const input = document.querySelector("#active-project-url");
-  if (input instanceof HTMLInputElement) {
-    input.value = buildProjectStartPageUrl(projectId);
+function renderTaskTypeProjectIds() {
+  highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds);
+  highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(
+    highlightState.taskTypeActiveProjectAccounts,
+  );
+  highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
+
+  const taskBar = document.querySelector("#task-project-task-bar");
+  if (taskBar instanceof HTMLElement) {
+    taskBar.replaceChildren();
+    for (const taskDefinition of BRIDGE_TASK_TYPE_DEFINITIONS) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "task-project-task-button";
+      button.textContent = taskDefinition.label;
+      button.classList.toggle("active", taskDefinition.key === highlightState.activeBridgeTaskType);
+      button.addEventListener("click", () => {
+        syncTaskTypeProjectInputValues();
+        highlightState.activeBridgeTaskType = taskDefinition.key;
+        renderTaskTypeProjectIds();
+        setStatus(`${taskDefinition.label} selected. Save settings to apply it.`);
+      });
+      taskBar.append(button);
+    }
+  }
+
+  syncTaskTypeProjectInputs();
+  renderTaskTypeProjectAccountChoices();
+}
+
+function syncTaskTypeProjectInputs() {
+  const taskProjects = highlightState.taskTypeProjectIds[highlightState.activeBridgeTaskType] ?? {};
+  for (const input of document.querySelectorAll("[data-project-account-input]")) {
+    if (!(input instanceof HTMLInputElement)) {
+      continue;
+    }
+
+    input.value = taskProjects[input.dataset.projectAccountInput] ?? "";
   }
 }
 
-function renderProjectIds() {
-  const list = document.querySelector("#project-id-list");
-  if (!list) {
+function syncTaskTypeProjectInputValues() {
+  const taskType = highlightState.activeBridgeTaskType;
+  const nextTaskProjects = {
+    ...(highlightState.taskTypeProjectIds[taskType] ?? {}),
+  };
+
+  for (const input of document.querySelectorAll("[data-project-account-input]")) {
+    if (!(input instanceof HTMLInputElement)) {
+      continue;
+    }
+
+    nextTaskProjects[input.dataset.projectAccountInput] = sanitizeProjectId(input.value);
+  }
+
+  highlightState.taskTypeProjectIds = {
+    ...highlightState.taskTypeProjectIds,
+    [taskType]: nextTaskProjects,
+  };
+}
+
+function renderTaskTypeProjectAccountChoices() {
+  const accountChoices = document.querySelector("#task-project-account-choices");
+  if (!(accountChoices instanceof HTMLElement)) {
     return;
   }
 
-  list.replaceChildren();
-  const normalizedProjectSettings = normalizeProjectSettings(
-    highlightState.projectIds,
-    highlightState.activeProjectId,
-    DEFAULT_START_PAGE_URL,
+  accountChoices.replaceChildren();
+  const activeAccount = sanitizeProjectAccountKey(
+    highlightState.taskTypeActiveProjectAccounts[highlightState.activeBridgeTaskType],
   );
-  highlightState.projectIds = normalizedProjectSettings.projectIds;
-  highlightState.activeProjectId = normalizedProjectSettings.activeProjectId;
-  setActiveProjectUrlInput(highlightState.activeProjectId);
 
-  for (const projectId of highlightState.projectIds) {
-    const row = document.createElement("div");
-    row.className = "project-id-row";
+  for (const accountDefinition of PROJECT_ACCOUNT_DEFINITIONS) {
+    const projectId = highlightState.taskTypeProjectIds[highlightState.activeBridgeTaskType]?.[accountDefinition.key] ?? "";
+    const label = document.createElement("label");
+    label.className = "task-project-account-choice";
 
-    const activeLabel = document.createElement("label");
-    activeLabel.className = "project-active-control";
-
-    const activeInput = document.createElement("input");
-    activeInput.type = "radio";
-    activeInput.name = "active-project-id";
-    activeInput.value = projectId;
-    activeInput.checked = projectId === highlightState.activeProjectId;
-    activeInput.addEventListener("change", () => {
-      if (!activeInput.checked) {
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "task-project-active-account";
+    input.value = accountDefinition.key;
+    input.checked = activeAccount === accountDefinition.key;
+    input.addEventListener("change", () => {
+      if (!input.checked) {
         return;
       }
 
-      highlightState.activeProjectId = projectId;
-      renderProjectIds();
-      setStatus("Active project changed. Save settings to apply it.");
+      syncTaskTypeProjectInputValues();
+      highlightState.taskTypeActiveProjectAccounts[highlightState.activeBridgeTaskType] = accountDefinition.key;
+      renderTaskTypeProjectAccountChoices();
+      setStatus(`${accountDefinition.label} selected for this task type. Save settings to apply it.`);
     });
 
-    const activeText = document.createElement("span");
-    activeText.textContent = activeInput.checked ? "Active" : "Use";
-    activeLabel.append(activeInput, activeText);
+    const text = document.createElement("span");
+    text.textContent = `${accountDefinition.label}: ${projectId || "(missing project ID)"}`;
 
-    const projectIdText = document.createElement("code");
-    projectIdText.className = "project-id-value";
-    projectIdText.textContent = projectId;
-
-    const projectUrlText = document.createElement("span");
-    projectUrlText.className = "project-id-url";
-    projectUrlText.textContent = buildProjectStartPageUrl(projectId);
-
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "danger-button";
-    deleteButton.textContent = "Delete";
-    deleteButton.disabled = highlightState.projectIds.length <= 1;
-    deleteButton.addEventListener("click", () => {
-      highlightState.projectIds = highlightState.projectIds.filter((candidate) => candidate !== projectId);
-      if (highlightState.activeProjectId === projectId) {
-        highlightState.activeProjectId = highlightState.projectIds[0] ?? DEFAULT_PROJECT_ID;
-      }
-
-      renderProjectIds();
-      setStatus("Project ID removed. Save settings to apply it.");
-    });
-
-    row.append(activeLabel, projectIdText, projectUrlText, deleteButton);
-    list.append(row);
+    label.append(input, text);
+    accountChoices.append(label);
   }
 }
 
-function addProjectIdFromInput() {
-  const input = document.querySelector("#new-project-id");
-  if (!(input instanceof HTMLInputElement)) {
-    return;
-  }
-
-  const projectId = sanitizeProjectId(input.value);
-  if (!projectId) {
-    setStatus("Enter a valid 32-character ChatGPT project ID or project URL.");
-    return;
-  }
-
-  if (!highlightState.projectIds.includes(projectId)) {
-    highlightState.projectIds.push(projectId);
-  }
-
-  highlightState.activeProjectId = projectId;
-  input.value = "";
-  renderProjectIds();
-  setStatus("Project ID added and selected. Save settings to apply it.");
-}
-
-function renderTaskTypeProjectIds() {
-  const taskTypeProjectIds = sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds);
-  highlightState.taskTypeProjectIds = taskTypeProjectIds;
-
-  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
-    if (!(textArea instanceof HTMLTextAreaElement)) {
-      continue;
-    }
-
-    const taskType = textArea.dataset.taskTypeProjectIds;
-    textArea.value = (taskTypeProjectIds[taskType] ?? [DEFAULT_PROJECT_ID]).join("\n");
-  }
-}
-
-function getTaskTypeProjectIdsFromInputs() {
-  const rawProjectIds = {};
-
-  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
-    if (!(textArea instanceof HTMLTextAreaElement)) {
-      continue;
-    }
-
-    rawProjectIds[textArea.dataset.taskTypeProjectIds] = textArea.value.split(/\r?\n/);
-  }
-
-  return sanitizeTaskTypeProjectIds(rawProjectIds);
+function getTaskTypeProjectSettingsFromInputs() {
+  syncTaskTypeProjectInputValues();
+  return {
+    taskTypeProjectIds: sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds),
+    taskTypeActiveProjectAccounts: sanitizeTaskTypeActiveProjectAccounts(
+      highlightState.taskTypeActiveProjectAccounts,
+    ),
+  };
 }
 
 function fillRuleForm(rule) {
@@ -1187,7 +1296,9 @@ async function loadOptions() {
     [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
     [STORAGE_KEY_PROJECT_IDS]: null,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
-    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: DEFAULT_TASK_TYPE_PROJECT_IDS,
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: null,
+    [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
@@ -1205,9 +1316,14 @@ async function loadOptions() {
     stored[STORAGE_KEY_START_PAGE_URL],
   );
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
-  highlightState.projectIds = projectSettings.projectIds;
-  highlightState.activeProjectId = projectSettings.activeProjectId;
-  highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]);
+  highlightState.taskTypeProjectIds = migrateTaskTypeProjectIds(
+    stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS],
+    projectSettings.projectIds,
+  );
+  highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(
+    stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS],
+  );
+  highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]);
   highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
   highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
   highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
@@ -1220,7 +1336,6 @@ async function loadOptions() {
   );
 
   document.querySelector("#reset-limit").value = String(resetLimit);
-  renderProjectIds();
   renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
@@ -1233,11 +1348,6 @@ async function loadOptions() {
 async function saveOptions(event) {
   event.preventDefault();
 
-  const projectSettings = normalizeProjectSettings(
-    highlightState.projectIds,
-    highlightState.activeProjectId,
-    DEFAULT_START_PAGE_URL,
-  );
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
@@ -1246,13 +1356,25 @@ async function saveOptions(event) {
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
-  const taskTypeProjectIds = getTaskTypeProjectIdsFromInputs();
+  const { taskTypeProjectIds, taskTypeActiveProjectAccounts } = getTaskTypeProjectSettingsFromInputs();
+  const searchTaskProjects = taskTypeProjectIds[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS] ?? {};
+  const activeSearchAccount = sanitizeProjectAccountKey(
+    taskTypeActiveProjectAccounts[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS],
+  );
+  const searchProjectIds = PROJECT_ACCOUNT_DEFINITIONS
+    .map((accountDefinition) => sanitizeProjectId(searchTaskProjects[accountDefinition.key]))
+    .filter(Boolean);
+  const activeProjectId = searchTaskProjects[activeSearchAccount]
+    || searchProjectIds[0]
+    || DEFAULT_PROJECT_ID;
 
   await chrome.storage.sync.set({
-    [STORAGE_KEY_START_PAGE_URL]: projectSettings.defaultStartPageUrl,
-    [STORAGE_KEY_PROJECT_IDS]: projectSettings.projectIds,
-    [STORAGE_KEY_ACTIVE_PROJECT_ID]: projectSettings.activeProjectId,
+    [STORAGE_KEY_START_PAGE_URL]: buildProjectStartPageUrl(activeProjectId),
+    [STORAGE_KEY_PROJECT_IDS]: searchProjectIds.length > 0 ? searchProjectIds : [DEFAULT_PROJECT_ID],
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: activeProjectId,
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: highlightState.activeBridgeTaskType,
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
+    [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
@@ -1264,9 +1386,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
   });
 
-  highlightState.projectIds = projectSettings.projectIds;
-  highlightState.activeProjectId = projectSettings.activeProjectId;
   highlightState.taskTypeProjectIds = taskTypeProjectIds;
+  highlightState.taskTypeActiveProjectAccounts = taskTypeActiveProjectAccounts;
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
@@ -1275,7 +1396,6 @@ async function saveOptions(event) {
   highlightState.tocColumnOpacity = tocColumnOpacity;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   document.querySelector("#reset-limit").value = String(resetLimit);
-  renderProjectIds();
   renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
@@ -1292,8 +1412,6 @@ async function resetChanges() {
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");
   const resetButton = document.querySelector("#reset-changes");
-  const addProjectButton = document.querySelector("#add-project-id");
-  const newProjectInput = document.querySelector("#new-project-id");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
   const highlightColorInput = document.querySelector("#highlight-rule-color");
@@ -1307,17 +1425,10 @@ document.addEventListener("DOMContentLoaded", () => {
   resetButton.addEventListener("click", () => {
     void resetChanges();
   });
-  addProjectButton.addEventListener("click", () => {
-    addProjectIdFromInput();
-  });
-  newProjectInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      addProjectIdFromInput();
-    }
-  });
-  for (const textArea of document.querySelectorAll("[data-task-type-project-ids]")) {
-    textArea.addEventListener("input", () => {
+  for (const input of document.querySelectorAll("[data-project-account-input]")) {
+    input.addEventListener("input", () => {
+      syncTaskTypeProjectInputValues();
+      renderTaskTypeProjectAccountChoices();
       setStatus("Task type project IDs changed. Save settings to apply them.");
     });
   }

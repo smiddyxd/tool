@@ -31,11 +31,23 @@ const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
 const STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE = "activeBridgeTaskType";
 const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
+const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
+const PROJECT_ACCOUNT_DEFINITIONS = [
+  {
+    key: PROJECT_ACCOUNT_DEFAULT_KEY,
+    label: "ascasdqwe",
+  },
+  {
+    key: "aoizxcaoi",
+    label: "aoizxcaoi",
+  },
+];
 const BRIDGE_TASK_TYPE_DEFINITIONS = [
   {
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
@@ -55,7 +67,16 @@ const BRIDGE_TASK_TYPE_DEFINITIONS = [
   },
 ];
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
-  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, [DEFAULT_PROJECT_ID]]),
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
+    definition.key,
+    {
+      [PROJECT_ACCOUNT_DEFAULT_KEY]: DEFAULT_PROJECT_ID,
+      aoizxcaoi: "",
+    },
+  ]),
+);
+const DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = Object.fromEntries(
+  BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [definition.key, PROJECT_ACCOUNT_DEFAULT_KEY]),
 );
 
 // ChatGPT tab matching and content-script injection settings.
@@ -263,7 +284,82 @@ function getBridgeTaskTypeLabel(taskType) {
     ?? taskType;
 }
 
+function sanitizeProjectAccountKey(value) {
+  const accountKey = typeof value === "string" ? value.trim() : "";
+  return PROJECT_ACCOUNT_DEFINITIONS.some((definition) => definition.key === accountKey)
+    ? accountKey
+    : PROJECT_ACCOUNT_DEFAULT_KEY;
+}
+
+function getProjectAccountLabel(accountKey) {
+  return PROJECT_ACCOUNT_DEFINITIONS.find((definition) => definition.key === accountKey)?.label
+    ?? accountKey;
+}
+
 function sanitizeTaskTypeProjectIds(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
+    BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => {
+      const rawTaskProjects = source[definition.key];
+      const legacyProjectIds = Array.isArray(rawTaskProjects)
+        ? sanitizeProjectIds(rawTaskProjects, "")
+        : [];
+      const taskSource = rawTaskProjects && typeof rawTaskProjects === "object" && !Array.isArray(rawTaskProjects)
+        ? rawTaskProjects
+        : {};
+
+      return [
+        definition.key,
+        Object.fromEntries(
+          PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+            accountDefinition.key,
+            sanitizeProjectId(taskSource[accountDefinition.key] ?? legacyProjectIds[accountIndex] ?? ""),
+          ]),
+        ),
+      ];
+    }),
+  );
+}
+
+function migrateTaskTypeProjectIds(rawTaskTypeProjectIds, legacyProjectIds) {
+  const taskTypeProjectIds = sanitizeTaskTypeProjectIds(rawTaskTypeProjectIds);
+  const rawSource = rawTaskTypeProjectIds && typeof rawTaskTypeProjectIds === "object" && !Array.isArray(rawTaskTypeProjectIds)
+    ? rawTaskTypeProjectIds
+    : {};
+  const rawSearchProjects = rawSource[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS];
+  const hasAccountProjectMap = rawSearchProjects
+    && typeof rawSearchProjects === "object"
+    && !Array.isArray(rawSearchProjects)
+    && PROJECT_ACCOUNT_DEFINITIONS.some((accountDefinition) => (
+      Object.prototype.hasOwnProperty.call(rawSearchProjects, accountDefinition.key)
+    ));
+  if (hasAccountProjectMap) {
+    return taskTypeProjectIds;
+  }
+
+  const currentSearchProjects = PROJECT_ACCOUNT_DEFINITIONS
+    .map((accountDefinition) => taskTypeProjectIds[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]?.[accountDefinition.key])
+    .filter(Boolean);
+  const migratedSearchProjects = sanitizeProjectIds([
+    ...currentSearchProjects,
+    ...(Array.isArray(legacyProjectIds) ? legacyProjectIds : []),
+  ], "");
+
+  return {
+    ...taskTypeProjectIds,
+    [BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]: Object.fromEntries(
+      PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+        accountDefinition.key,
+        migratedSearchProjects[accountIndex] ?? "",
+      ]),
+    ),
+  };
+}
+
+function sanitizeTaskTypeActiveProjectAccounts(rawValue) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
     : {};
@@ -271,17 +367,61 @@ function sanitizeTaskTypeProjectIds(rawValue) {
   return Object.fromEntries(
     BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
       definition.key,
-      sanitizeProjectIds(source[definition.key], DEFAULT_PROJECT_ID),
+      sanitizeProjectAccountKey(source[definition.key]),
     ]),
   );
 }
 
+function getProjectIdForTaskTypeAccount(taskTypeProjectIds, taskType, accountKey) {
+  const taskProjects = taskTypeProjectIds[taskType] ?? {};
+  const requestedProjectId = sanitizeProjectId(taskProjects[sanitizeProjectAccountKey(accountKey)]);
+  if (requestedProjectId) {
+    return requestedProjectId;
+  }
+
+  for (const accountDefinition of PROJECT_ACCOUNT_DEFINITIONS) {
+    const projectId = sanitizeProjectId(taskProjects[accountDefinition.key]);
+    if (projectId) {
+      return projectId;
+    }
+  }
+
+  return DEFAULT_PROJECT_ID;
+}
+
+function getProjectIdsForTaskType(taskTypeProjectIds, taskType) {
+  const taskProjects = taskTypeProjectIds[taskType] ?? {};
+  const projectIds = PROJECT_ACCOUNT_DEFINITIONS
+    .map((accountDefinition) => sanitizeProjectId(taskProjects[accountDefinition.key]))
+    .filter(Boolean);
+  return projectIds.length > 0 ? projectIds : [DEFAULT_PROJECT_ID];
+}
+
 async function getTaskTypeProjectIds() {
   const stored = await chrome.storage.sync.get({
-    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: DEFAULT_TASK_TYPE_PROJECT_IDS,
+    [STORAGE_KEY_START_PAGE_URL]: DEFAULT_START_PAGE_URL,
+    [STORAGE_KEY_PROJECT_IDS]: null,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
+    [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: null,
+  });
+  const legacyProjectSettings = normalizeProjectSettings(
+    stored[STORAGE_KEY_PROJECT_IDS],
+    stored[STORAGE_KEY_ACTIVE_PROJECT_ID],
+    stored[STORAGE_KEY_START_PAGE_URL],
+  );
+
+  return migrateTaskTypeProjectIds(
+    stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS],
+    legacyProjectSettings.projectIds,
+  );
+}
+
+async function getTaskTypeActiveProjectAccounts() {
+  const stored = await chrome.storage.sync.get({
+    [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   });
 
-  return sanitizeTaskTypeProjectIds(stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]);
+  return sanitizeTaskTypeActiveProjectAccounts(stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]);
 }
 
 function normalizeProjectSettings(rawProjectIds, rawActiveProjectId, rawStartPageUrl) {
@@ -405,12 +545,14 @@ async function getOptions() {
 async function ensureDefaultOptions() {
   const options = await getOptions();
   const taskTypeProjectIds = await getTaskTypeProjectIds();
+  const taskTypeActiveProjectAccounts = await getTaskTypeActiveProjectAccounts();
   await chrome.storage.sync.set({
     [STORAGE_KEY_START_PAGE_URL]: options.defaultStartPageUrl,
     [STORAGE_KEY_PROJECT_IDS]: options.projectIds,
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: options.activeProjectId,
     [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: sanitizeBridgeTaskType(options.activeBridgeTaskType),
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
+    [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: options.resetLimit,
   });
 }
@@ -1095,8 +1237,14 @@ async function fetchRepeatCapturePayload() {
 async function switchBridgeTaskType(taskType, sender) {
   const activeBridgeTaskType = sanitizeBridgeTaskType(taskType);
   const taskTypeProjectIds = await getTaskTypeProjectIds();
-  const projectIds = taskTypeProjectIds[activeBridgeTaskType] ?? [DEFAULT_PROJECT_ID];
-  const activeProjectId = sanitizeProjectId(projectIds[0], DEFAULT_PROJECT_ID);
+  const taskTypeActiveProjectAccounts = await getTaskTypeActiveProjectAccounts();
+  const activeProjectAccount = sanitizeProjectAccountKey(taskTypeActiveProjectAccounts[activeBridgeTaskType]);
+  const projectIds = getProjectIdsForTaskType(taskTypeProjectIds, activeBridgeTaskType);
+  const activeProjectId = getProjectIdForTaskTypeAccount(
+    taskTypeProjectIds,
+    activeBridgeTaskType,
+    activeProjectAccount,
+  );
   const projectUrl = buildProjectStartPageUrl(activeProjectId);
 
   await chrome.storage.sync.set({
@@ -1114,6 +1262,7 @@ async function switchBridgeTaskType(taskType, sender) {
   console.log("Local Query Bridge switched task type project", {
     taskType: activeBridgeTaskType,
     taskLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    account: activeProjectAccount,
     activeProjectId,
     projectCount: projectIds.length,
   });
@@ -1121,6 +1270,54 @@ async function switchBridgeTaskType(taskType, sender) {
   return {
     activeBridgeTaskType,
     activeBridgeTaskTypeLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    activeProjectAccount,
+    activeProjectAccountLabel: getProjectAccountLabel(activeProjectAccount),
+    activeProjectId,
+    projectIds,
+    projectUrl,
+    navigateTabId,
+  };
+}
+
+async function switchBridgeProjectAccount(taskType, accountKey, sender) {
+  const activeBridgeTaskType = sanitizeBridgeTaskType(taskType);
+  const activeProjectAccount = sanitizeProjectAccountKey(accountKey);
+  const taskTypeProjectIds = await getTaskTypeProjectIds();
+  const taskTypeActiveProjectAccounts = await getTaskTypeActiveProjectAccounts();
+  taskTypeActiveProjectAccounts[activeBridgeTaskType] = activeProjectAccount;
+  const projectIds = getProjectIdsForTaskType(taskTypeProjectIds, activeBridgeTaskType);
+  const activeProjectId = getProjectIdForTaskTypeAccount(
+    taskTypeProjectIds,
+    activeBridgeTaskType,
+    activeProjectAccount,
+  );
+  const projectUrl = buildProjectStartPageUrl(activeProjectId);
+
+  await chrome.storage.sync.set({
+    [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: activeBridgeTaskType,
+    [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
+    [STORAGE_KEY_PROJECT_IDS]: projectIds,
+    [STORAGE_KEY_ACTIVE_PROJECT_ID]: activeProjectId,
+    [STORAGE_KEY_START_PAGE_URL]: projectUrl,
+  });
+
+  const navigateTabId = sender?.tab?.id && isChatGptUrl(sender.tab.url) ? sender.tab.id : null;
+  if (navigateTabId !== null) {
+    state.lastChatGptTabId = navigateTabId;
+  }
+
+  console.log("Local Query Bridge switched project account", {
+    taskType: activeBridgeTaskType,
+    taskLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    account: activeProjectAccount,
+    activeProjectId,
+  });
+
+  return {
+    activeBridgeTaskType,
+    activeBridgeTaskTypeLabel: getBridgeTaskTypeLabel(activeBridgeTaskType),
+    activeProjectAccount,
+    activeProjectAccountLabel: getProjectAccountLabel(activeProjectAccount),
     activeProjectId,
     projectIds,
     projectUrl,
@@ -1131,6 +1328,10 @@ async function switchBridgeTaskType(taskType, sender) {
 async function applyServerControlCommandSideEffects(command, sender) {
   if (command?.command === "set_task_type") {
     return switchBridgeTaskType(command.value, sender);
+  }
+
+  if (command?.command === "set_project_account") {
+    return switchBridgeProjectAccount(command.currentTaskType, command.value, sender);
   }
 
   return {};

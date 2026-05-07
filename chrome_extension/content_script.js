@@ -87,6 +87,9 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
   const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
+  const STORAGE_KEY_PROJECT_IDS = "projectIds";
+  const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
+  const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
   const SERVER_CONTROL_MENU_ID = "local-query-bridge-server-control-menu";
@@ -105,6 +108,18 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS = 250;
   const SERVER_CONTROL_REGION_COORDINATE_MIN = -100000;
   const SERVER_CONTROL_REGION_COORDINATE_MAX = 100000;
+  const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
+  const SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
+  const SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS = [
+    {
+      key: SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY,
+      label: "ascasdqwe",
+    },
+    {
+      key: "aoizxcaoi",
+      label: "aoizxcaoi",
+    },
+  ];
   const HIGHLIGHT_DEBOUNCE_MS = 250;
   const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
   const TERM_PATTERN_PART_PATTERN = /\.{3}[\p{L}\p{N}]+\.{3}|\.{3}[\p{L}\p{N}]+|[\p{L}\p{N}]+\.{3}|[\p{L}\p{N}]+/gu;
@@ -330,6 +345,9 @@ Base everything strictly on the screenshot attachment.`;
     selectedRegionKey: SERVER_CONTROL_REGION_DEFAULT_KEY,
     taskRegions: getDefaultServerControlTaskRegions(),
     universalRegions: getDefaultServerControlUniversalRegions(),
+    taskTypeProjectIds: getDefaultServerControlTaskTypeProjectIds(),
+    taskTypeActiveProjectAccounts: getDefaultServerControlTaskTypeActiveProjectAccounts(),
+    projectPickerOpen: false,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -2304,6 +2322,7 @@ Base everything strictly on the screenshot attachment.`;
         justify-content: space-between;
         gap: 16px;
         min-width: 0;
+        position: relative;
       }
 
       .local-query-bridge-server-control-title {
@@ -2320,6 +2339,67 @@ Base everything strictly on the screenshot attachment.`;
         color: #475569;
         font-size: 12px;
         font-weight: 600;
+      }
+
+      .local-query-bridge-server-control-header-actions {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .local-query-bridge-server-control-project-toggle {
+        min-width: 42px;
+        min-height: 30px;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #0f172a;
+        cursor: pointer;
+        font: 750 12px/1 "Segoe UI", system-ui, sans-serif;
+        padding: 7px 10px;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+      }
+
+      .local-query-bridge-server-control-project-toggle:hover {
+        border-color: rgba(37, 99, 235, 0.45);
+        background: #eff6ff;
+      }
+
+      .local-query-bridge-server-control-project-toggle.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
+        border-color: rgba(37, 99, 235, 0.52);
+        background: #1d4ed8;
+        color: #ffffff;
+      }
+
+      .local-query-bridge-server-control-project-panel {
+        position: absolute;
+        top: 52px;
+        right: 22px;
+        z-index: 1;
+        width: min(360px, calc(100vw - 44px));
+        display: grid;
+        gap: 9px;
+        padding: 10px;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 14px 38px rgba(15, 23, 42, 0.18);
+      }
+
+      .local-query-bridge-server-control-project-panel[hidden] {
+        display: none;
+      }
+
+      .local-query-bridge-server-control-project-panel-title {
+        margin: 0;
+        overflow: hidden;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 750;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .local-query-bridge-server-control-content {
@@ -2357,41 +2437,47 @@ Base everything strictly on the screenshot attachment.`;
         gap: 8px;
       }
 
-      .local-query-bridge-server-control-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
+      .local-query-bridge-server-control-segment-bar,
       .local-query-bridge-server-control-region-picker {
         display: grid;
         align-content: start;
-        gap: 6px;
+        gap: 0;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.18);
+        border-radius: 8px;
+        background: #ffffff;
       }
 
       .local-query-bridge-server-control-button {
-        min-width: 112px;
+        width: 100%;
+        min-width: 0;
         min-height: 34px;
-        border: 1px solid rgba(51, 65, 85, 0.22);
-        border-radius: 8px;
+        border: 0;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.14);
+        border-radius: 0;
         background: #ffffff;
         color: #0f172a;
         cursor: pointer;
         font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
         padding: 8px 11px;
+        text-align: left;
         white-space: normal;
         overflow-wrap: anywhere;
-        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+        transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+      }
+
+      .local-query-bridge-server-control-segment-bar > .local-query-bridge-server-control-button:last-child,
+      .local-query-bridge-server-control-region-picker > .local-query-bridge-server-control-button:last-child {
+        border-bottom: 0;
       }
 
       .local-query-bridge-server-control-button:hover {
-        border-color: rgba(37, 99, 235, 0.45);
-        background: #eff6ff;
+        background: #f8fafc;
       }
 
       .local-query-bridge-server-control-button:focus {
         outline: 3px solid rgba(37, 99, 235, 0.2);
-        outline-offset: 2px;
+        outline-offset: -3px;
       }
 
       .local-query-bridge-server-control-button:disabled {
@@ -2400,10 +2486,9 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       .local-query-bridge-server-control-button.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
-        border-color: rgba(22, 101, 52, 0.45);
-        background: #166534;
-        color: #ffffff;
-        box-shadow: 0 8px 18px rgba(22, 101, 52, 0.2);
+        background: #dbeafe;
+        color: #1d4ed8;
+        box-shadow: inset 3px 0 0 #2563eb;
       }
 
       .local-query-bridge-server-control-region-button {
@@ -2416,6 +2501,30 @@ Base everything strictly on the screenshot attachment.`;
       .local-query-bridge-server-control-column-button {
         width: 100%;
         min-width: 0;
+      }
+
+      .local-query-bridge-server-control-project-account-button {
+        display: grid;
+        grid-template-columns: minmax(80px, 0.45fr) minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+      }
+
+      .local-query-bridge-server-control-project-account-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-server-control-project-account-id {
+        min-width: 0;
+        overflow: hidden;
+        color: inherit;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .local-query-bridge-server-control-region-cross {
@@ -2537,6 +2646,12 @@ Base everything strictly on the screenshot attachment.`;
           gap: 6px;
         }
 
+        .local-query-bridge-server-control-project-panel {
+          top: 76px;
+          right: 14px;
+          width: calc(100vw - 28px);
+        }
+
         .local-query-bridge-server-control-content {
           grid-template-columns: 1fr;
         }
@@ -2632,6 +2747,205 @@ Base everything strictly on the screenshot attachment.`;
         return [regionKey, { ...regionDefinition.defaultBounds }];
       }),
     );
+  }
+
+  function extractServerControlProjectId(value) {
+    const rawValue = typeof value === "string" ? value.trim() : "";
+    if (!rawValue) {
+      return "";
+    }
+
+    const directMatch = rawValue.match(/^(?:g-p-)?([0-9a-f]{32})$/i);
+    if (directMatch?.[1]) {
+      return directMatch[1].toLocaleLowerCase();
+    }
+
+    const urlMatch = rawValue.match(/\/g\/g-p-([0-9a-f]{32})(?:[/?#]|$)/i);
+    return urlMatch?.[1]?.toLocaleLowerCase() ?? "";
+  }
+
+  function sanitizeServerControlProjectId(value, fallback = "") {
+    const projectId = extractServerControlProjectId(value);
+    if (projectId) {
+      return projectId;
+    }
+
+    return fallback ? extractServerControlProjectId(fallback) : "";
+  }
+
+  function sanitizeServerControlProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
+    const rawValues = Array.isArray(rawValue)
+      ? rawValue
+      : (typeof rawValue === "string" ? rawValue.split(/[\s,]+/) : []);
+    const projectIds = [];
+    const seenIds = new Set();
+
+    for (const value of rawValues) {
+      const projectId = sanitizeServerControlProjectId(value);
+      if (!projectId || seenIds.has(projectId)) {
+        continue;
+      }
+
+      projectIds.push(projectId);
+      seenIds.add(projectId);
+    }
+
+    if (projectIds.length > 0) {
+      return projectIds;
+    }
+
+    return [sanitizeServerControlProjectId(fallbackProjectId, DEFAULT_PROJECT_ID)];
+  }
+
+  function getDefaultServerControlTaskTypeProjectIds() {
+    return Object.fromEntries(
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => [
+        taskDefinition.key,
+        Object.fromEntries(
+          SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition) => [
+            accountDefinition.key,
+            accountDefinition.key === SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY ? DEFAULT_PROJECT_ID : "",
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  function getDefaultServerControlTaskTypeActiveProjectAccounts() {
+    return Object.fromEntries(
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => [
+        taskDefinition.key,
+        SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY,
+      ]),
+    );
+  }
+
+  function sanitizeServerControlProjectAccountKey(value) {
+    const accountKey = typeof value === "string" ? value.trim() : "";
+    return SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.some((definition) => definition.key === accountKey)
+      ? accountKey
+      : SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY;
+  }
+
+  function getServerControlProjectAccountLabel(accountKey) {
+    return SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.find((definition) => definition.key === accountKey)?.label
+      ?? accountKey;
+  }
+
+  function sanitizeServerControlTaskTypeProjectIds(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+
+    return Object.fromEntries(
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => {
+        const rawTaskProjects = source[taskDefinition.key];
+        const legacyProjectIds = Array.isArray(rawTaskProjects)
+          ? sanitizeServerControlProjectIds(rawTaskProjects, "")
+          : [];
+        const taskSource = rawTaskProjects && typeof rawTaskProjects === "object" && !Array.isArray(rawTaskProjects)
+          ? rawTaskProjects
+          : {};
+
+        return [
+          taskDefinition.key,
+          Object.fromEntries(
+            SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+              accountDefinition.key,
+              sanitizeServerControlProjectId(
+                taskSource[accountDefinition.key] ?? legacyProjectIds[accountIndex] ?? "",
+              ),
+            ]),
+          ),
+        ];
+      }),
+    );
+  }
+
+  function migrateServerControlTaskTypeProjectIds(rawTaskTypeProjectIds, legacyProjectIds) {
+    const taskTypeProjectIds = sanitizeServerControlTaskTypeProjectIds(rawTaskTypeProjectIds);
+    const rawSource = rawTaskTypeProjectIds && typeof rawTaskTypeProjectIds === "object" && !Array.isArray(rawTaskTypeProjectIds)
+      ? rawTaskTypeProjectIds
+      : {};
+    const rawSearchProjects = rawSource[SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS];
+    const hasAccountProjectMap = rawSearchProjects
+      && typeof rawSearchProjects === "object"
+      && !Array.isArray(rawSearchProjects)
+      && SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.some((accountDefinition) => (
+        Object.prototype.hasOwnProperty.call(rawSearchProjects, accountDefinition.key)
+      ));
+    if (hasAccountProjectMap) {
+      return taskTypeProjectIds;
+    }
+
+    const currentSearchProjects = SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS
+      .map((accountDefinition) => (
+        taskTypeProjectIds[SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]?.[accountDefinition.key]
+      ))
+      .filter(Boolean);
+    const migratedSearchProjects = sanitizeServerControlProjectIds([
+      ...currentSearchProjects,
+      ...(Array.isArray(legacyProjectIds) ? legacyProjectIds : []),
+    ], "");
+
+    return {
+      ...taskTypeProjectIds,
+      [SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]: Object.fromEntries(
+        SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS.map((accountDefinition, accountIndex) => [
+          accountDefinition.key,
+          migratedSearchProjects[accountIndex] ?? "",
+        ]),
+      ),
+    };
+  }
+
+  function sanitizeServerControlTaskTypeActiveProjectAccounts(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+
+    return Object.fromEntries(
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((taskDefinition) => [
+        taskDefinition.key,
+        sanitizeServerControlProjectAccountKey(source[taskDefinition.key]),
+      ]),
+    );
+  }
+
+  function getServerControlActiveProjectAccount(taskTypeKey = serverControlMenuState.currentTaskType) {
+    return sanitizeServerControlProjectAccountKey(
+      serverControlMenuState.taskTypeActiveProjectAccounts[sanitizeServerControlTaskTypeKey(taskTypeKey)],
+    );
+  }
+
+  function getServerControlProjectIdForTaskTypeAccount(
+    taskTypeKey = serverControlMenuState.currentTaskType,
+    accountKey = getServerControlActiveProjectAccount(taskTypeKey),
+  ) {
+    const sanitizedTaskTypeKey = sanitizeServerControlTaskTypeKey(taskTypeKey);
+    const taskProjects = serverControlMenuState.taskTypeProjectIds[sanitizedTaskTypeKey] ?? {};
+    const requestedProjectId = sanitizeServerControlProjectId(
+      taskProjects[sanitizeServerControlProjectAccountKey(accountKey)],
+    );
+    if (requestedProjectId) {
+      return requestedProjectId;
+    }
+
+    for (const accountDefinition of SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS) {
+      const projectId = sanitizeServerControlProjectId(taskProjects[accountDefinition.key]);
+      if (projectId) {
+        return projectId;
+      }
+    }
+
+    return DEFAULT_PROJECT_ID;
+  }
+
+  function getServerControlTaskTypeProjectIdsForPayload(taskTypeKey = serverControlMenuState.currentTaskType) {
+    const sanitizedTaskTypeKey = sanitizeServerControlTaskTypeKey(taskTypeKey);
+    return {
+      ...(serverControlMenuState.taskTypeProjectIds[sanitizedTaskTypeKey] ?? {}),
+    };
   }
 
   function sanitizeServerControlTaskRegions(rawValue) {
@@ -2776,6 +3090,28 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
+  async function loadServerControlProjectSettings() {
+    try {
+      const stored = await chrome.storage.sync.get({
+        [STORAGE_KEY_PROJECT_IDS]: null,
+        [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: null,
+        [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: getDefaultServerControlTaskTypeActiveProjectAccounts(),
+      });
+
+      serverControlMenuState.taskTypeProjectIds = migrateServerControlTaskTypeProjectIds(
+        stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS],
+        stored[STORAGE_KEY_PROJECT_IDS],
+      );
+      serverControlMenuState.taskTypeActiveProjectAccounts = sanitizeServerControlTaskTypeActiveProjectAccounts(
+        stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS],
+      );
+      syncServerControlProjectPickerControls();
+      updateServerControlMenuStatus();
+    } catch (error) {
+      console.warn("Local Query Bridge failed to load server control project settings", error);
+    }
+  }
+
   function getActiveServerControlBoilerplatePrompt() {
     return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
   }
@@ -2783,7 +3119,8 @@ Base everything strictly on the screenshot attachment.`;
   function getServerControlMenuStatusText() {
     const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
     const regionLabel = getSelectedServerControlRegionDefinition().label;
-    return `${taskLabel} | Region: ${regionLabel}`;
+    const accountLabel = getServerControlProjectAccountLabel(getServerControlActiveProjectAccount());
+    return `${taskLabel} | Region: ${regionLabel} | Project: ${accountLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -2802,6 +3139,7 @@ Base everything strictly on the screenshot attachment.`;
     syncServerControlTaskTypeControls();
     syncServerControlActionControls();
     syncServerControlRegionControls();
+    syncServerControlProjectPickerControls();
   }
 
   function syncServerControlTaskTypeControls() {
@@ -2919,6 +3257,72 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
+  function syncServerControlProjectPickerControls() {
+    const menu = getServerControlMenu();
+    if (!(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    const activeTaskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
+    const activeAccount = getServerControlActiveProjectAccount(activeTaskType);
+    const toggle = menu.querySelector("[data-control-project-toggle]");
+    if (toggle instanceof HTMLButtonElement) {
+      toggle.classList.toggle(SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS, serverControlMenuState.projectPickerOpen);
+      toggle.setAttribute("aria-expanded", serverControlMenuState.projectPickerOpen ? "true" : "false");
+    }
+
+    const panel = menu.querySelector("[data-control-project-panel]");
+    if (panel instanceof HTMLElement) {
+      panel.hidden = !serverControlMenuState.projectPickerOpen;
+    }
+
+    const title = menu.querySelector("[data-control-project-panel-title]");
+    if (title instanceof HTMLElement) {
+      title.textContent = getCurrentServerControlTaskTypeDefinition().label;
+    }
+
+    const accountBar = menu.querySelector("[data-control-project-account-bar]");
+    if (!(accountBar instanceof HTMLElement)) {
+      return;
+    }
+
+    accountBar.replaceChildren();
+    const taskProjects = serverControlMenuState.taskTypeProjectIds[activeTaskType] ?? {};
+    for (const accountDefinition of SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS) {
+      const projectId = sanitizeServerControlProjectId(taskProjects[accountDefinition.key]);
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-project-account-button";
+      button.type = "button";
+      button.dataset.controlProjectAccountKey = accountDefinition.key;
+      button.classList.toggle(
+        SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
+        accountDefinition.key === activeAccount,
+      );
+
+      const accountLabel = document.createElement("span");
+      accountLabel.className = "local-query-bridge-server-control-project-account-label";
+      accountLabel.textContent = accountDefinition.label;
+
+      const projectText = document.createElement("code");
+      projectText.className = "local-query-bridge-server-control-project-account-id";
+      projectText.textContent = projectId || "missing ID";
+
+      button.append(accountLabel, projectText);
+      button.addEventListener("click", () => {
+        void sendServerControlMenuCommand(
+          {
+            label: accountDefinition.label,
+            command: "set_project_account",
+            value: accountDefinition.key,
+          },
+          "Project account",
+          button,
+        );
+      });
+      accountBar.append(button);
+    }
+  }
+
   function applyServerControlMenuCommandState(buttonConfig) {
     if (buttonConfig.command === "set_task_type") {
       serverControlMenuState.currentTaskType = sanitizeServerControlTaskTypeKey(buttonConfig.value);
@@ -2927,6 +3331,13 @@ Base everything strictly on the screenshot attachment.`;
         serverControlMenuState.currentTaskType,
       );
       scheduleServerControlMenuSettingsPersist();
+    }
+
+    if (buttonConfig.command === "set_project_account") {
+      serverControlMenuState.taskTypeActiveProjectAccounts = {
+        ...serverControlMenuState.taskTypeActiveProjectAccounts,
+        [serverControlMenuState.currentTaskType]: sanitizeServerControlProjectAccountKey(buttonConfig.value),
+      };
     }
 
     if (buttonConfig.actionKey) {
@@ -2942,6 +3353,11 @@ Base everything strictly on the screenshot attachment.`;
     const regionKey = sanitizeServerControlRegionKey(buttonConfig.regionKey ?? serverControlMenuState.selectedRegionKey);
     const regionDefinition = getServerControlRegionDefinition(regionKey);
     const regionBounds = getServerControlRegionBounds(regionKey);
+    const activeProjectAccount = getServerControlActiveProjectAccount();
+    const activeProjectId = getServerControlProjectIdForTaskTypeAccount(
+      serverControlMenuState.currentTaskType,
+      activeProjectAccount,
+    );
     const payload = {
       source: "chatgpt-content-control-menu",
       command: buttonConfig.command,
@@ -2952,6 +3368,10 @@ Base everything strictly on the screenshot attachment.`;
       currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
       processingMode: serverControlMenuState.processingMode,
       boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
+      activeProjectAccount,
+      activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
+      activeProjectId,
+      taskTypeProjectIds: getServerControlTaskTypeProjectIdsForPayload(),
       selectedRegion: regionKey,
       selectedRegionLabel: regionDefinition.label,
       selectedRegionBounds: { ...regionBounds },
@@ -3067,8 +3487,15 @@ Base everything strictly on the screenshot attachment.`;
     return column;
   }
 
+  function createServerControlSegmentBar() {
+    const bar = document.createElement("div");
+    bar.className = "local-query-bridge-server-control-segment-bar";
+    return bar;
+  }
+
   function createServerControlTaskTypeColumn() {
     const column = createServerControlColumn("Task types");
+    const bar = createServerControlSegmentBar();
 
     for (const taskDefinition of SERVER_CONTROL_TASK_TYPE_DEFINITIONS) {
       const button = document.createElement("button");
@@ -3089,16 +3516,17 @@ Base everything strictly on the screenshot attachment.`;
           button,
         );
       });
-      column.append(button);
+      bar.append(button);
     }
 
+    column.append(bar);
     return column;
   }
 
   function createServerControlActionColumn() {
     const column = createServerControlColumn("Processing");
     const actions = document.createElement("div");
-    actions.className = "local-query-bridge-server-control-column";
+    actions.className = "local-query-bridge-server-control-segment-bar";
     actions.dataset.controlActionColumn = "true";
     column.append(actions);
     return column;
@@ -3107,7 +3535,7 @@ Base everything strictly on the screenshot attachment.`;
   function createServerControlRegionPickerColumn() {
     const column = createServerControlColumn("Regions");
     const picker = document.createElement("div");
-    picker.className = "local-query-bridge-server-control-region-picker";
+    picker.className = "local-query-bridge-server-control-segment-bar local-query-bridge-server-control-region-picker";
     picker.dataset.controlRegionPicker = "true";
     column.append(picker);
     return column;
@@ -3157,6 +3585,44 @@ Base everything strictly on the screenshot attachment.`;
     return panel;
   }
 
+  function createServerControlProjectControls() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "local-query-bridge-server-control-header-actions";
+
+    const toggle = document.createElement("button");
+    toggle.className = "local-query-bridge-server-control-project-toggle";
+    toggle.type = "button";
+    toggle.textContent = "IDs";
+    toggle.dataset.controlProjectToggle = "true";
+    toggle.setAttribute("aria-haspopup", "true");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", () => {
+      serverControlMenuState.projectPickerOpen = !serverControlMenuState.projectPickerOpen;
+      syncServerControlProjectPickerControls();
+    });
+
+    wrapper.append(toggle);
+    return wrapper;
+  }
+
+  function createServerControlProjectPanel() {
+    const panel = document.createElement("section");
+    panel.className = "local-query-bridge-server-control-project-panel";
+    panel.dataset.controlProjectPanel = "true";
+    panel.hidden = true;
+
+    const title = document.createElement("h2");
+    title.className = "local-query-bridge-server-control-project-panel-title";
+    title.dataset.controlProjectPanelTitle = "true";
+
+    const accountBar = document.createElement("div");
+    accountBar.className = "local-query-bridge-server-control-segment-bar local-query-bridge-server-control-project-account-bar";
+    accountBar.dataset.controlProjectAccountBar = "true";
+
+    panel.append(title, accountBar);
+    return panel;
+  }
+
   function ensureServerControlMenu() {
     if (!document.body) {
       return null;
@@ -3183,7 +3649,7 @@ Base everything strictly on the screenshot attachment.`;
     status.className = "local-query-bridge-server-control-status";
     status.dataset.controlMenuStatus = "true";
 
-    header.append(status);
+    header.append(status, createServerControlProjectControls());
 
     const content = document.createElement("div");
     content.className = "local-query-bridge-server-control-content";
@@ -3194,7 +3660,7 @@ Base everything strictly on the screenshot attachment.`;
       createServerControlRegionPickerColumn(),
     );
 
-    menu.append(header, content);
+    menu.append(header, createServerControlProjectPanel(), content);
     menu.addEventListener("pointerleave", (event) => {
       if (event.clientY <= 0) {
         return;
@@ -3259,17 +3725,34 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
+  function handleServerControlProjectStorageChange(changes, areaName) {
+    if (areaName !== "sync") {
+      return;
+    }
+
+    if (
+      changes[STORAGE_KEY_PROJECT_IDS]
+      || changes[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]
+      || changes[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]
+    ) {
+      void loadServerControlProjectSettings();
+    }
+  }
+
   function initializeServerControlMenu() {
     if (document.body) {
       ensureServerControlMenu();
       void loadServerControlMenuSettings();
+      void loadServerControlProjectSettings();
     } else {
       document.addEventListener("DOMContentLoaded", () => {
         ensureServerControlMenu();
         void loadServerControlMenuSettings();
+        void loadServerControlProjectSettings();
       }, { once: true });
     }
 
+    chrome.storage.onChanged.addListener(handleServerControlProjectStorageChange);
     document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
     document.addEventListener("pointermove", handleServerControlMenuPointerMove, {
       capture: true,

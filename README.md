@@ -100,7 +100,7 @@ The ChatGPT content script creates a half-viewport control menu when the pointer
 - coordinate cross for the selected region
 - region selection column
 
-Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Per-task project ID lists are editable on the extension options page and stored in Chrome sync storage under `taskTypeProjectIds`; until task-specific IDs are configured, each task type uses the existing default project ID.
+Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
 Configured task types:
 - `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`.

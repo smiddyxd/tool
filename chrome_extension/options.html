@@ -226,8 +226,9 @@
       gap: 10px;
     }
 
-    .project-id-manager {
+    .task-project-editor {
       display: grid;
+      grid-template-columns: minmax(180px, 0.85fr) minmax(0, 1.4fr);
       gap: 14px;
       padding: 16px;
       border: 1px solid var(--line);
@@ -235,71 +236,70 @@
       background: #fafbfc;
     }
 
-    .project-id-list {
+    .task-project-task-bar,
+    .task-project-account-choices {
       display: grid;
-      gap: 10px;
-    }
-
-    .project-id-row {
-      display: grid;
-      grid-template-columns: 88px minmax(0, 290px) minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 12px;
+      overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: #ffffff;
-      font-size: 13px;
     }
 
-    .project-active-control {
+    .task-project-task-button {
+      width: 100%;
+      border-width: 0 0 1px;
+      border-color: var(--line);
+      border-radius: 0;
+      background: #ffffff;
+      text-align: left;
+    }
+
+    .task-project-task-button:last-child {
+      border-bottom-width: 0;
+    }
+
+    .task-project-task-button.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .task-project-fields {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .task-project-account-inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .task-project-account-choice {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
+      min-width: 0;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
       font-weight: 650;
     }
 
-    .project-active-control input {
+    .task-project-account-choice:last-child {
+      border-bottom: 0;
+    }
+
+    .task-project-account-choice input {
       width: 16px;
       height: 16px;
       accent-color: var(--accent);
     }
 
-    .project-id-value,
-    .project-id-url {
+    .task-project-account-choice span {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .project-id-value {
-      color: var(--ink);
-      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    }
-
-    .project-id-url {
-      color: var(--muted);
-    }
-
-    .project-id-add-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-    }
-
-    .task-project-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fafbfc;
-    }
-
-    .task-project-grid textarea {
-      min-height: 74px;
       font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
       font-size: 13px;
     }
@@ -426,12 +426,11 @@
       }
 
       .grid-2,
-      .task-project-grid,
+      .task-project-editor,
+      .task-project-account-inputs,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
-      .project-id-row,
-      .project-id-add-row,
       .rule-row {
         grid-template-columns: 1fr;
       }
@@ -459,55 +458,29 @@
           <h2 id="bridge-settings-heading">Bridge Settings</h2>
         </div>
 
-        <div class="project-id-manager" aria-label="ChatGPT project IDs">
-          <div>
-            <h3>ChatGPT project IDs</h3>
-            <p class="hint">The active ID controls which project URL is opened and which ChatGPT project tabs can be reused for submissions.</p>
-          </div>
-
-          <div id="project-id-list" class="project-id-list"></div>
-
-          <div class="project-id-add-row">
-            <label for="new-project-id">
-              Add project ID
-              <input id="new-project-id" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
-              <p class="hint">Paste either a raw 32-character ID, a g-p- ID, or a full ChatGPT project URL.</p>
-            </label>
-
-            <button id="add-project-id" type="button">Add project</button>
-          </div>
-
-          <label for="active-project-url">
-            Active project URL
-            <input id="active-project-url" type="url" readonly>
-          </label>
-        </div>
-
         <div>
           <h3>Task type project IDs</h3>
-          <p class="hint">Each task type can use its own ChatGPT project list. The first valid ID in a task type's list is opened when you switch to that task type from the bridge control menu.</p>
+          <p class="hint">Each task type has two project IDs: the same project created in two ChatGPT accounts. Enter a raw 32-character ID, g-p- ID, or full project URL for each account. The selected account is opened when you switch task type from the bridge control menu.</p>
         </div>
 
-        <div class="task-project-grid" aria-label="Task type ChatGPT project IDs">
-          <label for="task-project-search-experience-to-product-usefulness">
-            Search Experience to Product Usefulness
-            <textarea id="task-project-search-experience-to-product-usefulness" data-task-type-project-ids="search-experience-to-product-usefulness" spellcheck="false"></textarea>
-          </label>
+        <div class="task-project-editor" aria-label="Task type ChatGPT project IDs">
+          <div id="task-project-task-bar" class="task-project-task-bar" aria-label="Task types"></div>
 
-          <label for="task-project-get-rich-quick">
-            Get Rich Quick
-            <textarea id="task-project-get-rich-quick" data-task-type-project-ids="get-rich-quick" spellcheck="false"></textarea>
-          </label>
+          <div class="task-project-fields">
+            <div class="task-project-account-inputs">
+              <label for="project-account-ascasdqwe">
+                ascasdqwe
+                <input id="project-account-ascasdqwe" data-project-account-input="ascasdqwe" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
+              </label>
 
-          <label for="task-project-video-games">
-            Video Games
-            <textarea id="task-project-video-games" data-task-type-project-ids="video-games" spellcheck="false"></textarea>
-          </label>
+              <label for="project-account-aoizxcaoi">
+                aoizxcaoi
+                <input id="project-account-aoizxcaoi" data-project-account-input="aoizxcaoi" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
+              </label>
+            </div>
 
-          <label for="task-project-weight-loss">
-            Weight Loss
-            <textarea id="task-project-weight-loss" data-task-type-project-ids="weight-loss" spellcheck="false"></textarea>
-          </label>
+            <div id="task-project-account-choices" class="task-project-account-choices" aria-label="Active project account"></div>
+          </div>
         </div>
 
         <label for="reset-limit">
