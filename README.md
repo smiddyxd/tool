@@ -18,6 +18,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
    Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
+6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its test buttons are relayed through the service worker and logged by the Python bridge.
 
 ## Project layout
 
@@ -70,11 +71,16 @@ The bridge now listens on LAN as well as locally (`HTTP_HOST = 0.0.0.0`).
 
 Current primary-PC LAN endpoint:
 - `http://192.168.0.215:62041/a`
+- `http://192.168.0.215:62041/b`
+- `http://192.168.0.215:62041/c`
 
 Local endpoint on the same PC:
 - `http://127.0.0.1:62041/a`
+- `http://127.0.0.1:62041/b`
+- `http://127.0.0.1:62041/c`
 
 Current JSON contract:
+- `GET /a`: extension polling endpoint
 - `d`: XOR+hex event type (`task` or `scroll`)
 - task events:
   - `a`: XOR+hex task counter string
@@ -83,6 +89,8 @@ Current JSON contract:
 - scroll events:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
+- `GET /b`: repeat-capture endpoint for the active repeatable task
+- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, and `processingMode`
 
 ## Task detection
 
@@ -203,6 +211,7 @@ Python logs only state changes:
 - manual test hotkey triggered
 - task released from the left-edge gate
 - payload served to the extension
+- control-menu command received on `/c`
 - monitor/config errors
 
 Extension logs only state changes:
@@ -212,6 +221,7 @@ Extension logs only state changes:
 - new screenshot payload retrieved
 - screenshot submitted to ChatGPT
 - ChatGPT scroll direction when a scroll event is applied
+- control-menu commands forwarded to the bridge
 
 ## Debug output
 

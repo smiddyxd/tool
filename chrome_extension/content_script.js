@@ -33,6 +33,7 @@ Base everything strictly on the screenshot attachment.`;
   const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
   const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
   const SCROLL_MESSAGE_TYPE = "scrollChatGpt";
+  const SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE = "serverControlMenuCommand";
   const PING_MESSAGE_TYPE = "localQueryBridgePing";
   const ELEMENT_WAIT_TIMEOUT_MS = 10000;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
@@ -88,6 +89,11 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
+  const SERVER_CONTROL_MENU_ID = "local-query-bridge-server-control-menu";
+  const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
+  const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
+  const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
+  const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
   const HIGHLIGHT_DEBOUNCE_MS = 250;
   const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
   const TERM_PATTERN_PART_PATTERN = /\.{3}[\p{L}\p{N}]+\.{3}|\.{3}[\p{L}\p{N}]+|[\p{L}\p{N}]+\.{3}|[\p{L}\p{N}]+/gu;
@@ -127,6 +133,74 @@ Base everything strictly on the screenshot attachment.`;
       companionWords: ["low", "mid", "high"],
       companionDistance: 0,
       enabled: true,
+    },
+  ];
+  const SERVER_CONTROL_MENU_GROUPS = [
+    {
+      label: "Task type",
+      buttons: [
+        {
+          label: "Search usefulness",
+          command: "set_task_type",
+          value: "search-usefulness",
+          stateKey: "currentTaskType",
+        },
+        {
+          label: "Downloadable utilities",
+          command: "set_task_type",
+          value: "downloadable-utilities",
+          stateKey: "currentTaskType",
+        },
+        {
+          label: "Product usefulness",
+          command: "set_task_type",
+          value: "product-usefulness",
+          stateKey: "currentTaskType",
+        },
+      ],
+    },
+    {
+      label: "Processing",
+      buttons: [
+        {
+          label: "Standard",
+          command: "set_processing_mode",
+          value: "standard",
+          stateKey: "processingMode",
+        },
+        {
+          label: "OCR text",
+          command: "set_processing_mode",
+          value: "ocr-text",
+          stateKey: "processingMode",
+        },
+        {
+          label: "Repeat review",
+          command: "set_processing_mode",
+          value: "repeat-review",
+          stateKey: "processingMode",
+        },
+      ],
+    },
+    {
+      label: "Test action",
+      buttons: [
+        {
+          label: "Log state",
+          command: "log_state",
+          value: "current-state",
+        },
+        {
+          label: "Queue test",
+          command: "queue_test_task",
+          value: "test-task",
+        },
+        {
+          label: "Skip test",
+          command: "skip_test_task",
+          value: "test-task",
+        },
+      ],
     },
   ];
   const ANALYSIS_SECTION_HEADINGS = [
@@ -218,6 +292,13 @@ Base everything strictly on the screenshot attachment.`;
 
   const hotkeyState = {
     enabled: false,
+  };
+
+  const serverControlMenuState = {
+    isOpen: false,
+    currentTaskType: "search-usefulness",
+    processingMode: "standard",
+    lastCommand: "",
   };
 
   const MANUAL_SCROLL_KEYS = new Set([
@@ -2141,6 +2222,420 @@ Base everything strictly on the screenshot attachment.`;
     document.addEventListener("DOMContentLoaded", ensureAnalysisTocButtons, { once: true });
   }
 
+  function ensureServerControlMenuStyles() {
+    if (document.getElementById(SERVER_CONTROL_MENU_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = SERVER_CONTROL_MENU_STYLE_ID;
+    style.textContent = `
+      #${SERVER_CONTROL_MENU_ID} {
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        z-index: 2147483647;
+        height: 50vh;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 16px;
+        padding: 18px 22px 20px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+        background: rgba(248, 250, 252, 0.98);
+        color: #0f172a;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.24);
+        font: 13px/1.35 "Segoe UI", system-ui, sans-serif;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-100%);
+        transition: opacity 140ms ease, transform 160ms ease;
+      }
+
+      #${SERVER_CONTROL_MENU_ID}.${SERVER_CONTROL_MENU_OPEN_CLASS} {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      #${SERVER_CONTROL_MENU_ID} * {
+        box-sizing: border-box;
+        letter-spacing: 0;
+      }
+
+      .local-query-bridge-server-control-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .local-query-bridge-server-control-title {
+        font-size: 18px;
+        font-weight: 750;
+        line-height: 1.2;
+      }
+
+      .local-query-bridge-server-control-status {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .local-query-bridge-server-control-content {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+        gap: 14px;
+        min-height: 0;
+        overflow: auto;
+        padding-bottom: 2px;
+      }
+
+      .local-query-bridge-server-control-group {
+        min-width: 0;
+      }
+
+      .local-query-bridge-server-control-group-title {
+        margin: 0 0 8px;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .local-query-bridge-server-control-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .local-query-bridge-server-control-button {
+        min-width: 112px;
+        min-height: 34px;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #0f172a;
+        cursor: pointer;
+        font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
+        padding: 8px 11px;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+      }
+
+      .local-query-bridge-server-control-button:hover {
+        border-color: rgba(37, 99, 235, 0.45);
+        background: #eff6ff;
+      }
+
+      .local-query-bridge-server-control-button:focus {
+        outline: 3px solid rgba(37, 99, 235, 0.2);
+        outline-offset: 2px;
+      }
+
+      .local-query-bridge-server-control-button:disabled {
+        cursor: wait;
+        opacity: 0.72;
+      }
+
+      .local-query-bridge-server-control-button.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
+        border-color: rgba(22, 101, 52, 0.45);
+        background: #166534;
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(22, 101, 52, 0.2);
+      }
+
+      @media (max-width: 720px) {
+        #${SERVER_CONTROL_MENU_ID} {
+          padding: 14px;
+        }
+
+        .local-query-bridge-server-control-header {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .local-query-bridge-server-control-content {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function getServerControlMenu() {
+    const menu = document.getElementById(SERVER_CONTROL_MENU_ID);
+    return menu instanceof HTMLElement ? menu : null;
+  }
+
+  function getServerControlMenuStateLabel(stateKey, value) {
+    for (const group of SERVER_CONTROL_MENU_GROUPS) {
+      for (const buttonConfig of group.buttons) {
+        if (buttonConfig.stateKey === stateKey && buttonConfig.value === value) {
+          return buttonConfig.label;
+        }
+      }
+    }
+
+    return value;
+  }
+
+  function getServerControlMenuStatusText() {
+    const taskLabel = getServerControlMenuStateLabel(
+      "currentTaskType",
+      serverControlMenuState.currentTaskType,
+    );
+    const modeLabel = getServerControlMenuStateLabel(
+      "processingMode",
+      serverControlMenuState.processingMode,
+    );
+    return `Task: ${taskLabel} | Mode: ${modeLabel}`;
+  }
+
+  function setServerControlMenuStatus(text) {
+    const menu = getServerControlMenu();
+    const status = menu?.querySelector("[data-control-menu-status]");
+    if (status instanceof HTMLElement) {
+      status.textContent = text || getServerControlMenuStatusText();
+    }
+  }
+
+  function updateServerControlMenuStatus() {
+    setServerControlMenuStatus(getServerControlMenuStatusText());
+  }
+
+  function syncServerControlMenuButtonStates() {
+    const menu = getServerControlMenu();
+    if (!(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    for (const button of menu.querySelectorAll(".local-query-bridge-server-control-button")) {
+      if (!(button instanceof HTMLButtonElement)) {
+        continue;
+      }
+
+      const stateKey = button.dataset.stateKey;
+      const value = button.dataset.value;
+      button.classList.toggle(
+        SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
+        Boolean(stateKey && serverControlMenuState[stateKey] === value),
+      );
+    }
+  }
+
+  function applyServerControlMenuCommandState(buttonConfig) {
+    if (buttonConfig.stateKey) {
+      serverControlMenuState[buttonConfig.stateKey] = buttonConfig.value;
+    }
+
+    serverControlMenuState.lastCommand = buttonConfig.command;
+    syncServerControlMenuButtonStates();
+    updateServerControlMenuStatus();
+  }
+
+  function buildServerControlMenuPayload(buttonConfig, groupLabel) {
+    return {
+      source: "chatgpt-content-control-menu",
+      command: buttonConfig.command,
+      value: buttonConfig.value,
+      label: buttonConfig.label,
+      group: groupLabel,
+      currentTaskType: serverControlMenuState.currentTaskType,
+      processingMode: serverControlMenuState.processingMode,
+      pageUrl: window.location.href,
+      sentAt: new Date().toISOString(),
+    };
+  }
+
+  async function sendServerControlMenuCommand(buttonConfig, groupLabel, button) {
+    applyServerControlMenuCommandState(buttonConfig);
+    const payload = buildServerControlMenuPayload(buttonConfig, groupLabel);
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = true;
+    }
+
+    try {
+      console.log("Local Query Bridge sending server control command", payload);
+      const response = await chrome.runtime.sendMessage({
+        type: SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE,
+        command: payload,
+      });
+
+      if (response?.ok !== true) {
+        throw new Error(response?.error || "Server control command was not accepted");
+      }
+
+      setServerControlMenuStatus(`Sent: ${buttonConfig.label}`);
+      window.setTimeout(updateServerControlMenuStatus, 1800);
+    } catch (error) {
+      console.error("Local Query Bridge server control command failed", error);
+      setServerControlMenuStatus(`Failed: ${buttonConfig.label}`);
+    } finally {
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = false;
+      }
+    }
+  }
+
+  function createServerControlMenuGroup(group) {
+    const groupElement = document.createElement("section");
+    groupElement.className = "local-query-bridge-server-control-group";
+
+    const title = document.createElement("h2");
+    title.className = "local-query-bridge-server-control-group-title";
+    title.textContent = group.label;
+
+    const buttons = document.createElement("div");
+    buttons.className = "local-query-bridge-server-control-buttons";
+
+    for (const buttonConfig of group.buttons) {
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-button";
+      button.type = "button";
+      button.textContent = buttonConfig.label;
+      button.dataset.command = buttonConfig.command;
+      button.dataset.value = buttonConfig.value;
+      if (buttonConfig.stateKey) {
+        button.dataset.stateKey = buttonConfig.stateKey;
+      }
+
+      button.addEventListener("click", () => {
+        void sendServerControlMenuCommand(buttonConfig, group.label, button);
+      });
+      buttons.append(button);
+    }
+
+    groupElement.append(title, buttons);
+    return groupElement;
+  }
+
+  function ensureServerControlMenu() {
+    if (!document.body) {
+      return null;
+    }
+
+    ensureServerControlMenuStyles();
+    let menu = getServerControlMenu();
+    if (menu instanceof HTMLElement) {
+      syncServerControlMenuButtonStates();
+      updateServerControlMenuStatus();
+      return menu;
+    }
+
+    menu = document.createElement("aside");
+    menu.id = SERVER_CONTROL_MENU_ID;
+    menu.setAttribute("aria-hidden", "true");
+    menu.setAttribute("aria-label", "Local Query Bridge server controls");
+
+    const header = document.createElement("header");
+    header.className = "local-query-bridge-server-control-header";
+
+    const title = document.createElement("div");
+    title.className = "local-query-bridge-server-control-title";
+    title.textContent = "Bridge Control";
+
+    const status = document.createElement("div");
+    status.className = "local-query-bridge-server-control-status";
+    status.dataset.controlMenuStatus = "true";
+
+    header.append(title, status);
+
+    const content = document.createElement("div");
+    content.className = "local-query-bridge-server-control-content";
+    for (const group of SERVER_CONTROL_MENU_GROUPS) {
+      content.append(createServerControlMenuGroup(group));
+    }
+
+    menu.append(header, content);
+    menu.addEventListener("pointerleave", (event) => {
+      if (event.clientY <= 0) {
+        return;
+      }
+
+      hideServerControlMenu("menu-pointerleave");
+    });
+    document.body.append(menu);
+
+    syncServerControlMenuButtonStates();
+    updateServerControlMenuStatus();
+    return menu;
+  }
+
+  function showServerControlMenu(reason) {
+    const menu = ensureServerControlMenu();
+    if (!(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    if (!serverControlMenuState.isOpen) {
+      console.log("Local Query Bridge opened server control menu", { reason });
+    }
+
+    serverControlMenuState.isOpen = true;
+    menu.classList.add(SERVER_CONTROL_MENU_OPEN_CLASS);
+    menu.setAttribute("aria-hidden", "false");
+  }
+
+  function hideServerControlMenu(reason) {
+    const menu = getServerControlMenu();
+    if (!(menu instanceof HTMLElement) || !serverControlMenuState.isOpen) {
+      return;
+    }
+
+    serverControlMenuState.isOpen = false;
+    menu.classList.remove(SERVER_CONTROL_MENU_OPEN_CLASS);
+    menu.setAttribute("aria-hidden", "true");
+    console.log("Local Query Bridge closed server control menu", { reason });
+  }
+
+  function getServerControlMenuHideBoundaryPx() {
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    return viewportHeight * SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO;
+  }
+
+  function handleServerControlMenuTopExit(event) {
+    if (event.relatedTarget !== null || event.clientY > 0) {
+      return;
+    }
+
+    showServerControlMenu("top-viewport-exit");
+  }
+
+  function handleServerControlMenuPointerMove(event) {
+    if (serverControlMenuState.isOpen && event.clientY > getServerControlMenuHideBoundaryPx()) {
+      const menu = getServerControlMenu();
+      if (!(menu instanceof HTMLElement) || !menu.contains(event.target)) {
+        hideServerControlMenu("lower-half-pointermove");
+      }
+    }
+  }
+
+  function initializeServerControlMenu() {
+    if (document.body) {
+      ensureServerControlMenu();
+    } else {
+      document.addEventListener("DOMContentLoaded", ensureServerControlMenu, { once: true });
+    }
+
+    document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
+    document.addEventListener("pointermove", handleServerControlMenuPointerMove, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hideServerControlMenu("escape");
+      }
+    }, true);
+  }
+
   function resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts) {
     analysisTocState.currentRunId = runId;
     analysisTocState.baselineAssistantCount = baselineAssistantCount;
@@ -2810,6 +3305,7 @@ Base everything strictly on the screenshot attachment.`;
 
   initializeHighlighting();
   initializeAnalysisTocButtons();
+  initializeServerControlMenu();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === PING_MESSAGE_TYPE) {

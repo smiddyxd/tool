@@ -17,7 +17,7 @@ import mss
 import numpy as np
 import paddleocr_manual_test
 import pytesseract
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 
 # Screen capture cadence in seconds.
 POLL_INTERVAL_SECONDS = 0.5
@@ -28,6 +28,7 @@ HTTP_HOST = "0.0.0.0"
 HTTP_PORT = 62041
 EVENT_ENDPOINT_PATH = "/a"
 REPEAT_CAPTURE_ENDPOINT_PATH = "/b"
+CONTROL_COMMAND_ENDPOINT_PATH = "/c"
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -42,6 +43,7 @@ TEXT_TASK_QUERY_LABEL = "Query:"
 TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
 TEXT_TASK_ABORT_HEADER = "OCR abort:"
+MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
 
 
 @dataclass(frozen=True)
@@ -463,6 +465,7 @@ STATE = SharedState()
 def add_cors_headers(response: Response) -> Response:
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -500,8 +503,43 @@ def capture_repeat_screenshot() -> Any:
     )
 
 
+@app.post(CONTROL_COMMAND_ENDPOINT_PATH)
+def receive_control_command() -> Any:
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+
+    command = sanitize_control_command_field(payload.get("command"), 80)
+    label = sanitize_control_command_field(payload.get("label"), 120)
+    group = sanitize_control_command_field(payload.get("group"), 80)
+    value = sanitize_control_command_field(payload.get("value"), 120)
+    current_task_type = sanitize_control_command_field(payload.get("currentTaskType"), 120)
+    processing_mode = sanitize_control_command_field(payload.get("processingMode"), 120)
+    source = sanitize_control_command_field(payload.get("source"), 120)
+    page_url = sanitize_control_command_field(
+        payload.get("pageUrl") or payload.get("tabUrl"),
+        MAX_CONTROL_COMMAND_FIELD_LENGTH,
+    )
+    tab_id = sanitize_control_command_field(payload.get("tabId"), 40)
+
+    print(
+        "[control "
+        f"{timestamp_now()}] command={command or '-'} value={value or '-'} "
+        f"group={group or '-'} label={label or '-'} "
+        f"current_task_type={current_task_type or '-'} processing_mode={processing_mode or '-'} "
+        f"tab={tab_id or '-'} source={source or '-'} page={page_url or '-'}",
+        flush=True,
+    )
+    return jsonify({"ok": True})
+
+
 def timestamp_now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def sanitize_control_command_field(value: Any, max_length: int = MAX_CONTROL_COMMAND_FIELD_LENGTH) -> str:
+    text = "" if value is None else str(value)
+    return " ".join(text.replace("\r", " ").replace("\n", " ").split())[:max_length]
 
 
 def maybe_log_handshake() -> None:

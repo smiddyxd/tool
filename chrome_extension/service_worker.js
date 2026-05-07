@@ -2,6 +2,7 @@
 const BRIDGE_BASE_URL = "http://192.168.0.215:62041";
 const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
 const REPEAT_CAPTURE_URL = `${BRIDGE_BASE_URL}/b`;
+const CONTROL_COMMAND_URL = `${BRIDGE_BASE_URL}/c`;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
@@ -41,6 +42,7 @@ const CONTENT_SCRIPT_SHOW_ALERT_TYPE = "showBridgeAlert";
 const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
 const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE = "activateCurrentChat";
+const CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE = "serverControlMenuCommand";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -1027,6 +1029,43 @@ async function fetchRepeatCapturePayload() {
   }
 }
 
+async function sendServerControlCommand(command, sender) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const payload = {
+    ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
+    tabId: sender?.tab?.id ?? null,
+    tabUrl: sender?.tab?.url ?? "",
+  };
+
+  try {
+    const response = await fetch(CONTROL_COMMAND_URL, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      console.warn("Local Query Bridge server control response not ok", response.status);
+      return false;
+    }
+
+    console.log("Local Query Bridge forwarded server control command", {
+      command: payload.command,
+      value: payload.value,
+      group: payload.group,
+      tabId: payload.tabId,
+    });
+    return true;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function getOrCreatePendingRepeatTargets(taskCount, promptTexts) {
   if (
     state.pendingRepeatDraft
@@ -1352,6 +1391,16 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE) {
+    void sendServerControlCommand(message.command, _sender)
+      .then((ok) => sendResponse({ ok }))
+      .catch((error) => {
+        console.warn("Local Query Bridge server control command failed", error);
+        sendResponse({ ok: false, error: `${error}` });
+      });
+    return true;
+  }
+
   if (message?.type === REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE) {
     void handleRepeatCaptureRequest()
       .then(() => sendResponse({ ok: true }))
