@@ -2290,10 +2290,8 @@ Base everything strictly on the screenshot attachment.`;
         z-index: 2147483647;
         height: 50vh;
         box-sizing: border-box;
-        display: grid;
-        grid-template-rows: auto 1fr;
-        gap: 16px;
-        padding: 18px 22px 20px;
+        display: block;
+        padding: 0;
         border-bottom: 1px solid rgba(15, 23, 42, 0.18);
         background: rgba(248, 250, 252, 0.98);
         color: #0f172a;
@@ -2314,31 +2312,6 @@ Base everything strictly on the screenshot attachment.`;
       #${SERVER_CONTROL_MENU_ID} * {
         box-sizing: border-box;
         letter-spacing: 0;
-      }
-
-      .local-query-bridge-server-control-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        min-width: 0;
-        position: relative;
-      }
-
-      .local-query-bridge-server-control-title {
-        font-size: 18px;
-        font-weight: 750;
-        line-height: 1.2;
-      }
-
-      .local-query-bridge-server-control-status {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: #475569;
-        font-size: 12px;
-        font-weight: 600;
       }
 
       .local-query-bridge-server-control-header-actions {
@@ -2374,10 +2347,10 @@ Base everything strictly on the screenshot attachment.`;
 
       .local-query-bridge-server-control-project-panel {
         position: absolute;
-        top: 52px;
-        right: 22px;
+        top: 41px;
+        right: 0;
         z-index: 1;
-        width: min(360px, calc(100vw - 44px));
+        width: min(360px, 100vw);
         display: grid;
         gap: 9px;
         padding: 10px;
@@ -2403,13 +2376,13 @@ Base everything strictly on the screenshot attachment.`;
       }
 
       .local-query-bridge-server-control-content {
+        height: 100%;
         display: grid;
         grid-template-columns: minmax(160px, 0.8fr) minmax(130px, 0.65fr) minmax(360px, 1.4fr) minmax(150px, 0.7fr);
         align-items: stretch;
-        gap: 14px;
+        gap: 0;
         min-height: 0;
         overflow: hidden;
-        padding-bottom: 2px;
       }
 
       .local-query-bridge-server-control-group {
@@ -2423,18 +2396,33 @@ Base everything strictly on the screenshot attachment.`;
         gap: 10px;
         align-content: start;
         overflow: auto;
+        padding: 14px;
+        background: #f8fafc;
+      }
+
+      .local-query-bridge-server-control-column-header {
+        min-width: 0;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 10px 0 11px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.14);
+        background: #f8fafc;
       }
 
       .local-query-bridge-server-control-group-title {
+        min-width: 0;
         margin: 0;
-        padding: 10px 11px;
-        border-bottom: 1px solid rgba(51, 65, 85, 0.14);
-        background: #f8fafc;
+        overflow: hidden;
         color: #334155;
         font-size: 12px;
         font-weight: 750;
         line-height: 1.2;
+        text-overflow: ellipsis;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .local-query-bridge-server-control-column {
@@ -2446,9 +2434,15 @@ Base everything strictly on the screenshot attachment.`;
         align-content: stretch;
         gap: 0;
         overflow: hidden;
-        border: 1px solid rgba(51, 65, 85, 0.18);
-        border-radius: 8px;
+        border: 0;
+        border-right: 1px solid rgba(51, 65, 85, 0.18);
+        border-radius: 0;
         background: #ffffff;
+      }
+
+      .local-query-bridge-server-control-content > .local-query-bridge-server-control-column:last-child {
+        border-right: 0;
+        border-left: 1px solid rgba(51, 65, 85, 0.18);
       }
 
       .local-query-bridge-server-control-segment-bar,
@@ -2660,19 +2654,13 @@ Base everything strictly on the screenshot attachment.`;
 
       @media (max-width: 720px) {
         #${SERVER_CONTROL_MENU_ID} {
-          padding: 14px;
-        }
-
-        .local-query-bridge-server-control-header {
-          align-items: flex-start;
-          flex-direction: column;
-          gap: 6px;
+          padding: 0;
         }
 
         .local-query-bridge-server-control-project-panel {
-          top: 76px;
-          right: 14px;
-          width: calc(100vw - 28px);
+          top: 41px;
+          right: 0;
+          width: 100vw;
         }
 
         .local-query-bridge-server-control-content {
@@ -3499,15 +3487,23 @@ Base everything strictly on the screenshot attachment.`;
     }
   }
 
-  function createServerControlColumn(titleText) {
+  function createServerControlColumn(titleText, headerAction = null) {
     const column = document.createElement("section");
     column.className = "local-query-bridge-server-control-column";
+
+    const header = document.createElement("div");
+    header.className = "local-query-bridge-server-control-column-header";
 
     const title = document.createElement("h2");
     title.className = "local-query-bridge-server-control-group-title";
     title.textContent = titleText;
 
-    column.append(title);
+    header.append(title);
+    if (headerAction instanceof HTMLElement) {
+      header.append(headerAction);
+    }
+
+    column.append(header);
     return column;
   }
 
@@ -3557,7 +3553,7 @@ Base everything strictly on the screenshot attachment.`;
   }
 
   function createServerControlRegionPickerColumn() {
-    const column = createServerControlColumn("Regions");
+    const column = createServerControlColumn("Regions", createServerControlProjectControls());
     const picker = document.createElement("div");
     picker.className = "local-query-bridge-server-control-segment-bar local-query-bridge-server-control-region-picker";
     picker.dataset.controlRegionPicker = "true";
@@ -3666,15 +3662,6 @@ Base everything strictly on the screenshot attachment.`;
     menu.setAttribute("aria-hidden", "true");
     menu.setAttribute("aria-label", "Local Query Bridge server controls");
 
-    const header = document.createElement("header");
-    header.className = "local-query-bridge-server-control-header";
-
-    const status = document.createElement("div");
-    status.className = "local-query-bridge-server-control-status";
-    status.dataset.controlMenuStatus = "true";
-
-    header.append(status, createServerControlProjectControls());
-
     const content = document.createElement("div");
     content.className = "local-query-bridge-server-control-content";
     content.append(
@@ -3684,7 +3671,7 @@ Base everything strictly on the screenshot attachment.`;
       createServerControlRegionPickerColumn(),
     );
 
-    menu.append(header, createServerControlProjectPanel(), content);
+    menu.append(createServerControlProjectPanel(), content);
     menu.addEventListener("pointerleave", (event) => {
       if (event.clientY <= 0) {
         return;
