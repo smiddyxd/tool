@@ -108,6 +108,14 @@ const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
+const STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES = "taskTypeHighlightRules";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS = "taskTypeAnalysisTocButtonColors";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS = "taskTypeAnalysisTocButtonSettings";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS = "taskTypeAnalysisTocButtonLabels";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisTocColumnPositions";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
+const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const TASK_REGION_KIND_OCR = "ocr";
@@ -222,6 +230,14 @@ const DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = Object.fromEntries(
 
 const highlightState = {
   rules: [],
+  taskTypeHighlightRules: {},
+  taskTypeTocButtonColors: {},
+  taskTypeTocButtonSettings: {},
+  taskTypeTocButtonLabels: {},
+  taskTypeTocButtonOrder: {},
+  taskTypeTocColumnPositions: {},
+  taskTypeTocColumnOpacity: {},
+  taskTypeLatestPromptScrollHoldSeconds: {},
   activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
   taskTypeDefinitions: DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS,
   taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
@@ -1073,6 +1089,100 @@ function sanitizeHighlightRules(rawRules) {
     .filter(Boolean);
 }
 
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeTaskTypeScopedMap(rawMap, sanitizer, fallbackValue) {
+  const source = isPlainObject(rawMap) ? rawMap : {};
+  return Object.fromEntries(
+    getTaskTypeDefinitions().map((definition) => [
+      definition.key,
+      sanitizer(Object.prototype.hasOwnProperty.call(source, definition.key) ? source[definition.key] : fallbackValue),
+    ]),
+  );
+}
+
+function getActiveTaskTypeKey() {
+  return sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
+}
+
+function syncActiveTaskTypeScopedSettings() {
+  const taskType = getActiveTaskTypeKey();
+  highlightState.taskTypeHighlightRules = {
+    ...highlightState.taskTypeHighlightRules,
+    [taskType]: sanitizeHighlightRules(highlightState.rules),
+  };
+  highlightState.taskTypeTocButtonColors = {
+    ...highlightState.taskTypeTocButtonColors,
+    [taskType]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors),
+  };
+  highlightState.taskTypeTocButtonSettings = {
+    ...highlightState.taskTypeTocButtonSettings,
+    [taskType]: sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings),
+  };
+  highlightState.taskTypeTocButtonLabels = {
+    ...highlightState.taskTypeTocButtonLabels,
+    [taskType]: sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels),
+  };
+  highlightState.taskTypeTocButtonOrder = {
+    ...highlightState.taskTypeTocButtonOrder,
+    [taskType]: sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder),
+  };
+  highlightState.taskTypeTocColumnPositions = {
+    ...highlightState.taskTypeTocColumnPositions,
+    [taskType]: getAnalysisTocColumnPositionInputValues(),
+  };
+  highlightState.taskTypeTocColumnOpacity = {
+    ...highlightState.taskTypeTocColumnOpacity,
+    [taskType]: getAnalysisTocColumnOpacityInputValues(),
+  };
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
+    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
+    [taskType]: getLatestPromptScrollHoldSecondsInputValue(),
+  };
+}
+
+function applyActiveTaskTypeScopedSettings() {
+  const taskType = getActiveTaskTypeKey();
+  highlightState.rules = sanitizeHighlightRules(highlightState.taskTypeHighlightRules[taskType]);
+  highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.taskTypeTocButtonColors[taskType]);
+  highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.taskTypeTocButtonSettings[taskType]);
+  highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.taskTypeTocButtonLabels[taskType]);
+  highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType]);
+  highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]);
+  highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]);
+  highlightState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+    highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
+  );
+}
+
+function renderActiveTaskTypeScopedSettings() {
+  setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
+  setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
+  clearRuleForm();
+  renderHighlightRules();
+  renderAnalysisTocSettings();
+}
+
+function removeTaskTypeScopedSettings(taskType) {
+  for (const mapKey of [
+    "taskTypeHighlightRules",
+    "taskTypeTocButtonColors",
+    "taskTypeTocButtonSettings",
+    "taskTypeTocButtonLabels",
+    "taskTypeTocButtonOrder",
+    "taskTypeTocColumnPositions",
+    "taskTypeTocColumnOpacity",
+    "taskTypeLatestPromptScrollHoldSeconds",
+  ]) {
+    const nextMap = { ...highlightState[mapKey] };
+    delete nextMap[taskType];
+    highlightState[mapKey] = nextMap;
+  }
+}
+
 function getRuleFormValue() {
   const ruleId = document.querySelector("#highlight-rule-id").value.trim();
   const rawRule = {
@@ -1110,8 +1220,12 @@ function renderTaskTypeProjectIds() {
       button.classList.toggle("active", taskDefinition.key === highlightState.activeBridgeTaskType);
       button.addEventListener("click", () => {
         syncTaskTypeProjectInputValues();
+        syncTaskTypeDefinitionEditorValues();
+        syncActiveTaskTypeScopedSettings();
         highlightState.activeBridgeTaskType = taskDefinition.key;
+        applyActiveTaskTypeScopedSettings();
         renderTaskTypeProjectIds();
+        renderActiveTaskTypeScopedSettings();
         setStatus(`${taskDefinition.label} selected. Save settings to apply it.`);
       });
       taskBar.append(button);
@@ -1445,6 +1559,7 @@ function renderTaskTypeConfiguration() {
 function addTaskTypeDefinition() {
   syncTaskTypeProjectInputValues();
   syncTaskTypeDefinitionEditorValues();
+  syncActiveTaskTypeScopedSettings();
   const usedKeys = new Set(getTaskTypeDefinitions().map((definition) => definition.key));
   const key = makeUniqueTaskConfigKey(createTaskConfigKey("New task type", "task"), usedKeys);
   const taskDefinition = {
@@ -1467,6 +1582,39 @@ Use the screenshot and OCR text above to complete the task.`,
     taskDefinition,
   ]);
   highlightState.activeBridgeTaskType = key;
+  highlightState.taskTypeHighlightRules = {
+    ...highlightState.taskTypeHighlightRules,
+    [key]: cloneDefaultHighlightRules(),
+  };
+  highlightState.taskTypeTocButtonColors = {
+    ...highlightState.taskTypeTocButtonColors,
+    [key]: getDefaultAnalysisTocButtonColors(),
+  };
+  highlightState.taskTypeTocButtonSettings = {
+    ...highlightState.taskTypeTocButtonSettings,
+    [key]: sanitizeAnalysisTocButtonSettings(null),
+  };
+  highlightState.taskTypeTocButtonLabels = {
+    ...highlightState.taskTypeTocButtonLabels,
+    [key]: getDefaultAnalysisTocButtonLabels(),
+  };
+  highlightState.taskTypeTocButtonOrder = {
+    ...highlightState.taskTypeTocButtonOrder,
+    [key]: getDefaultAnalysisTocButtonOrder(),
+  };
+  highlightState.taskTypeTocColumnPositions = {
+    ...highlightState.taskTypeTocColumnPositions,
+    [key]: getDefaultAnalysisTocColumnPositions(),
+  };
+  highlightState.taskTypeTocColumnOpacity = {
+    ...highlightState.taskTypeTocColumnOpacity,
+    [key]: getDefaultAnalysisTocColumnOpacity(),
+  };
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
+    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
+    [key]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+  };
+  applyActiveTaskTypeScopedSettings();
   highlightState.taskTypeProjectIds = {
     ...sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds),
     [key]: Object.fromEntries(PROJECT_ACCOUNT_DEFINITIONS.map((definition) => [definition.key, ""])),
@@ -1477,6 +1625,7 @@ Use the screenshot and OCR text above to complete the task.`,
   };
   renderTaskTypeProjectIds();
   renderTaskTypeConfiguration();
+  renderActiveTaskTypeScopedSettings();
   setStatus("New task type added. Save settings to apply it.");
 }
 
@@ -1488,9 +1637,12 @@ function deleteActiveTaskTypeDefinition() {
 
   const activeTaskType = highlightState.activeBridgeTaskType;
   const activeDefinition = getTaskTypeDefinition(activeTaskType);
+  syncActiveTaskTypeScopedSettings();
   const nextDefinitions = definitions.filter((definition) => definition.key !== activeTaskType);
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(nextDefinitions);
   highlightState.activeBridgeTaskType = highlightState.taskTypeDefinitions[0].key;
+  removeTaskTypeScopedSettings(activeTaskType);
+  applyActiveTaskTypeScopedSettings();
   const nextProjectIds = { ...highlightState.taskTypeProjectIds };
   delete nextProjectIds[activeTaskType];
   highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(nextProjectIds);
@@ -1499,6 +1651,7 @@ function deleteActiveTaskTypeDefinition() {
   highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(nextAccounts);
   renderTaskTypeProjectIds();
   renderTaskTypeConfiguration();
+  renderActiveTaskTypeScopedSettings();
   setStatus(`${activeDefinition.label} deleted. Save settings to apply it.`);
 }
 
@@ -1880,7 +2033,9 @@ function getLatestPromptScrollHoldSecondsInputValue() {
 }
 
 async function saveHighlightRules(message = "Highlight rules saved.") {
+  syncActiveTaskTypeScopedSettings();
   await chrome.storage.sync.set({
+    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: highlightState.taskTypeHighlightRules,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
   });
   renderHighlightRules();
@@ -1940,6 +2095,14 @@ async function loadOptions() {
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
+    [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
   });
 
   const projectSettings = normalizeProjectSettings(
@@ -1956,25 +2119,51 @@ async function loadOptions() {
     stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS],
   );
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]);
-  highlightState.rules = sanitizeHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
-  highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
-  highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
-  highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
-  highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
-  highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
-  highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
-  highlightState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+  highlightState.taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
+    sanitizeHighlightRules,
+    stored[STORAGE_KEY_HIGHLIGHT_RULES],
+  );
+  highlightState.taskTypeTocButtonColors = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
+    sanitizeAnalysisTocButtonColors,
+    stored[STORAGE_KEY_ANALYSIS_TOC_COLORS],
+  );
+  highlightState.taskTypeTocButtonSettings = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS],
+    sanitizeAnalysisTocButtonSettings,
+    stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS],
+  );
+  highlightState.taskTypeTocButtonLabels = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS],
+    sanitizeAnalysisTocButtonLabels,
+    stored[STORAGE_KEY_ANALYSIS_TOC_LABELS],
+  );
+  highlightState.taskTypeTocButtonOrder = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER],
+    sanitizeAnalysisTocButtonOrder,
+    stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER],
+  );
+  highlightState.taskTypeTocColumnPositions = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS],
+    sanitizeAnalysisTocColumnPositions,
+    stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS],
+  );
+  highlightState.taskTypeTocColumnOpacity = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY],
+    sanitizeAnalysisTocColumnOpacity,
+    stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY],
+  );
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+    sanitizeLatestPromptScrollHoldSeconds,
     stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
   );
+  applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderTaskTypeProjectIds();
-  setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
-  setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
-  setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
-  clearRuleForm();
-  renderHighlightRules();
-  renderAnalysisTocSettings();
+  renderActiveTaskTypeScopedSettings();
 }
 
 async function saveOptions(event) {
@@ -1984,6 +2173,7 @@ async function saveOptions(event) {
   const taskTypeDefinitions = sanitizeTaskTypeDefinitions(highlightState.taskTypeDefinitions);
   highlightState.taskTypeDefinitions = taskTypeDefinitions;
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
+  syncActiveTaskTypeScopedSettings();
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
@@ -1992,6 +2182,46 @@ async function saveOptions(event) {
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
+  const taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeHighlightRules,
+    sanitizeHighlightRules,
+    highlightState.rules,
+  );
+  const taskTypeTocButtonColors = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocButtonColors,
+    sanitizeAnalysisTocButtonColors,
+    tocButtonColors,
+  );
+  const taskTypeTocButtonSettings = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocButtonSettings,
+    sanitizeAnalysisTocButtonSettings,
+    tocButtonSettings,
+  );
+  const taskTypeTocButtonLabels = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocButtonLabels,
+    sanitizeAnalysisTocButtonLabels,
+    tocButtonLabels,
+  );
+  const taskTypeTocButtonOrder = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocButtonOrder,
+    sanitizeAnalysisTocButtonOrder,
+    tocButtonOrder,
+  );
+  const taskTypeTocColumnPositions = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocColumnPositions,
+    sanitizeAnalysisTocColumnPositions,
+    tocColumnPositions,
+  );
+  const taskTypeTocColumnOpacity = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocColumnOpacity,
+    sanitizeAnalysisTocColumnOpacity,
+    tocColumnOpacity,
+  );
+  const taskTypeLatestPromptScrollHoldSeconds = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeLatestPromptScrollHoldSeconds,
+    sanitizeLatestPromptScrollHoldSeconds,
+    latestPromptScrollHoldSeconds,
+  );
   const { taskTypeProjectIds, taskTypeActiveProjectAccounts } = getTaskTypeProjectSettingsFromInputs();
   const searchTaskProjects = taskTypeProjectIds[BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS] ?? {};
   const activeSearchAccount = sanitizeProjectAccountKey(
@@ -2016,6 +2246,14 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
+    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: taskTypeHighlightRules,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: taskTypeTocButtonColors,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: taskTypeTocButtonSettings,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: taskTypeTocButtonLabels,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: taskTypeTocButtonOrder,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: taskTypeTocColumnPositions,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: taskTypeTocColumnOpacity,
+    [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: taskTypeLatestPromptScrollHoldSeconds,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: tocButtonSettings,
@@ -2028,6 +2266,14 @@ async function saveOptions(event) {
 
   highlightState.taskTypeProjectIds = taskTypeProjectIds;
   highlightState.taskTypeActiveProjectAccounts = taskTypeActiveProjectAccounts;
+  highlightState.taskTypeHighlightRules = taskTypeHighlightRules;
+  highlightState.taskTypeTocButtonColors = taskTypeTocButtonColors;
+  highlightState.taskTypeTocButtonSettings = taskTypeTocButtonSettings;
+  highlightState.taskTypeTocButtonLabels = taskTypeTocButtonLabels;
+  highlightState.taskTypeTocButtonOrder = taskTypeTocButtonOrder;
+  highlightState.taskTypeTocColumnPositions = taskTypeTocColumnPositions;
+  highlightState.taskTypeTocColumnOpacity = taskTypeTocColumnOpacity;
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = taskTypeLatestPromptScrollHoldSeconds;
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;

@@ -117,6 +117,8 @@ Prompt placeholder behavior:
 
 The `Screenshot` processing button now queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button now queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `/c` endpoint still logs each control-menu command before dispatching those actions.
 
+Keyword highlight rules and Analysis TOC button settings are task-type-specific. In the options page, switching the selected task type changes the highlight/TOC settings being edited. In ChatGPT, switching the bridge control-menu task type reloads that task type's highlight rules and TOC button layout. Legacy global highlight/TOC settings are used as fallback values for task types that do not have scoped settings yet.
+
 Configured task types:
 - `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
 - `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.

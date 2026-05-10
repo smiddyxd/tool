@@ -87,6 +87,14 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
   const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
+  const STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES = "taskTypeHighlightRules";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS = "taskTypeAnalysisTocButtonColors";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS = "taskTypeAnalysisTocButtonSettings";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS = "taskTypeAnalysisTocButtonLabels";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisTocColumnPositions";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
+  const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
   const STORAGE_KEY_PROJECT_IDS = "projectIds";
   const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
   const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
@@ -922,6 +930,17 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .filter(Boolean);
   }
 
+  function isPlainObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function getTaskTypeScopedStorageValue(rawMap, taskType, fallbackValue) {
+    const source = isPlainObject(rawMap) ? rawMap : {};
+    return Object.prototype.hasOwnProperty.call(source, taskType)
+      ? source[taskType]
+      : fallbackValue;
+  }
+
   function ensureHighlightStyles() {
     if (document.getElementById(HIGHLIGHT_STYLE_ID)) {
       return;
@@ -1472,17 +1491,58 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
       [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
       [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+      [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
+      [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
     });
+    const taskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
 
-    highlightState.rules = compileHighlightRules(stored[STORAGE_KEY_HIGHLIGHT_RULES]);
-    analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(stored[STORAGE_KEY_ANALYSIS_TOC_COLORS]);
-    analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]);
-    analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(stored[STORAGE_KEY_ANALYSIS_TOC_LABELS]);
-    analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]);
-    analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]);
-    analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]);
+    highlightState.rules = compileHighlightRules(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
+      taskType,
+      stored[STORAGE_KEY_HIGHLIGHT_RULES],
+    ));
+    analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_COLORS],
+    ));
+    analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS],
+    ));
+    analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_LABELS],
+    ));
+    analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER],
+    ));
+    analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS],
+    ));
+    analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY],
+    ));
     analysisTocState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
-      stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+      getTaskTypeScopedStorageValue(
+        stored[STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+        taskType,
+        stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
+      ),
     );
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
@@ -1491,50 +1551,34 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function initializeHighlighting() {
+    const scopedSettingKeys = new Set([
+      STORAGE_KEY_HIGHLIGHT_RULES,
+      STORAGE_KEY_ANALYSIS_TOC_COLORS,
+      STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS,
+      STORAGE_KEY_ANALYSIS_TOC_LABELS,
+      STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS,
+      STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY,
+      STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER,
+      STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+      STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER,
+      STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+    ]);
+
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "sync") {
         return;
       }
 
-      if (changes[STORAGE_KEY_HIGHLIGHT_RULES]) {
-        highlightState.rules = compileHighlightRules(changes[STORAGE_KEY_HIGHLIGHT_RULES].newValue);
-        scheduleHighlightPass();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLORS]) {
-        analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(changes[STORAGE_KEY_ANALYSIS_TOC_COLORS].newValue);
-        applyAnalysisTocButtonColors();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]) {
-        analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS].newValue);
-        applyAnalysisTocButtonSettings();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_LABELS]) {
-        analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(changes[STORAGE_KEY_ANALYSIS_TOC_LABELS].newValue);
-        applyAnalysisTocButtonLabels();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]) {
-        analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(changes[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER].newValue);
-        applyAnalysisTocButtonSettings();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]) {
-        analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS].newValue);
-        applyAnalysisTocButtonSettings();
-      }
-
-      if (changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]) {
-        analysisTocState.columnOpacity = sanitizeAnalysisTocColumnOpacity(changes[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY].newValue);
-        applyAnalysisTocColumnOpacities();
-      }
-
-      if (changes[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]) {
-        analysisTocState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
-          changes[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS].newValue,
-        );
+      if (Object.keys(changes).some((key) => scopedSettingKeys.has(key))) {
+        void loadHighlightRules().catch((error) => {
+          console.error("Local Query Bridge scoped highlight/TOC setting reload failed", error);
+        });
       }
     });
 
@@ -3356,6 +3400,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       syncServerControlActionControls();
       syncServerControlRegionControls();
       updateServerControlMenuStatus();
+      void loadHighlightRules().catch((error) => {
+        console.error("Local Query Bridge scoped highlight/TOC setting load failed", error);
+      });
     } catch (error) {
       console.warn("Local Query Bridge failed to load server control menu settings", error);
     }
@@ -3697,6 +3744,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         serverControlMenuState.selectedRegionKey,
         serverControlMenuState.currentTaskType,
       );
+      void loadHighlightRules().catch((error) => {
+        console.error("Local Query Bridge scoped highlight/TOC setting switch failed", error);
+      });
       scheduleServerControlMenuSettingsPersist();
     }
 
