@@ -2562,7 +2562,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .local-query-bridge-server-control-content {
         height: 100%;
         display: grid;
-        grid-template-columns: minmax(170px, 0.8fr) minmax(0, 3.2fr);
+        grid-template-columns: minmax(0, 3.2fr) minmax(170px, 0.8fr);
         align-items: stretch;
         gap: 0;
         min-height: 0;
@@ -4208,8 +4208,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const content = document.createElement("div");
     content.className = "local-query-bridge-server-control-content";
     content.append(
-      createServerControlTaskTypeColumn(),
       createServerControlActionColumn(),
+      createServerControlTaskTypeColumn(),
     );
 
     menu.append(createServerControlProjectPanel(), content);

@@ -95,8 +95,8 @@ Current JSON contract:
 ## Bridge control menu
 
 The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. The menu is arranged left to right as:
-- task type column
 - large processing action buttons filling the remaining space
+- task type column
 
 Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
