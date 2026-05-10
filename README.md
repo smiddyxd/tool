@@ -95,8 +95,10 @@ Current JSON contract:
 ## Bridge control menu
 
 The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. The menu is arranged left to right as:
-- large processing action buttons filling the remaining space
+- large processing zone legend filling the remaining space
 - task type column
+
+The processing legend is a toggle. When enabled, the ChatGPT main area is divided into one horizontal zone per processing action, with translucent vertical divider lines; clicking a zone sends the corresponding processing command. When disabled, those zones do not capture clicks.
 
 Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
@@ -106,6 +108,7 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
 - enable OCR and add one or more OCR regions
 - edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
+- set the on-screen processing-zone divider translucence
 - edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
 
 Prompt placeholder behavior:

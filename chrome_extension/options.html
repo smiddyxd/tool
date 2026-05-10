@@ -426,6 +426,24 @@
       gap: 10px;
     }
 
+    .range-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 48px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .range-control input[type="range"] {
+      padding-right: 0;
+      padding-left: 0;
+    }
+
+    .range-control output {
+      color: var(--muted);
+      font-weight: 750;
+      text-align: right;
+    }
+
     .placeholder-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -691,6 +709,15 @@
             <p class="hint">These bounds are used by the bridge control commands. Google results is shared across task types; other regions are saved for the selected task type.</p>
             <div id="task-type-region-coordinates" class="region-coordinate-list"></div>
           </div>
+
+          <label for="server-control-zone-divider-opacity">
+            Zone divider translucence
+            <span class="range-control">
+              <input id="server-control-zone-divider-opacity" type="range" min="5" max="100" step="1">
+              <output id="server-control-zone-divider-opacity-value" for="server-control-zone-divider-opacity">38%</output>
+            </span>
+            <p class="hint">Controls the opacity of the on-screen divider line or lines when bridge control zone-click mode is enabled.</p>
+          </label>
 
           <label for="task-type-boilerplate-prompt">
             Boilerplate prompt

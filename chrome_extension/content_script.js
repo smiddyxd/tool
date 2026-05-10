@@ -107,12 +107,19 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
   const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
+  const SERVER_CONTROL_ZONE_OVERLAY_ID = "local-query-bridge-server-control-zone-overlay";
+  const SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS = "local-query-bridge-server-control-zone-overlay-active";
+  const SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS = "local-query-bridge-server-control-zone-legend-active";
+  const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = 0.38;
+  const SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY = 0.05;
+  const SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY = 1;
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE = "serverControlTaskType";
   const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
   const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
   const STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION = "serverControlSelectedRegion";
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
+  const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -399,6 +406,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     taskTypeProjectIds: getDefaultServerControlTaskTypeProjectIds(),
     taskTypeActiveProjectAccounts: getDefaultServerControlTaskTypeActiveProjectAccounts(),
     projectPickerOpen: false,
+    zoneClickEnabled: false,
+    zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -2718,6 +2727,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         overflow: hidden;
       }
 
+      .local-query-bridge-server-control-action-grid.${SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS} {
+        background: #dbeafe;
+      }
+
       .local-query-bridge-server-control-action-button {
         min-height: 0;
         height: 100%;
@@ -2733,12 +2746,39 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         padding: 24px;
       }
 
+      .local-query-bridge-server-control-action-grid.${SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS} .local-query-bridge-server-control-action-button {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+
       .local-query-bridge-server-control-action-button:last-child {
         border-right: 0;
       }
 
       .local-query-bridge-server-control-action-button.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
         box-shadow: inset 0 6px 0 #2563eb;
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} {
+        position: fixed;
+        z-index: 2147483646;
+        display: none;
+        pointer-events: none;
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID}.${SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS} {
+        display: block;
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-divider {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(37, 99, 235, var(--local-query-bridge-zone-divider-opacity, ${DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY}));
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42), 0 0 18px rgba(37, 99, 235, 0.24);
       }
 
       .local-query-bridge-server-control-project-account-button {
@@ -2918,6 +2958,165 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function getServerControlMenu() {
     const menu = document.getElementById(SERVER_CONTROL_MENU_ID);
     return menu instanceof HTMLElement ? menu : null;
+  }
+
+  function sanitizeServerControlZoneDividerOpacity(value) {
+    const parsedValue = Number.parseFloat(`${value}`);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY;
+    }
+
+    const normalizedValue = parsedValue > 1 ? parsedValue / 100 : parsedValue;
+    return Math.min(
+      SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY,
+      Math.max(SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY, normalizedValue),
+    );
+  }
+
+  function getServerControlZoneOverlay() {
+    const overlay = document.getElementById(SERVER_CONTROL_ZONE_OVERLAY_ID);
+    return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function ensureServerControlZoneOverlay() {
+    ensureServerControlMenuStyles();
+    let overlay = getServerControlZoneOverlay();
+    if (overlay instanceof HTMLElement) {
+      return overlay;
+    }
+
+    overlay = document.createElement("div");
+    overlay.id = SERVER_CONTROL_ZONE_OVERLAY_ID;
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.append(overlay);
+    return overlay;
+  }
+
+  function getServerControlZoneRoot() {
+    const preferredRoot = document.getElementsByClassName("@container/main relative")[0];
+    if (preferredRoot instanceof HTMLElement) {
+      return preferredRoot;
+    }
+
+    return document.querySelector("main")
+      ?? document.querySelector('[role="main"]')
+      ?? document.body;
+  }
+
+  function getCurrentServerControlActionEntries() {
+    return getCurrentServerControlTaskTypeDefinition().actions
+      .map((actionKey) => {
+        const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
+        return actionDefinition ? { ...actionDefinition, actionKey } : null;
+      })
+      .filter(Boolean);
+  }
+
+  function syncServerControlZoneOverlay() {
+    const overlay = ensureServerControlZoneOverlay();
+    const actionEntries = getCurrentServerControlActionEntries();
+    const root = getServerControlZoneRoot();
+    overlay.style.setProperty(
+      "--local-query-bridge-zone-divider-opacity",
+      `${sanitizeServerControlZoneDividerOpacity(serverControlMenuState.zoneDividerOpacity)}`,
+    );
+    if (
+      !serverControlMenuState.zoneClickEnabled
+      || actionEntries.length <= 1
+      || !(root instanceof HTMLElement)
+    ) {
+      overlay.classList.remove(SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS);
+      overlay.replaceChildren();
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    if (rootRect.width <= 0 || rootRect.height <= 0) {
+      overlay.classList.remove(SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS);
+      overlay.replaceChildren();
+      return;
+    }
+
+    overlay.style.left = `${rootRect.left}px`;
+    overlay.style.top = `${rootRect.top}px`;
+    overlay.style.width = `${rootRect.width}px`;
+    overlay.style.height = `${rootRect.height}px`;
+    overlay.replaceChildren();
+    for (let index = 1; index < actionEntries.length; index += 1) {
+      const divider = document.createElement("div");
+      divider.className = "local-query-bridge-server-control-zone-divider";
+      divider.style.left = `${(index / actionEntries.length) * 100}%`;
+      overlay.append(divider);
+    }
+    overlay.classList.add(SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS);
+  }
+
+  function setServerControlZoneClickEnabled(enabled) {
+    serverControlMenuState.zoneClickEnabled = Boolean(enabled);
+    syncServerControlActionControls();
+    syncServerControlZoneOverlay();
+    updateServerControlMenuStatus();
+  }
+
+  function toggleServerControlZoneClickEnabled() {
+    setServerControlZoneClickEnabled(!serverControlMenuState.zoneClickEnabled);
+  }
+
+  function getServerControlZoneActionForPoint(clientX, clientY) {
+    const actionEntries = getCurrentServerControlActionEntries();
+    if (!serverControlMenuState.zoneClickEnabled || actionEntries.length === 0) {
+      return null;
+    }
+
+    const root = getServerControlZoneRoot();
+    if (!(root instanceof HTMLElement)) {
+      return null;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    if (
+      rootRect.width <= 0
+      || rootRect.height <= 0
+      || clientX < rootRect.left
+      || clientX > rootRect.right
+      || clientY < rootRect.top
+      || clientY > rootRect.bottom
+    ) {
+      return null;
+    }
+
+    const zoneIndex = Math.min(
+      actionEntries.length - 1,
+      Math.max(0, Math.floor(((clientX - rootRect.left) / rootRect.width) * actionEntries.length)),
+    );
+    return actionEntries[zoneIndex] ?? null;
+  }
+
+  function handleServerControlZoneClick(event) {
+    if (!(event instanceof MouseEvent) || event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof HTMLElement
+      && (
+        target.closest(`#${SERVER_CONTROL_MENU_ID}`)
+        || target.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}`)
+        || target.closest(`.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`)
+      )
+    ) {
+      return;
+    }
+
+    const actionEntry = getServerControlZoneActionForPoint(event.clientX, event.clientY);
+    if (!actionEntry) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void sendServerControlMenuCommand(actionEntry, "Zone", null);
   }
 
   function sanitizeServerControlCoordinate(value, fallback = 0) {
@@ -3513,6 +3712,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: sanitizeServerControlUniversalRegions(serverControlMenuState.universalRegions),
         [STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION]: serverControlMenuState.selectedRegionKey,
         [STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]: serverControlMenuState.ocrReviewText,
+        [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: sanitizeServerControlZoneDividerOpacity(
+          serverControlMenuState.zoneDividerOpacity,
+        ),
       });
     } catch (error) {
       console.warn("Local Query Bridge failed to persist server control menu settings", error);
@@ -3528,6 +3730,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS,
         STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION,
         STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT,
+        STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
       ]);
       applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]);
 
@@ -3546,6 +3749,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       serverControlMenuState.ocrReviewText = typeof stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT] === "string"
         ? stored[STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT]
         : "";
+      serverControlMenuState.zoneDividerOpacity = sanitizeServerControlZoneDividerOpacity(
+        stored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY],
+      );
       syncServerControlTaskTypeControls();
       syncServerControlActionControls();
       syncServerControlRegionControls();
@@ -3657,7 +3863,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function getServerControlMenuStatusText() {
     const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
     const accountLabel = getServerControlProjectAccountLabel(getServerControlActiveProjectAccount());
-    return `${taskLabel} | Project: ${accountLabel}`;
+    return `${taskLabel} | Zones: ${serverControlMenuState.zoneClickEnabled ? "on" : "off"} | Project: ${accountLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -3677,6 +3883,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     syncServerControlActionControls();
     syncServerControlRegionControls();
     syncServerControlProjectPickerControls();
+    syncServerControlZoneOverlay();
   }
 
   function syncServerControlTaskTypeControls() {
@@ -3740,6 +3947,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       "--local-query-bridge-action-count",
       `${Math.max(1, currentTaskDefinition.actions.length)}`,
     );
+    container.classList.toggle(
+      SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS,
+      serverControlMenuState.zoneClickEnabled,
+    );
+    container.title = serverControlMenuState.zoneClickEnabled
+      ? "Zone click mode is on. Click to turn it off."
+      : "Zone click mode is off. Click to turn it on.";
     for (const actionKey of currentTaskDefinition.actions) {
       const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
       if (!actionDefinition) {
@@ -3755,14 +3969,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       button.dataset.controlActionKey = actionKey;
       button.classList.toggle(
         SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
-        serverControlMenuState.processingMode === actionKey,
+        serverControlMenuState.zoneClickEnabled,
       );
+      button.setAttribute("aria-pressed", serverControlMenuState.zoneClickEnabled ? "true" : "false");
+      button.title = container.title;
       button.addEventListener("click", () => {
-        void sendServerControlMenuCommand(
-          { ...actionDefinition, actionKey },
-          "Action",
-          button,
-        );
+        toggleServerControlZoneClickEnabled();
       });
       container.append(button);
     }
@@ -4282,6 +4494,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       changes[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]
       || changes[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]
       || changes[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]
+      || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]
     )) {
       void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       return;
@@ -4309,10 +4522,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     chrome.storage.onChanged.addListener(handleServerControlProjectStorageChange);
     document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
+    document.addEventListener("click", handleServerControlZoneClick, true);
     document.addEventListener("pointermove", handleServerControlMenuPointerMove, {
       capture: true,
       passive: true,
     });
+    document.addEventListener("scroll", syncServerControlZoneOverlay, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("resize", syncServerControlZoneOverlay, { passive: true });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         hideServerControlMenu("escape");

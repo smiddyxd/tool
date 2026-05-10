@@ -120,6 +120,7 @@ const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
 const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -127,6 +128,9 @@ const TASK_REGION_KIND_SCREENSHOT = "full-task-screenshot";
 const TASK_REGION_KIND_GOOGLE_RESULTS = "google-results";
 const TASK_REGION_COORDINATE_MIN = -100000;
 const TASK_REGION_COORDINATE_MAX = 100000;
+const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = 0.38;
+const SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY = 0.05;
+const SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY = 1;
 const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
 const TASK_REGION_COORDINATES = [
   { key: "top", label: "Top Y" },
@@ -258,6 +262,7 @@ const highlightState = {
   taskTypeActiveProjectAccounts: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   taskRegions: {},
   universalRegions: {},
+  zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -589,6 +594,23 @@ function sanitizeTaskRegionCoordinate(value, fallback = 0) {
     TASK_REGION_COORDINATE_MAX,
     Math.max(TASK_REGION_COORDINATE_MIN, parsedValue),
   );
+}
+
+function sanitizeServerControlZoneDividerOpacity(value) {
+  const parsedValue = Number.parseFloat(`${value}`);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY;
+  }
+
+  const normalizedValue = parsedValue > 1 ? parsedValue / 100 : parsedValue;
+  return Math.min(
+    SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY,
+    Math.max(SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY, normalizedValue),
+  );
+}
+
+function serverControlZoneDividerOpacityToPercent(value) {
+  return Math.round(sanitizeServerControlZoneDividerOpacity(value) * 100);
 }
 
 function sanitizeTaskRegionBounds(rawValue, fallback = DEFAULT_TASK_REGION_BOUNDS) {
@@ -1841,6 +1863,24 @@ function renderRegionCoordinateEditor(taskDefinition) {
   }
 }
 
+function setServerControlZoneDividerOpacityInput(value) {
+  const normalizedPercent = serverControlZoneDividerOpacityToPercent(value);
+  const input = document.querySelector("#server-control-zone-divider-opacity");
+  const valueText = document.querySelector("#server-control-zone-divider-opacity-value");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(normalizedPercent);
+  }
+  if (valueText instanceof HTMLElement) {
+    valueText.textContent = `${normalizedPercent}%`;
+  }
+}
+
+function getServerControlZoneDividerOpacityInputValue() {
+  return sanitizeServerControlZoneDividerOpacity(
+    document.querySelector("#server-control-zone-divider-opacity")?.value,
+  );
+}
+
 function renderTaskTypeConfiguration() {
   const taskDefinition = getTaskTypeDefinition();
   const labelInput = document.querySelector("#task-type-label");
@@ -2532,6 +2572,7 @@ async function loadOptions() {
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: null,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
   });
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
@@ -2541,6 +2582,9 @@ async function loadOptions() {
   );
   highlightState.universalRegions = sanitizeUniversalRegionsMap(
     localStored[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS],
+  );
+  highlightState.zoneDividerOpacity = sanitizeServerControlZoneDividerOpacity(
+    localStored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY],
   );
 
   const stored = await chrome.storage.sync.get({
@@ -2630,6 +2674,7 @@ async function loadOptions() {
   applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
+  setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   renderTaskTypeProjectIds();
   renderActiveTaskTypeScopedSettings();
 }
@@ -2642,8 +2687,10 @@ async function saveOptions(event) {
   highlightState.taskTypeDefinitions = taskTypeDefinitions;
   const taskRegions = sanitizeTaskRegionsMap(highlightState.taskRegions);
   const universalRegions = sanitizeUniversalRegionsMap(highlightState.universalRegions);
+  const zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
   highlightState.taskRegions = taskRegions;
   highlightState.universalRegions = universalRegions;
+  highlightState.zoneDividerOpacity = zoneDividerOpacity;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
   syncActiveTaskTypeScopedSettings();
@@ -2711,6 +2758,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: taskTypeDefinitions,
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: taskRegions,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: universalRegions,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: zoneDividerOpacity,
   });
 
   await chrome.storage.sync.set({
@@ -2758,6 +2806,7 @@ async function saveOptions(event) {
   highlightState.tocColumnPositions = tocColumnPositions;
   highlightState.tocColumnOpacity = tocColumnOpacity;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
+  setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
@@ -2788,6 +2837,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const ocrToggle = document.querySelector("#task-type-enable-ocr");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
+  const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
 
   void loadOptions();
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
@@ -2847,6 +2897,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   addCustomTocEntryButton?.addEventListener("click", () => {
     addCustomAnalysisTocEntry();
+  });
+  zoneDividerOpacityInput?.addEventListener("input", () => {
+    highlightState.zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
+    setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
+    setStatus("Zone divider translucence changed. Save settings to apply it.");
   });
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();
