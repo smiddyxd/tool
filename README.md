@@ -115,6 +115,8 @@ Prompt placeholder behavior:
 - If a placeholder starts with `!`, for example `[!query]`, it is required and submission is stopped when no value is available.
 - If the current processing button is `Screenshot`, all placeholders are treated as optional.
 
+The `Screenshot` processing button now queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button now queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `/c` endpoint still logs each control-menu command before dispatching those actions.
+
 Configured task types:
 - `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
 - `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.

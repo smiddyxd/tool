@@ -514,6 +514,7 @@ def receive_control_command() -> Any:
     group = sanitize_control_command_field(payload.get("group"), 80)
     value = sanitize_control_command_field(payload.get("value"), 120)
     current_task_type = sanitize_control_command_field(payload.get("currentTaskType"), 120)
+    current_task_type_label = sanitize_control_command_field(payload.get("currentTaskTypeLabel"), 160)
     processing_mode = sanitize_control_command_field(payload.get("processingMode"), 120)
     selected_region = sanitize_control_command_field(payload.get("selectedRegion"), 120)
     selected_region_label = sanitize_control_command_field(payload.get("selectedRegionLabel"), 160)
@@ -538,14 +539,17 @@ def receive_control_command() -> Any:
         "[control "
         f"{timestamp_now()}] command={command or '-'} value={value or '-'} "
         f"group={group or '-'} label={label or '-'} "
-        f"current_task_type={current_task_type or '-'} processing_mode={processing_mode or '-'} "
+        f"current_task_type={current_task_type or '-'} current_task_type_label={current_task_type_label or '-'} "
+        f"processing_mode={processing_mode or '-'} "
         f"selected_region={selected_region or '-'} selected_region_label={selected_region_label or '-'} "
         f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
         f"project={active_project_id or '-'} project_url={project_url or '-'} prompt_chars={boilerplate_prompt_length} "
         f"tab={tab_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
-    return jsonify({"ok": True})
+
+    queued = handle_control_processing_command(command, payload)
+    return jsonify({"ok": True, "queued": queued})
 
 
 def timestamp_now() -> str:
@@ -565,6 +569,156 @@ def sanitize_control_json_field(value: Any, max_length: int = MAX_CONTROL_COMMAN
     except (TypeError, ValueError):
         text = str(value)
     return sanitize_control_command_field(text, max_length)
+
+
+def get_control_payload_task_type(payload: dict[str, Any]) -> str:
+    for key in ("currentTaskTypeLabel", "currentTaskType"):
+        task_type = clean_ocr_text(str(payload.get(key) or ""))
+        if task_type:
+            return task_type
+    return "Control Task"
+
+
+def resolve_control_task_settings(payload: dict[str, Any]) -> TaskSettings | None:
+    config = CONFIG_CACHE.load()
+    candidates = [
+        str(payload.get("currentTaskTypeLabel") or ""),
+        str(payload.get("currentTaskType") or ""),
+    ]
+    for candidate in candidates:
+        task_type = clean_ocr_text(candidate)
+        if not task_type:
+            continue
+        settings = resolve_task_settings(task_type, config)
+        if settings is not None:
+            return TaskSettings(
+                task_type=settings.task_type,
+                wait_for_edge=False,
+                prompts=settings.prompts,
+                repeat_prefix=settings.repeat_prefix,
+            )
+
+    boilerplate_prompt = str(payload.get("boilerplatePrompt") or "").strip()
+    if boilerplate_prompt:
+        task_type = get_control_payload_task_type(payload)
+        return TaskSettings(
+            task_type=task_type,
+            wait_for_edge=False,
+            prompts=(boilerplate_prompt.replace("[TASK_TYPE]", task_type),),
+            repeat_prefix=DEFAULT_REPEAT_PREFIX.replace("[TASK_TYPE]", task_type),
+        )
+
+    return resolve_test_task_settings(config)
+
+
+def capture_control_frame() -> tuple[np.ndarray, int | None]:
+    with mss.mss() as screenshotter:
+        monitor = screenshotter.monitors[1]
+        frame_bgr = capture_primary_monitor(screenshotter, monitor)
+
+    task_count: int | None = None
+    try:
+        counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
+        task_count = extract_task_counter(frame_bgr, counter_icon_template)
+    except Exception as exc:
+        print(f"[control {timestamp_now()}] counter-read-error: {exc}", flush=True)
+
+    return frame_bgr, task_count
+
+
+def queue_control_screenshot(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    if settings is None:
+        print(f"[control {timestamp_now()}] screenshot no-task-settings", flush=True)
+        return False
+
+    frame_bgr, task_count = capture_control_frame()
+    effective_task_count = task_count if task_count is not None else 0
+    screenshot_png = build_screenshot_payload(frame_bgr)
+    prompts = () if str(payload.get("boilerplatePrompt") or "").strip() else settings.prompts
+    STATE.remember_repeatable_task(
+        effective_task_count,
+        settings.task_type,
+        prompts,
+        settings.repeat_prefix,
+        screenshot_png,
+    )
+    STATE.publish_payload(effective_task_count, [screenshot_png], prompts)
+    print(
+        f"[control {timestamp_now()}] queued-screenshot counter={effective_task_count} type={settings.task_type}",
+        flush=True,
+    )
+    return True
+
+
+def queue_control_ocr(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    if settings is None:
+        print(f"[control {timestamp_now()}] ocr no-task-settings", flush=True)
+        return False
+
+    frame_bgr, task_count = capture_control_frame()
+    effective_task_count = task_count if task_count is not None else 0
+    screenshot_bgr = build_screenshot_image(frame_bgr)
+    try:
+        result = paddleocr_manual_test.capture_and_process_image(screenshot_bgr, prefix="control_ocr")
+    except Exception as exc:
+        print(f"[control {timestamp_now()}] ocr error: {exc}", flush=True)
+        return False
+
+    image_path = result["image_path"]
+    entry = result["entry"]
+    debug_name = Path(entry.get("ocr_debug_path", "")).name if entry.get("ocr_debug_path") else ""
+    selected_transcript = entry.get("selected_transcript", {})
+    selected_line_count = len(selected_transcript.get("selected_lines", [])) if isinstance(selected_transcript, dict) else 0
+    print(
+        f"[control {timestamp_now()}] ocr saved={Path(image_path).name} lines={len(entry.get('lines', []))} "
+        f"selected_lines={selected_line_count} variant={entry.get('ocr_variant', 'unknown')} debug={debug_name}",
+        flush=True,
+    )
+
+    query_text, product_text = extract_text_task_parts(entry)
+    ocr_warning = build_text_task_ocr_warning(entry)
+    abort_reasons = get_text_task_abort_reasons(entry, query_text, product_text)
+    if abort_reasons:
+        abort_alerts = build_text_task_abort_alerts(
+            query_text,
+            product_text,
+            abort_reasons=abort_reasons,
+            ocr_warning=ocr_warning,
+        )
+        if abort_alerts:
+            STATE.publish_alert_payload(effective_task_count, abort_alerts)
+            print(
+                f"[control {timestamp_now()}] queued-ocr-alert counter={effective_task_count} type={settings.task_type}",
+                flush=True,
+            )
+        return True
+
+    text_prompts = build_text_task_prompts(
+        settings.prompts,
+        query_text,
+        product_text,
+        ocr_warning=ocr_warning,
+    )
+    if not text_prompts:
+        print(f"[control {timestamp_now()}] ocr no-text-prompts type={settings.task_type}", flush=True)
+        return False
+
+    STATE.publish_text_payload(effective_task_count, text_prompts)
+    print(
+        f"[control {timestamp_now()}] queued-ocr-text counter={effective_task_count} type={settings.task_type}",
+        flush=True,
+    )
+    return True
+
+
+def handle_control_processing_command(command: str, payload: dict[str, Any]) -> bool:
+    if command == "start_task_screenshot":
+        return queue_control_screenshot(payload)
+    if command == "start_task_ocr":
+        return queue_control_ocr(payload)
+    return False
 
 
 def maybe_log_handshake() -> None:
