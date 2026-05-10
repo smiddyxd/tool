@@ -380,6 +380,52 @@
       font-size: 13px;
     }
 
+    .region-coordinate-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .region-coordinate-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.55fr) minmax(0, 1.45fr);
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .region-coordinate-summary {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .region-coordinate-summary strong {
+      overflow-wrap: anywhere;
+      line-height: 1.25;
+    }
+
+    .region-kind-pill {
+      width: fit-content;
+      max-width: 100%;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .region-coordinate-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
     .placeholder-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -389,6 +435,31 @@
     .toc-settings-list {
       display: grid;
       gap: 10px;
+    }
+
+    .custom-toc-editor {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .custom-toc-entry-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .custom-toc-entry-row {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
     }
 
     .toc-column-position-grid {
@@ -512,6 +583,9 @@
       .task-project-account-inputs,
       .task-feature-grid,
       .ocr-region-row,
+      .region-coordinate-row,
+      .region-coordinate-grid,
+      .custom-toc-entry-row,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
@@ -612,6 +686,12 @@
             <div id="task-type-ocr-regions" class="ocr-region-list"></div>
           </div>
 
+          <div>
+            <h3>Region coordinates</h3>
+            <p class="hint">These bounds are used by the bridge control commands. Google results is shared across task types; other regions are saved for the selected task type.</p>
+            <div id="task-type-region-coordinates" class="region-coordinate-list"></div>
+          </div>
+
           <label for="task-type-boilerplate-prompt">
             Boilerplate prompt
             <textarea id="task-type-boilerplate-prompt" rows="9" spellcheck="true"></textarea>
@@ -692,6 +772,15 @@
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
           <p class="hint">These buttons are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, column position, idle opacity, and latest prompt re-check window.</p>
+        </div>
+
+        <div id="custom-toc-editor" class="custom-toc-editor">
+          <div class="actions">
+            <h3>Custom TOC targets</h3>
+            <button id="add-custom-toc-entry" type="button">Add TOC button</button>
+          </div>
+          <p class="hint">For non-hardcoded task types, each button jumps to the latest assistant response line or block containing the target text, regardless of whether it is rendered as a heading.</p>
+          <div id="custom-toc-entry-list" class="custom-toc-entry-list"></div>
         </div>
 
         <div class="toc-column-position-grid" aria-label="TOC column position and opacity">

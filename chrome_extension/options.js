@@ -116,11 +116,24 @@ const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisToc
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
 const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
+const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
+const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
 const TASK_REGION_KIND_SCREENSHOT = "full-task-screenshot";
 const TASK_REGION_KIND_GOOGLE_RESULTS = "google-results";
+const TASK_REGION_COORDINATE_MIN = -100000;
+const TASK_REGION_COORDINATE_MAX = 100000;
+const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
+const TASK_REGION_COORDINATES = [
+  { key: "top", label: "Top Y" },
+  { key: "left", label: "Left X" },
+  { key: "right", label: "Right X" },
+  { key: "bottom", label: "Bottom Y" },
+];
 const TASK_ACTION_OCR = "ocr";
 const TASK_ACTION_SCREENSHOT = "screenshot";
 const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
@@ -238,10 +251,13 @@ const highlightState = {
   taskTypeTocColumnPositions: {},
   taskTypeTocColumnOpacity: {},
   taskTypeLatestPromptScrollHoldSeconds: {},
+  taskTypeTocEntries: {},
   activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
   taskTypeDefinitions: DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS,
   taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
   taskTypeActiveProjectAccounts: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
+  taskRegions: {},
+  universalRegions: {},
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -559,6 +575,121 @@ function getTaskTypeDefinition(taskTypeKey = highlightState.activeBridgeTaskType
   return definitions.find((definition) => definition.key === taskTypeKey) ?? definitions[0];
 }
 
+function isUniversalTaskRegion(region) {
+  return region?.key === GOOGLE_RESULTS_REGION.key || region?.kind === TASK_REGION_KIND_GOOGLE_RESULTS;
+}
+
+function sanitizeTaskRegionCoordinate(value, fallback = 0) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return fallback;
+  }
+
+  return Math.min(
+    TASK_REGION_COORDINATE_MAX,
+    Math.max(TASK_REGION_COORDINATE_MIN, parsedValue),
+  );
+}
+
+function sanitizeTaskRegionBounds(rawValue, fallback = DEFAULT_TASK_REGION_BOUNDS) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  return {
+    top: sanitizeTaskRegionCoordinate(source.top, fallback.top),
+    left: sanitizeTaskRegionCoordinate(source.left, fallback.left),
+    right: sanitizeTaskRegionCoordinate(source.right, fallback.right),
+    bottom: sanitizeTaskRegionCoordinate(source.bottom, fallback.bottom),
+  };
+}
+
+function getUniversalTaskRegions() {
+  const regionsByKey = new Map();
+  for (const taskDefinition of getTaskTypeDefinitions()) {
+    for (const region of taskDefinition.regions) {
+      if (isUniversalTaskRegion(region)) {
+        regionsByKey.set(region.key, region);
+      }
+    }
+  }
+  if (!regionsByKey.has(GOOGLE_RESULTS_REGION.key)) {
+    regionsByKey.set(GOOGLE_RESULTS_REGION.key, GOOGLE_RESULTS_REGION);
+  }
+  return Array.from(regionsByKey.values());
+}
+
+function sanitizeTaskRegionsMap(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
+    getTaskTypeDefinitions().map((taskDefinition) => [
+      taskDefinition.key,
+      Object.fromEntries(
+        taskDefinition.regions
+          .filter((region) => !isUniversalTaskRegion(region))
+          .map((region) => [
+            region.key,
+            sanitizeTaskRegionBounds(source[taskDefinition.key]?.[region.key]),
+          ]),
+      ),
+    ]),
+  );
+}
+
+function sanitizeUniversalRegionsMap(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+
+  return Object.fromEntries(
+    getUniversalTaskRegions().map((region) => [
+      region.key,
+      sanitizeTaskRegionBounds(source[region.key]),
+    ]),
+  );
+}
+
+function getTaskRegionBounds(taskTypeKey, region) {
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskTypeKey);
+  if (isUniversalTaskRegion(region)) {
+    return sanitizeTaskRegionBounds(highlightState.universalRegions[region.key]);
+  }
+
+  return sanitizeTaskRegionBounds(highlightState.taskRegions[sanitizedTaskType]?.[region.key]);
+}
+
+function updateTaskRegionCoordinate(taskTypeKey, region, coordinateKey, value) {
+  if (!TASK_REGION_COORDINATES.some((coordinate) => coordinate.key === coordinateKey)) {
+    return;
+  }
+
+  const sanitizedValue = sanitizeTaskRegionCoordinate(value);
+  if (isUniversalTaskRegion(region)) {
+    highlightState.universalRegions = {
+      ...highlightState.universalRegions,
+      [region.key]: {
+        ...sanitizeTaskRegionBounds(highlightState.universalRegions[region.key]),
+        [coordinateKey]: sanitizedValue,
+      },
+    };
+    return;
+  }
+
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskTypeKey);
+  highlightState.taskRegions = {
+    ...highlightState.taskRegions,
+    [sanitizedTaskType]: {
+      ...(highlightState.taskRegions[sanitizedTaskType] ?? {}),
+      [region.key]: {
+        ...sanitizeTaskRegionBounds(highlightState.taskRegions[sanitizedTaskType]?.[region.key]),
+        [coordinateKey]: sanitizedValue,
+      },
+    },
+  };
+}
+
 function getDefaultTaskTypeProjectIds(definitions = getTaskTypeDefinitions()) {
   return Object.fromEntries(
     definitions.map((definition) => [
@@ -835,32 +966,128 @@ function bindColorControl(colorInput, hexInput, fallback, onChange) {
   });
 }
 
-function getDefaultAnalysisTocButtonColors() {
-  return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
-  );
+function createAnalysisTocEntryKey(value, fallbackPrefix = "toc") {
+  return createTaskConfigKey(value, fallbackPrefix);
 }
 
-function sanitizeAnalysisTocButtonColors(rawValue) {
+function makeUniqueAnalysisTocEntryKey(baseKey, usedKeys) {
+  return makeUniqueTaskConfigKey(baseKey, usedKeys);
+}
+
+function isHardCodedAnalysisTocTaskType(taskType = highlightState.activeBridgeTaskType) {
+  return HARD_CODED_TOC_TASK_TYPE_KEYS.has(sanitizeBridgeTaskType(taskType));
+}
+
+function sanitizeCustomAnalysisTocEntries(rawValue) {
+  const sourceEntries = Array.isArray(rawValue) ? rawValue : [];
+  const usedKeys = new Set();
+  return sourceEntries
+    .map((entry, index) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return null;
+      }
+
+      const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
+      const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
+      if (!targetText) {
+        return null;
+      }
+
+      return {
+        key: makeUniqueAnalysisTocEntryKey(
+          createAnalysisTocEntryKey(entry.key || label || targetText, "toc"),
+          usedKeys,
+        ),
+        heading: targetText,
+        label,
+        targetText,
+        type: "customText",
+        index,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBridgeTaskType) {
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
+  const sourceEntries = Array.isArray(highlightState.taskTypeTocEntries[sanitizedTaskType])
+    ? highlightState.taskTypeTocEntries[sanitizedTaskType]
+    : [];
+  const usedKeys = new Set();
+
+  return sourceEntries
+    .map((entry, index) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return null;
+      }
+
+      const targetText = typeof entry.targetText === "string" ? entry.targetText : "";
+      const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
+      const rawKey = typeof entry.key === "string" && entry.key.trim()
+        ? entry.key.trim()
+        : createAnalysisTocEntryKey(label || targetText, "toc");
+
+      return {
+        key: makeUniqueAnalysisTocEntryKey(rawKey, usedKeys),
+        heading: targetText,
+        label,
+        targetText,
+        type: "customText",
+        index,
+      };
+    })
+    .filter(Boolean);
+}
+
+function sanitizeTaskTypeAnalysisTocEntriesMap(rawValue) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
     : {};
-  const defaults = getDefaultAnalysisTocButtonColors();
+  return Object.fromEntries(
+    getTaskTypeDefinitions().map((definition) => [
+      definition.key,
+      isHardCodedAnalysisTocTaskType(definition.key)
+        ? []
+        : sanitizeCustomAnalysisTocEntries(source[definition.key]),
+    ]),
+  );
+}
+
+function getAnalysisTocEntries(taskType = highlightState.activeBridgeTaskType) {
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
+  if (isHardCodedAnalysisTocTaskType(sanitizedTaskType)) {
+    return ANALYSIS_HEADING_ENTRIES;
+  }
+
+  return sanitizeCustomAnalysisTocEntries(getEditableCustomAnalysisTocEntries(sanitizedTaskType));
+}
+
+function getDefaultAnalysisTocButtonColors(entries = getAnalysisTocEntries()) {
+  return Object.fromEntries(
+    entries.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
+  );
+}
+
+function sanitizeAnalysisTocButtonColors(rawValue, entries = getAnalysisTocEntries()) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const defaults = getDefaultAnalysisTocButtonColors(entries);
 
   return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+    entries.map((entry) => [
       entry.key,
       sanitizeColor(source[entry.key], defaults[entry.key]),
     ]),
   );
 }
 
-function getDefaultAnalysisTocButtonOrder() {
-  return ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key);
+function getDefaultAnalysisTocButtonOrder(entries = getAnalysisTocEntries()) {
+  return entries.map((entry) => entry.key);
 }
 
-function sanitizeAnalysisTocButtonOrder(rawValue) {
-  const defaultOrder = getDefaultAnalysisTocButtonOrder();
+function sanitizeAnalysisTocButtonOrder(rawValue, entries = getAnalysisTocEntries()) {
+  const defaultOrder = getDefaultAnalysisTocButtonOrder(entries);
   const allowedKeys = new Set(defaultOrder);
   const seenKeys = new Set();
   const sourceOrder = Array.isArray(rawValue) ? rawValue : [];
@@ -885,15 +1112,16 @@ function sanitizeAnalysisTocButtonOrder(rawValue) {
 }
 
 function getOrderedAnalysisHeadingEntries() {
-  const entriesByKey = new Map(ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]));
-  return sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder)
+  const entries = getAnalysisTocEntries();
+  const entriesByKey = new Map(entries.map((entry) => [entry.key, entry]));
+  return sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder, entries)
     .map((key) => entriesByKey.get(key))
     .filter(Boolean);
 }
 
-function getDefaultAnalysisTocButtonLabels() {
+function getDefaultAnalysisTocButtonLabels(entries = getAnalysisTocEntries()) {
   return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry.label]),
+    entries.map((entry) => [entry.key, entry.label]),
   );
 }
 
@@ -902,14 +1130,14 @@ function sanitizeAnalysisTocButtonLabel(value, fallback) {
   return label ? label.slice(0, 120) : fallback;
 }
 
-function sanitizeAnalysisTocButtonLabels(rawValue) {
+function sanitizeAnalysisTocButtonLabels(rawValue, entries = getAnalysisTocEntries()) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
     : {};
-  const defaults = getDefaultAnalysisTocButtonLabels();
+  const defaults = getDefaultAnalysisTocButtonLabels(entries);
 
   return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+    entries.map((entry) => [
       entry.key,
       sanitizeAnalysisTocButtonLabel(source[entry.key], defaults[entry.key]),
     ]),
@@ -989,9 +1217,9 @@ function opacityToPercent(value) {
   return Math.round(sanitizeAnalysisTocColumnOpacityValue(value, ANALYSIS_TOC_DEFAULT_IDLE_OPACITY) * 100);
 }
 
-function getDefaultAnalysisTocButtonSettings() {
+function getDefaultAnalysisTocButtonSettings(entries = getAnalysisTocEntries()) {
   return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => [
+    entries.map((entry) => [
       entry.key,
       {
         side: ANALYSIS_TOC_SIDE_LEFT,
@@ -1017,14 +1245,14 @@ function sanitizeAnalysisTocButtonOffset(value) {
   );
 }
 
-function sanitizeAnalysisTocButtonSettings(rawValue) {
+function sanitizeAnalysisTocButtonSettings(rawValue, entries = getAnalysisTocEntries()) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
     : {};
-  const defaults = getDefaultAnalysisTocButtonSettings();
+  const defaults = getDefaultAnalysisTocButtonSettings(entries);
 
   return Object.fromEntries(
-    ANALYSIS_HEADING_ENTRIES.map((entry) => {
+    entries.map((entry) => {
       const rawEntry = source[entry.key] && typeof source[entry.key] === "object"
         ? source[entry.key]
         : {};
@@ -1103,31 +1331,48 @@ function sanitizeTaskTypeScopedMap(rawMap, sanitizer, fallbackValue) {
   );
 }
 
+function sanitizeTaskTypeScopedTocMap(rawMap, sanitizer, fallbackValue) {
+  const source = isPlainObject(rawMap) ? rawMap : {};
+  return Object.fromEntries(
+    getTaskTypeDefinitions().map((definition) => {
+      const entries = getAnalysisTocEntries(definition.key);
+      return [
+        definition.key,
+        sanitizer(
+          Object.prototype.hasOwnProperty.call(source, definition.key) ? source[definition.key] : fallbackValue,
+          entries,
+        ),
+      ];
+    }),
+  );
+}
+
 function getActiveTaskTypeKey() {
   return sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
 }
 
 function syncActiveTaskTypeScopedSettings() {
   const taskType = getActiveTaskTypeKey();
+  const entries = getAnalysisTocEntries(taskType);
   highlightState.taskTypeHighlightRules = {
     ...highlightState.taskTypeHighlightRules,
     [taskType]: sanitizeHighlightRules(highlightState.rules),
   };
   highlightState.taskTypeTocButtonColors = {
     ...highlightState.taskTypeTocButtonColors,
-    [taskType]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors),
+    [taskType]: sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors, entries),
   };
   highlightState.taskTypeTocButtonSettings = {
     ...highlightState.taskTypeTocButtonSettings,
-    [taskType]: sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings),
+    [taskType]: sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings, entries),
   };
   highlightState.taskTypeTocButtonLabels = {
     ...highlightState.taskTypeTocButtonLabels,
-    [taskType]: sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels),
+    [taskType]: sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels, entries),
   };
   highlightState.taskTypeTocButtonOrder = {
     ...highlightState.taskTypeTocButtonOrder,
-    [taskType]: sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder),
+    [taskType]: sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder, entries),
   };
   highlightState.taskTypeTocColumnPositions = {
     ...highlightState.taskTypeTocColumnPositions,
@@ -1145,11 +1390,12 @@ function syncActiveTaskTypeScopedSettings() {
 
 function applyActiveTaskTypeScopedSettings() {
   const taskType = getActiveTaskTypeKey();
+  const entries = getAnalysisTocEntries(taskType);
   highlightState.rules = sanitizeHighlightRules(highlightState.taskTypeHighlightRules[taskType]);
-  highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.taskTypeTocButtonColors[taskType]);
-  highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.taskTypeTocButtonSettings[taskType]);
-  highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.taskTypeTocButtonLabels[taskType]);
-  highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType]);
+  highlightState.tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.taskTypeTocButtonColors[taskType], entries);
+  highlightState.tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.taskTypeTocButtonSettings[taskType], entries);
+  highlightState.tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.taskTypeTocButtonLabels[taskType], entries);
+  highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType], entries);
   highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]);
   highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]);
   highlightState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
@@ -1163,6 +1409,7 @@ function renderActiveTaskTypeScopedSettings() {
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   clearRuleForm();
   renderHighlightRules();
+  renderCustomAnalysisTocEntryEditor();
   renderAnalysisTocSettings();
 }
 
@@ -1176,6 +1423,7 @@ function removeTaskTypeScopedSettings(taskType) {
     "taskTypeTocColumnPositions",
     "taskTypeTocColumnOpacity",
     "taskTypeLatestPromptScrollHoldSeconds",
+    "taskTypeTocEntries",
   ]) {
     const nextMap = { ...highlightState[mapKey] };
     delete nextMap[taskType];
@@ -1495,7 +1743,9 @@ function renderOcrRegionEditor(taskDefinition) {
       });
       setStatus("OCR region label changed. Save settings to apply it.");
       placeholder.textContent = getPromptPlaceholderText({ ...region, label: nextLabel });
-      renderPromptPlaceholderButtons(getTaskTypeDefinition(taskDefinition.key));
+      const nextTaskDefinition = getTaskTypeDefinition(taskDefinition.key);
+      renderRegionCoordinateEditor(nextTaskDefinition);
+      renderPromptPlaceholderButtons(nextTaskDefinition);
     });
 
     label.append(input);
@@ -1516,6 +1766,77 @@ function renderOcrRegionEditor(taskDefinition) {
     });
 
     row.append(label, placeholder, deleteButton);
+    list.append(row);
+  }
+}
+
+function getTaskRegionKindLabel(region) {
+  if (region.kind === TASK_REGION_KIND_SCREENSHOT) {
+    return "Screenshot";
+  }
+  if (region.kind === TASK_REGION_KIND_GOOGLE_RESULTS) {
+    return "Google results";
+  }
+  return "OCR";
+}
+
+function renderRegionCoordinateEditor(taskDefinition) {
+  const list = document.querySelector("#task-type-region-coordinates");
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  list.replaceChildren();
+  if (taskDefinition.regions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No regions are enabled for this task type.";
+    list.append(empty);
+    return;
+  }
+
+  for (const region of taskDefinition.regions) {
+    const row = document.createElement("div");
+    row.className = "region-coordinate-row";
+
+    const summary = document.createElement("div");
+    summary.className = "region-coordinate-summary";
+
+    const title = document.createElement("strong");
+    title.textContent = region.label;
+
+    const meta = document.createElement("span");
+    meta.className = "region-kind-pill";
+    meta.textContent = isUniversalTaskRegion(region)
+      ? `${getTaskRegionKindLabel(region)} - shared`
+      : getTaskRegionKindLabel(region);
+
+    summary.append(title, meta);
+
+    const grid = document.createElement("div");
+    grid.className = "region-coordinate-grid";
+    const bounds = getTaskRegionBounds(taskDefinition.key, region);
+    for (const coordinate of TASK_REGION_COORDINATES) {
+      const label = document.createElement("label");
+      label.textContent = coordinate.label;
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "1";
+      input.min = `${TASK_REGION_COORDINATE_MIN}`;
+      input.max = `${TASK_REGION_COORDINATE_MAX}`;
+      input.inputMode = "numeric";
+      input.value = `${bounds[coordinate.key]}`;
+      input.addEventListener("input", () => {
+        updateTaskRegionCoordinate(taskDefinition.key, region, coordinate.key, input.value);
+        setStatus(`${region.label} ${coordinate.label} changed. Save settings to apply it.`);
+      });
+
+      label.append(input);
+      grid.append(label);
+    }
+
+    row.append(summary, grid);
     list.append(row);
   }
 }
@@ -1553,6 +1874,7 @@ function renderTaskTypeConfiguration() {
   }
 
   renderOcrRegionEditor(taskDefinition);
+  renderRegionCoordinateEditor(taskDefinition);
   renderPromptPlaceholderButtons(taskDefinition);
 }
 
@@ -1613,6 +1935,10 @@ Use the screenshot and OCR text above to complete the task.`,
   highlightState.taskTypeLatestPromptScrollHoldSeconds = {
     ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
     [key]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+  };
+  highlightState.taskTypeTocEntries = {
+    ...highlightState.taskTypeTocEntries,
+    [key]: [],
   };
   applyActiveTaskTypeScopedSettings();
   highlightState.taskTypeProjectIds = {
@@ -1790,6 +2116,136 @@ function moveAnalysisTocButtonOrder(headingKey, direction) {
     preserveScroll: true,
   });
   setStatus("TOC button order changed. Save settings to apply it.");
+}
+
+function updateCustomAnalysisTocEntries(updater) {
+  if (isHardCodedAnalysisTocTaskType()) {
+    return;
+  }
+
+  syncActiveTaskTypeScopedSettings();
+  const taskType = getActiveTaskTypeKey();
+  const currentEntries = sanitizeCustomAnalysisTocEntries(highlightState.taskTypeTocEntries[taskType]);
+  const nextEntries = sanitizeCustomAnalysisTocEntries(updater(currentEntries));
+  highlightState.taskTypeTocEntries = {
+    ...highlightState.taskTypeTocEntries,
+    [taskType]: nextEntries,
+  };
+  applyActiveTaskTypeScopedSettings();
+  renderCustomAnalysisTocEntryEditor();
+  renderAnalysisTocSettings();
+}
+
+function addCustomAnalysisTocEntry() {
+  updateCustomAnalysisTocEntries((entries) => {
+    const usedKeys = new Set(entries.map((entry) => entry.key));
+    return [
+      ...entries,
+      {
+        key: makeUniqueAnalysisTocEntryKey(createAnalysisTocEntryKey("New TOC Button", "toc"), usedKeys),
+        label: "New TOC Button",
+        targetText: "Rating:",
+      },
+    ];
+  });
+  setStatus("TOC button added. Save settings to apply it.");
+}
+
+function deleteCustomAnalysisTocEntry(entryKey) {
+  const entry = getAnalysisTocEntries().find((candidate) => candidate.key === entryKey);
+  updateCustomAnalysisTocEntries((entries) => entries.filter((candidate) => candidate.key !== entryKey));
+  setStatus(`${entry?.label ?? "TOC button"} deleted. Save settings to apply it.`);
+}
+
+function renderCustomAnalysisTocEntryEditor() {
+  const panel = document.querySelector("#custom-toc-editor");
+  const list = document.querySelector("#custom-toc-entry-list");
+  const addButton = document.querySelector("#add-custom-toc-entry");
+  if (!(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) {
+    return;
+  }
+
+  const isHardCoded = isHardCodedAnalysisTocTaskType();
+  panel.hidden = false;
+  list.replaceChildren();
+  if (addButton instanceof HTMLButtonElement) {
+    addButton.hidden = isHardCoded;
+  }
+
+  if (isHardCoded) {
+    const message = document.createElement("p");
+    message.className = "empty-state";
+    message.textContent = "This task type uses the built-in Search Experience TOC targets.";
+    list.append(message);
+    return;
+  }
+
+  const entries = getAnalysisTocEntries();
+  if (entries.length === 0) {
+    const message = document.createElement("p");
+    message.className = "empty-state";
+    message.textContent = "No custom TOC buttons are configured for this task type.";
+    list.append(message);
+    return;
+  }
+
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = "custom-toc-entry-row";
+
+    const labelControl = document.createElement("label");
+    labelControl.textContent = "Button label";
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.value = entry.label;
+    labelInput.autocomplete = "off";
+    labelInput.spellcheck = false;
+    labelInput.addEventListener("input", () => {
+      const taskType = getActiveTaskTypeKey();
+      const nextLabel = labelInput.value;
+      highlightState.taskTypeTocEntries = {
+        ...highlightState.taskTypeTocEntries,
+        [taskType]: getEditableCustomAnalysisTocEntries(taskType).map((candidate) => (
+          candidate.key === entry.key ? { ...candidate, label: nextLabel } : candidate
+        )),
+      };
+      highlightState.tocButtonLabels[entry.key] = sanitizeAnalysisTocButtonLabel(nextLabel, entry.label);
+      renderAnalysisTocSettings();
+      setStatus("TOC button label changed. Save settings to apply it.");
+    });
+    labelControl.append(labelInput);
+
+    const targetControl = document.createElement("label");
+    targetControl.textContent = "Response text to find";
+    const targetInput = document.createElement("input");
+    targetInput.type = "text";
+    targetInput.value = entry.targetText;
+    targetInput.autocomplete = "off";
+    targetInput.spellcheck = false;
+    targetInput.addEventListener("input", () => {
+      const taskType = getActiveTaskTypeKey();
+      highlightState.taskTypeTocEntries = {
+        ...highlightState.taskTypeTocEntries,
+        [taskType]: getEditableCustomAnalysisTocEntries(taskType).map((candidate) => (
+          candidate.key === entry.key ? { ...candidate, targetText: targetInput.value } : candidate
+        )),
+      };
+      renderAnalysisTocSettings();
+      setStatus("TOC target text changed. Save settings to apply it.");
+    });
+    targetControl.append(targetInput);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => {
+      deleteCustomAnalysisTocEntry(entry.key);
+    });
+
+    row.append(labelControl, targetControl, deleteButton);
+    list.append(row);
+  }
 }
 
 function renderAnalysisTocSettings(options = {}) {
@@ -2074,9 +2530,17 @@ async function deleteHighlightRule(ruleId) {
 async function loadOptions() {
   const localStored = await chrome.storage.local.get({
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
+    [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: null,
+    [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: null,
   });
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+  );
+  highlightState.taskRegions = sanitizeTaskRegionsMap(
+    localStored[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS],
+  );
+  highlightState.universalRegions = sanitizeUniversalRegionsMap(
+    localStored[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS],
   );
 
   const stored = await chrome.storage.sync.get({
@@ -2103,6 +2567,7 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
   });
 
   const projectSettings = normalizeProjectSettings(
@@ -2119,27 +2584,30 @@ async function loadOptions() {
     stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS],
   );
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]);
+  highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES],
+  );
   highlightState.taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
     stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
     sanitizeHighlightRules,
     stored[STORAGE_KEY_HIGHLIGHT_RULES],
   );
-  highlightState.taskTypeTocButtonColors = sanitizeTaskTypeScopedMap(
+  highlightState.taskTypeTocButtonColors = sanitizeTaskTypeScopedTocMap(
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
     sanitizeAnalysisTocButtonColors,
     stored[STORAGE_KEY_ANALYSIS_TOC_COLORS],
   );
-  highlightState.taskTypeTocButtonSettings = sanitizeTaskTypeScopedMap(
+  highlightState.taskTypeTocButtonSettings = sanitizeTaskTypeScopedTocMap(
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS],
     sanitizeAnalysisTocButtonSettings,
     stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS],
   );
-  highlightState.taskTypeTocButtonLabels = sanitizeTaskTypeScopedMap(
+  highlightState.taskTypeTocButtonLabels = sanitizeTaskTypeScopedTocMap(
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS],
     sanitizeAnalysisTocButtonLabels,
     stored[STORAGE_KEY_ANALYSIS_TOC_LABELS],
   );
-  highlightState.taskTypeTocButtonOrder = sanitizeTaskTypeScopedMap(
+  highlightState.taskTypeTocButtonOrder = sanitizeTaskTypeScopedTocMap(
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER],
     sanitizeAnalysisTocButtonOrder,
     stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER],
@@ -2172,6 +2640,11 @@ async function saveOptions(event) {
 
   const taskTypeDefinitions = sanitizeTaskTypeDefinitions(highlightState.taskTypeDefinitions);
   highlightState.taskTypeDefinitions = taskTypeDefinitions;
+  const taskRegions = sanitizeTaskRegionsMap(highlightState.taskRegions);
+  const universalRegions = sanitizeUniversalRegionsMap(highlightState.universalRegions);
+  highlightState.taskRegions = taskRegions;
+  highlightState.universalRegions = universalRegions;
+  highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
   syncActiveTaskTypeScopedSettings();
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
@@ -2187,22 +2660,22 @@ async function saveOptions(event) {
     sanitizeHighlightRules,
     highlightState.rules,
   );
-  const taskTypeTocButtonColors = sanitizeTaskTypeScopedMap(
+  const taskTypeTocButtonColors = sanitizeTaskTypeScopedTocMap(
     highlightState.taskTypeTocButtonColors,
     sanitizeAnalysisTocButtonColors,
     tocButtonColors,
   );
-  const taskTypeTocButtonSettings = sanitizeTaskTypeScopedMap(
+  const taskTypeTocButtonSettings = sanitizeTaskTypeScopedTocMap(
     highlightState.taskTypeTocButtonSettings,
     sanitizeAnalysisTocButtonSettings,
     tocButtonSettings,
   );
-  const taskTypeTocButtonLabels = sanitizeTaskTypeScopedMap(
+  const taskTypeTocButtonLabels = sanitizeTaskTypeScopedTocMap(
     highlightState.taskTypeTocButtonLabels,
     sanitizeAnalysisTocButtonLabels,
     tocButtonLabels,
   );
-  const taskTypeTocButtonOrder = sanitizeTaskTypeScopedMap(
+  const taskTypeTocButtonOrder = sanitizeTaskTypeScopedTocMap(
     highlightState.taskTypeTocButtonOrder,
     sanitizeAnalysisTocButtonOrder,
     tocButtonOrder,
@@ -2236,6 +2709,8 @@ async function saveOptions(event) {
 
   await chrome.storage.local.set({
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: taskTypeDefinitions,
+    [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: taskRegions,
+    [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: universalRegions,
   });
 
   await chrome.storage.sync.set({
@@ -2254,6 +2729,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: taskTypeTocColumnPositions,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: taskTypeTocColumnOpacity,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: taskTypeLatestPromptScrollHoldSeconds,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: highlightState.taskTypeTocEntries,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: tocButtonSettings,
@@ -2274,6 +2750,7 @@ async function saveOptions(event) {
   highlightState.taskTypeTocColumnPositions = taskTypeTocColumnPositions;
   highlightState.taskTypeTocColumnOpacity = taskTypeTocColumnOpacity;
   highlightState.taskTypeLatestPromptScrollHoldSeconds = taskTypeLatestPromptScrollHoldSeconds;
+  highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
@@ -2310,6 +2787,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const googleResultsToggle = document.querySelector("#task-type-enable-google-results");
   const ocrToggle = document.querySelector("#task-type-enable-ocr");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
+  const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
 
   void loadOptions();
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
@@ -2366,6 +2844,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   addOcrRegionButton?.addEventListener("click", () => {
     addOcrRegionToActiveTaskType();
+  });
+  addCustomTocEntryButton?.addEventListener("click", () => {
+    addCustomAnalysisTocEntry();
   });
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();

@@ -77,6 +77,7 @@ Base everything strictly on the screenshot attachment.`;
   const LATEST_PROMPT_SCROLL_TOLERANCE_PX = 6;
   const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
   const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
+  const ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT = "customText";
   const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
   const DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR = "#2563eb";
   const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
@@ -95,6 +96,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
   const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
   const STORAGE_KEY_PROJECT_IDS = "projectIds";
   const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
   const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
@@ -112,6 +114,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
+  const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
@@ -377,6 +380,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
     },
     latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+    taskTypeTocEntries: {},
     hoveredSides: new Set(),
     collapsedSides: new Set(),
   };
@@ -429,20 +433,91 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .toLocaleLowerCase();
   }
 
-  function getDefaultAnalysisTocButtonColors() {
+  function normalizeAnalysisTargetText(value) {
+    return (typeof value === "string" ? value : "")
+      .replace(/^\s*#+\s*/, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase();
+  }
+
+  function isHardCodedAnalysisTocTaskType(taskType = serverControlMenuState.currentTaskType) {
+    return HARD_CODED_TOC_TASK_TYPE_KEYS.has(sanitizeServerControlTaskTypeKey(taskType));
+  }
+
+  function sanitizeCustomAnalysisTocEntries(rawValue) {
+    const sourceEntries = Array.isArray(rawValue) ? rawValue : [];
+    const usedKeys = new Set();
+    return sourceEntries
+      .map((entry, index) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          return null;
+        }
+
+        const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
+        const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
+        if (!targetText) {
+          return null;
+        }
+
+        const rawKey = typeof entry.key === "string" && entry.key.trim()
+          ? entry.key.trim()
+          : `custom-toc-${index + 1}`;
+        let key = rawKey;
+        let suffix = 2;
+        while (usedKeys.has(key)) {
+          key = `${rawKey}-${suffix}`;
+          suffix += 1;
+        }
+        usedKeys.add(key);
+
+        return {
+          key,
+          heading: targetText,
+          label,
+          targetText,
+          type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
+          index,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function sanitizeTaskTypeAnalysisTocEntriesMap(rawValue) {
+    const source = isPlainObject(rawValue) ? rawValue : {};
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
+      SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((definition) => [
+        definition.key,
+        isHardCodedAnalysisTocTaskType(definition.key)
+          ? []
+          : sanitizeCustomAnalysisTocEntries(source[definition.key]),
+      ]),
     );
   }
 
-  function sanitizeAnalysisTocButtonColors(rawValue) {
+  function getAnalysisTocEntries(taskType = serverControlMenuState.currentTaskType) {
+    const sanitizedTaskType = sanitizeServerControlTaskTypeKey(taskType);
+    if (isHardCodedAnalysisTocTaskType(sanitizedTaskType)) {
+      return ANALYSIS_HEADING_ENTRIES;
+    }
+
+    return sanitizeCustomAnalysisTocEntries(analysisTocState.taskTypeTocEntries[sanitizedTaskType]);
+  }
+
+  function getDefaultAnalysisTocButtonColors(entries = getAnalysisTocEntries()) {
+    return Object.fromEntries(
+      entries.map((entry) => [entry.key, DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR]),
+    );
+  }
+
+  function sanitizeAnalysisTocButtonColors(rawValue, entries = getAnalysisTocEntries()) {
     const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
       ? rawValue
       : {};
-    const defaults = getDefaultAnalysisTocButtonColors();
+    const defaults = getDefaultAnalysisTocButtonColors(entries);
 
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entries.map((entry) => [
         entry.key,
         sanitizeColor(source[entry.key], defaults[entry.key]),
       ]),
@@ -453,12 +528,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return analysisTocState.buttonColors[headingKey] ?? DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR;
   }
 
-  function getDefaultAnalysisTocButtonOrder() {
-    return ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key);
+  function getDefaultAnalysisTocButtonOrder(entries = getAnalysisTocEntries()) {
+    return entries.map((entry) => entry.key);
   }
 
-  function sanitizeAnalysisTocButtonOrder(rawValue) {
-    const defaultOrder = getDefaultAnalysisTocButtonOrder();
+  function sanitizeAnalysisTocButtonOrder(rawValue, entries = getAnalysisTocEntries()) {
+    const defaultOrder = getDefaultAnalysisTocButtonOrder(entries);
     const allowedKeys = new Set(defaultOrder);
     const seenKeys = new Set();
     const sourceOrder = Array.isArray(rawValue) ? rawValue : [];
@@ -483,19 +558,23 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function getOrderedAnalysisHeadingEntries() {
-    const entriesByKey = new Map(ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry]));
-    return sanitizeAnalysisTocButtonOrder(analysisTocState.buttonOrder)
+    const entries = getAnalysisTocEntries();
+    const entriesByKey = new Map(entries.map((entry) => [entry.key, entry]));
+    return sanitizeAnalysisTocButtonOrder(analysisTocState.buttonOrder, entries)
       .map((key) => entriesByKey.get(key))
       .filter(Boolean);
   }
 
   function getAnalysisHeadingTocEntries() {
-    return ANALYSIS_HEADING_ENTRIES.filter((entry) => entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING);
+    return getAnalysisTocEntries().filter((entry) => (
+      entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING
+      || entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT
+    ));
   }
 
-  function getDefaultAnalysisTocButtonLabels() {
+  function getDefaultAnalysisTocButtonLabels(entries = getAnalysisTocEntries()) {
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, entry.label]),
+      entries.map((entry) => [entry.key, entry.label]),
     );
   }
 
@@ -504,14 +583,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return label ? label.slice(0, 120) : fallback;
   }
 
-  function sanitizeAnalysisTocButtonLabels(rawValue) {
+  function sanitizeAnalysisTocButtonLabels(rawValue, entries = getAnalysisTocEntries()) {
     const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
       ? rawValue
       : {};
-    const defaults = getDefaultAnalysisTocButtonLabels();
+    const defaults = getDefaultAnalysisTocButtonLabels(entries);
 
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entries.map((entry) => [
         entry.key,
         sanitizeAnalysisTocButtonLabel(source[entry.key], defaults[entry.key]),
       ]),
@@ -605,9 +684,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     );
   }
 
-  function getDefaultAnalysisTocButtonSettings() {
+  function getDefaultAnalysisTocButtonSettings(entries = getAnalysisTocEntries()) {
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [
+      entries.map((entry) => [
         entry.key,
         {
           side: ANALYSIS_TOC_SIDE_LEFT,
@@ -633,14 +712,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     );
   }
 
-  function sanitizeAnalysisTocButtonSettings(rawValue) {
+  function sanitizeAnalysisTocButtonSettings(rawValue, entries = getAnalysisTocEntries()) {
     const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
       ? rawValue
       : {};
-    const defaults = getDefaultAnalysisTocButtonSettings();
+    const defaults = getDefaultAnalysisTocButtonSettings(entries);
 
     return Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => {
+      entries.map((entry) => {
         const rawEntry = source[entry.key] && typeof source[entry.key] === "object"
           ? source[entry.key]
           : {};
@@ -1499,8 +1578,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
       [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
       [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
     });
     const taskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
+    analysisTocState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES],
+    );
+    const entries = getAnalysisTocEntries(taskType);
 
     highlightState.rules = compileHighlightRules(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
@@ -1511,22 +1595,22 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
       taskType,
       stored[STORAGE_KEY_ANALYSIS_TOC_COLORS],
-    ));
+    ), entries);
     analysisTocState.buttonSettings = sanitizeAnalysisTocButtonSettings(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS],
       taskType,
       stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS],
-    ));
+    ), entries);
     analysisTocState.buttonLabels = sanitizeAnalysisTocButtonLabels(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS],
       taskType,
       stored[STORAGE_KEY_ANALYSIS_TOC_LABELS],
-    ));
+    ), entries);
     analysisTocState.buttonOrder = sanitizeAnalysisTocButtonOrder(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER],
       taskType,
       stored[STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER],
-    ));
+    ), entries);
     analysisTocState.columnPositions = sanitizeAnalysisTocColumnPositions(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS],
       taskType,
@@ -1543,6 +1627,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         taskType,
         stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
       ),
+    );
+    syncAnalysisTocButtonsForAssistantElement(
+      analysisTocState.currentAssistantElement instanceof HTMLElement
+        ? analysisTocState.currentAssistantElement
+        : getLatestAssistantMessage(),
     );
     applyAnalysisTocButtonColors();
     applyAnalysisTocButtonSettings();
@@ -1568,6 +1657,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY,
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER,
       STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES,
     ]);
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -2250,7 +2340,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function applyAnalysisTocButtonColors() {
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getAnalysisTocEntries()) {
       const button = getAnalysisTocButton(headingEntry.key);
       if (button instanceof HTMLButtonElement) {
         setAnalysisTocButtonColorVariables(button, headingEntry.key);
@@ -2302,7 +2392,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function applyAnalysisTocButtonLabels() {
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getAnalysisTocEntries()) {
       const button = getAnalysisTocButton(headingEntry.key);
       if (button instanceof HTMLButtonElement) {
         applyAnalysisTocButtonLabel(button, headingEntry.key);
@@ -2325,7 +2415,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     ensureAnalysisTocStyles();
     ensureAnalysisTocToggleButtons();
-    for (const headingEntry of getOrderedAnalysisHeadingEntries()) {
+    const orderedEntries = getOrderedAnalysisHeadingEntries();
+    const allowedKeys = new Set(orderedEntries.map((entry) => entry.key));
+    Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
+      if (
+        button instanceof HTMLButtonElement
+        && !allowedKeys.has(button.dataset.headingKey ?? "")
+      ) {
+        button.remove();
+      }
+    });
+
+    for (const headingEntry of orderedEntries) {
       if (getAnalysisTocButton(headingEntry.key) instanceof HTMLButtonElement) {
         continue;
       }
@@ -2461,7 +2562,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .local-query-bridge-server-control-content {
         height: 100%;
         display: grid;
-        grid-template-columns: minmax(160px, 0.8fr) minmax(130px, 0.65fr) minmax(360px, 1.4fr) minmax(150px, 0.7fr);
+        grid-template-columns: minmax(170px, 0.8fr) minmax(0, 3.2fr);
         align-items: stretch;
         gap: 0;
         min-height: 0;
@@ -2525,7 +2626,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       .local-query-bridge-server-control-content > .local-query-bridge-server-control-column:last-child {
         border-right: 0;
-        border-left: 1px solid rgba(51, 65, 85, 0.18);
       }
 
       .local-query-bridge-server-control-segment-bar,
@@ -2601,6 +2701,41 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .local-query-bridge-server-control-column-button {
         width: 100%;
         min-width: 0;
+      }
+
+      .local-query-bridge-server-control-action-column {
+        background: #f8fafc;
+      }
+
+      .local-query-bridge-server-control-action-grid {
+        height: 100%;
+        display: grid;
+        grid-template-columns: repeat(var(--local-query-bridge-action-count, 1), minmax(0, 1fr));
+        align-content: stretch;
+        overflow: hidden;
+      }
+
+      .local-query-bridge-server-control-action-button {
+        min-height: 0;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        border-right: 1px solid rgba(51, 65, 85, 0.16);
+        border-bottom: 0;
+        background: #ffffff;
+        font-size: 24px;
+        font-weight: 850;
+        line-height: 1.12;
+        text-align: center;
+        padding: 24px;
+      }
+
+      .local-query-bridge-server-control-action-button:last-child {
+        border-right: 0;
+      }
+
+      .local-query-bridge-server-control-action-button.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
+        box-shadow: inset 0 6px 0 #2563eb;
       }
 
       .local-query-bridge-server-control-project-account-button {
@@ -2749,6 +2884,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         .local-query-bridge-server-control-content {
           grid-template-columns: 1fr;
           overflow: auto;
+        }
+
+        .local-query-bridge-server-control-action-grid {
+          min-height: 220px;
+          grid-template-columns: 1fr;
+        }
+
+        .local-query-bridge-server-control-action-button {
+          min-height: 96px;
+          border-right: 0;
+          border-bottom: 1px solid rgba(51, 65, 85, 0.16);
+          font-size: 22px;
         }
 
         .local-query-bridge-server-control-region-cross {
@@ -3506,9 +3653,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function getServerControlMenuStatusText() {
     const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
-    const regionLabel = getSelectedServerControlRegionDefinition().label;
     const accountLabel = getServerControlProjectAccountLabel(getServerControlActiveProjectAccount());
-    return `${taskLabel} | Region: ${regionLabel} | Project: ${accountLabel}`;
+    return `${taskLabel} | Project: ${accountLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -3587,6 +3733,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const currentTaskDefinition = getCurrentServerControlTaskTypeDefinition();
     container.replaceChildren();
+    container.style.setProperty(
+      "--local-query-bridge-action-count",
+      `${Math.max(1, currentTaskDefinition.actions.length)}`,
+    );
     for (const actionKey of currentTaskDefinition.actions) {
       const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
       if (!actionDefinition) {
@@ -3594,12 +3744,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       }
 
       const button = document.createElement("button");
-      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
+      button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-action-button";
       button.type = "button";
       button.textContent = actionDefinition.label;
       button.dataset.command = actionDefinition.command;
       button.dataset.value = actionDefinition.value;
       button.dataset.controlActionKey = actionKey;
+      button.classList.toggle(
+        SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
+        serverControlMenuState.processingMode === actionKey,
+      );
       button.addEventListener("click", () => {
         void sendServerControlMenuCommand(
           { ...actionDefinition, actionKey },
@@ -3919,7 +4073,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function createServerControlTaskTypeColumn() {
-    const column = createServerControlColumn("Task types");
+    const column = createServerControlColumn("Task types", createServerControlProjectControls());
     const bar = createServerControlSegmentBar();
     bar.dataset.controlTaskTypeBar = "true";
 
@@ -3929,8 +4083,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function createServerControlActionColumn() {
     const column = createServerControlColumn("Processing");
+    column.classList.add("local-query-bridge-server-control-action-column");
     const actions = document.createElement("div");
-    actions.className = "local-query-bridge-server-control-segment-bar";
+    actions.className = "local-query-bridge-server-control-segment-bar local-query-bridge-server-control-action-grid";
     actions.dataset.controlActionColumn = "true";
     column.append(actions);
     return column;
@@ -4051,8 +4206,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     content.append(
       createServerControlTaskTypeColumn(),
       createServerControlActionColumn(),
-      createServerControlRegionPanel(),
-      createServerControlRegionPickerColumn(),
     );
 
     menu.append(createServerControlProjectPanel(), content);
@@ -4121,7 +4274,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function handleServerControlProjectStorageChange(changes, areaName) {
-    if (areaName === "local" && changes[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]) {
+    if (areaName === "local" && (
+      changes[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]
+      || changes[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]
+      || changes[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]
+    )) {
       void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       return;
     }
@@ -4268,43 +4425,130 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ));
   }
 
-  function getAnalysisHeadingCounts() {
-    const counts = Object.fromEntries(
-      ANALYSIS_HEADING_ENTRIES.map((entry) => [entry.key, 0]),
-    );
-    counts[LATEST_USER_PROMPT_TOC_KEY] = getUserMessages().length;
+  function getAnalysisTextTargetElements(assistantElement) {
+    if (!(assistantElement instanceof HTMLElement)) {
+      return [];
+    }
 
-    for (const headingElement of getAllAnalysisHeadingElements()) {
-      const headingKey = normalizeAnalysisHeadingText(headingElement.textContent ?? "");
-      if (Object.prototype.hasOwnProperty.call(counts, headingKey)) {
-        counts[headingKey] += 1;
+    const targetSelector = "h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, code, th, td, dt, dd, figcaption, div, span, strong, b";
+    return Array.from(assistantElement.querySelectorAll(targetSelector))
+      .filter((element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+
+        if (
+          element.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}, #${SERVER_CONTROL_MENU_ID}`)
+        ) {
+          return false;
+        }
+
+        if (!normalizeAnalysisTargetText(element.textContent ?? "")) {
+          return false;
+        }
+
+        if (element.getClientRects().length === 0) {
+          return false;
+        }
+
+        if ((element.tagName === "DIV" || element.tagName === "SPAN") && element.querySelector(targetSelector)) {
+          return false;
+        }
+
+        return true;
+      });
+  }
+
+  function getAllAnalysisTextTargetElements() {
+    return getAssistantMessages().flatMap((assistantElement) => (
+      getAnalysisTextTargetElements(assistantElement)
+    ));
+  }
+
+  function doesAnalysisTocEntryMatchElement(entry, element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT) {
+      const targetText = normalizeAnalysisTargetText(entry.targetText ?? entry.heading);
+      return Boolean(targetText) && normalizeAnalysisTargetText(element.textContent ?? "").includes(targetText);
+    }
+
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING) {
+      return normalizeAnalysisHeadingText(element.textContent ?? "") === entry.key;
+    }
+
+    return false;
+  }
+
+  function getAnalysisTocCandidateElements(entry, assistantElement) {
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT) {
+      return getAnalysisTextTargetElements(assistantElement);
+    }
+
+    return getAnalysisHeadingElements(assistantElement);
+  }
+
+  function getAllAnalysisTocCandidateElements(entry) {
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT) {
+      return getAllAnalysisTextTargetElements();
+    }
+
+    return getAllAnalysisHeadingElements();
+  }
+
+  function getAnalysisHeadingCounts() {
+    const entries = getAnalysisTocEntries();
+    const counts = Object.fromEntries(
+      entries.map((entry) => [entry.key, 0]),
+    );
+    if (Object.prototype.hasOwnProperty.call(counts, LATEST_USER_PROMPT_TOC_KEY)) {
+      counts[LATEST_USER_PROMPT_TOC_KEY] = getUserMessages().length;
+    }
+
+    for (const entry of entries) {
+      if (
+        entry.type !== ANALYSIS_TOC_ENTRY_TYPE_HEADING
+        && entry.type !== ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT
+      ) {
+        continue;
       }
+
+      counts[entry.key] = getAllAnalysisTocCandidateElements(entry)
+        .filter((element) => doesAnalysisTocEntryMatchElement(entry, element))
+        .length;
     }
 
     return counts;
   }
 
-  function findLatestAnalysisHeadingElement(headingKey) {
+  function findLatestAnalysisTocElement(headingKey) {
     if (headingKey === LATEST_USER_PROMPT_TOC_KEY) {
       return getLatestUserMessage();
+    }
+
+    const entry = getAnalysisTocEntries().find((candidate) => candidate.key === headingKey);
+    if (!entry) {
+      return null;
     }
 
     const preferredRoot = analysisTocState.currentAssistantElement instanceof HTMLElement
       ? analysisTocState.currentAssistantElement
       : null;
-    const preferredMatches = getAnalysisHeadingElements(preferredRoot)
-      .filter((element) => normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey);
     if (preferredRoot instanceof HTMLElement) {
+      const preferredMatches = getAnalysisTocCandidateElements(entry, preferredRoot)
+        .filter((element) => doesAnalysisTocEntryMatchElement(entry, element));
       return preferredMatches[preferredMatches.length - 1] ?? null;
     }
 
-    const matches = getAllAnalysisHeadingElements()
-      .filter((element) => normalizeAnalysisHeadingText(element.textContent ?? "") === headingKey);
+    const matches = getAllAnalysisTocCandidateElements(entry)
+      .filter((element) => doesAnalysisTocEntryMatchElement(entry, element));
     return matches[matches.length - 1] ?? null;
   }
 
   function scrollToAnalysisTocTarget(headingKey) {
-    const targetElement = findLatestAnalysisHeadingElement(headingKey);
+    const targetElement = findLatestAnalysisTocElement(headingKey);
     if (!(targetElement instanceof HTMLElement)) {
       return false;
     }
@@ -4332,7 +4576,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function getAnalysisTocTargetScrollDelta(headingKey) {
-    const targetElement = findLatestAnalysisHeadingElement(headingKey);
+    const targetElement = findLatestAnalysisTocElement(headingKey);
     if (!(targetElement instanceof HTMLElement)) {
       return null;
     }
@@ -4409,16 +4653,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
-    const headingKeys = new Set(
-      getAnalysisHeadingElements(assistantElement)
-        .map((element) => normalizeAnalysisHeadingText(element.textContent ?? ""))
-        .filter(Boolean),
-    );
-
-    for (const headingEntry of ANALYSIS_HEADING_ENTRIES) {
+    for (const headingEntry of getAnalysisTocEntries()) {
       const isActive = headingEntry.key === LATEST_USER_PROMPT_TOC_KEY
         ? getLatestUserMessage() instanceof HTMLElement
-        : headingKeys.has(headingEntry.key);
+        : getAnalysisTocCandidateElements(headingEntry, assistantElement)
+          .some((element) => doesAnalysisTocEntryMatchElement(headingEntry, element));
       setAnalysisTocButtonActive(headingEntry.key, isActive);
     }
   }

@@ -18,7 +18,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
    Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
-6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its region definitions and test buttons are relayed through the service worker and logged by the Python bridge.
+6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its task type selection and large processing buttons are relayed through the service worker and logged by the Python bridge.
 
 ## Project layout
 
@@ -96,9 +96,7 @@ Current JSON contract:
 
 The ChatGPT content script creates a half-viewport control menu when the pointer exits the webpage through the top edge into the browser chrome. The menu is arranged left to right as:
 - task type column
-- processing action column
-- coordinate cross for the selected region
-- region selection column
+- large processing action buttons filling the remaining space
 
 Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
@@ -107,6 +105,7 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable Google search results, which adds the `Google search` processing button and `Google results` region
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
 - enable OCR and add one or more OCR regions
+- edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
 - edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
 
 Prompt placeholder behavior:
@@ -118,6 +117,8 @@ Prompt placeholder behavior:
 The `Screenshot` processing button now queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button now queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `/c` endpoint still logs each control-menu command before dispatching those actions.
 
 Keyword highlight rules and Analysis TOC button settings are task-type-specific. In the options page, switching the selected task type changes the highlight/TOC settings being edited. In ChatGPT, switching the bridge control-menu task type reloads that task type's highlight rules and TOC button layout. Legacy global highlight/TOC settings are used as fallback values for task types that do not have scoped settings yet.
+
+`Search Experience to Product Usefulness` keeps its built-in Analysis TOC targets. Other task types use the custom TOC target editor in options: each entry defines a button label plus a case-insensitive response text string to find. Those custom targets are HTML-agnostic; the content script scans visible assistant response text blocks, so the target does not have to be rendered as an actual heading tag.
 
 Configured task types:
 - `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
