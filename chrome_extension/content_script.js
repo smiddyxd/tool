@@ -2705,13 +2705,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       .local-query-bridge-server-control-action-column {
         background: #f8fafc;
+        grid-template-rows: minmax(0, 1fr);
       }
 
       .local-query-bridge-server-control-action-grid {
         height: 100%;
         display: grid;
         grid-template-columns: repeat(var(--local-query-bridge-action-count, 1), minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
         align-content: stretch;
+        align-items: stretch;
         overflow: hidden;
       }
 
@@ -4082,7 +4085,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function createServerControlActionColumn() {
-    const column = createServerControlColumn("Processing");
+    const column = document.createElement("section");
+    column.className = "local-query-bridge-server-control-column";
     column.classList.add("local-query-bridge-server-control-action-column");
     const actions = document.createElement("div");
     actions.className = "local-query-bridge-server-control-segment-bar local-query-bridge-server-control-action-grid";
