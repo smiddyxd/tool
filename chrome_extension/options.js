@@ -121,6 +121,8 @@ const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeD
 const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
 const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -131,6 +133,9 @@ const TASK_REGION_COORDINATE_MAX = 100000;
 const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = 0.38;
 const SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY = 0.05;
 const SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY = 1;
+const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX = 50;
+const SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX = 0;
+const SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX = 500;
 const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
 const TASK_REGION_COORDINATES = [
   { key: "top", label: "Top Y" },
@@ -263,6 +268,8 @@ const highlightState = {
   taskRegions: {},
   universalRegions: {},
   zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+  zoneDividerTopLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+  zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -611,6 +618,18 @@ function sanitizeServerControlZoneDividerOpacity(value) {
 
 function serverControlZoneDividerOpacityToPercent(value) {
   return Math.round(sanitizeServerControlZoneDividerOpacity(value) * 100);
+}
+
+function sanitizeServerControlZoneDividerLength(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX;
+  }
+
+  return Math.min(
+    SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX,
+    Math.max(SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX, parsedValue),
+  );
 }
 
 function sanitizeTaskRegionBounds(rawValue, fallback = DEFAULT_TASK_REGION_BOUNDS) {
@@ -1881,6 +1900,39 @@ function getServerControlZoneDividerOpacityInputValue() {
   );
 }
 
+function setServerControlZoneDividerLengthInputs(topLength, bottomLength) {
+  const normalizedTopLength = sanitizeServerControlZoneDividerLength(topLength);
+  const normalizedBottomLength = sanitizeServerControlZoneDividerLength(bottomLength);
+  const topInput = document.querySelector("#server-control-zone-divider-top-length");
+  const bottomInput = document.querySelector("#server-control-zone-divider-bottom-length");
+  const topValueText = document.querySelector("#server-control-zone-divider-top-length-value");
+  const bottomValueText = document.querySelector("#server-control-zone-divider-bottom-length-value");
+
+  if (topInput instanceof HTMLInputElement) {
+    topInput.value = String(normalizedTopLength);
+  }
+  if (bottomInput instanceof HTMLInputElement) {
+    bottomInput.value = String(normalizedBottomLength);
+  }
+  if (topValueText instanceof HTMLElement) {
+    topValueText.textContent = `${normalizedTopLength}px`;
+  }
+  if (bottomValueText instanceof HTMLElement) {
+    bottomValueText.textContent = `${normalizedBottomLength}px`;
+  }
+}
+
+function getServerControlZoneDividerLengthInputValues() {
+  return {
+    topLengthPx: sanitizeServerControlZoneDividerLength(
+      document.querySelector("#server-control-zone-divider-top-length")?.value,
+    ),
+    bottomLengthPx: sanitizeServerControlZoneDividerLength(
+      document.querySelector("#server-control-zone-divider-bottom-length")?.value,
+    ),
+  };
+}
+
 function renderTaskTypeConfiguration() {
   const taskDefinition = getTaskTypeDefinition();
   const labelInput = document.querySelector("#task-type-label");
@@ -2530,12 +2582,19 @@ function getLatestPromptScrollHoldSecondsInputValue() {
 
 async function saveHighlightRules(message = "Highlight rules saved.") {
   syncActiveTaskTypeScopedSettings();
-  await chrome.storage.sync.set({
-    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: highlightState.taskTypeHighlightRules,
-    [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
-  });
   renderHighlightRules();
-  setStatus(message);
+  setStatus(`${message} Saving...`);
+
+  try {
+    await chrome.storage.sync.set({
+      [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: highlightState.taskTypeHighlightRules,
+      [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
+    });
+    setStatus(message);
+  } catch (error) {
+    console.error("Local Query Bridge failed to save highlight rules", error);
+    setStatus(`${message} The list changed here, but automatic saving failed. Try Save settings.`);
+  }
 }
 
 async function upsertHighlightRule() {
@@ -2573,6 +2632,8 @@ async function loadOptions() {
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
   });
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
@@ -2585,6 +2646,12 @@ async function loadOptions() {
   );
   highlightState.zoneDividerOpacity = sanitizeServerControlZoneDividerOpacity(
     localStored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY],
+  );
+  highlightState.zoneDividerTopLengthPx = sanitizeServerControlZoneDividerLength(
+    localStored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH],
+  );
+  highlightState.zoneDividerBottomLengthPx = sanitizeServerControlZoneDividerLength(
+    localStored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH],
   );
 
   const stored = await chrome.storage.sync.get({
@@ -2675,6 +2742,10 @@ async function loadOptions() {
 
   document.querySelector("#reset-limit").value = String(resetLimit);
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
+  setServerControlZoneDividerLengthInputs(
+    highlightState.zoneDividerTopLengthPx,
+    highlightState.zoneDividerBottomLengthPx,
+  );
   renderTaskTypeProjectIds();
   renderActiveTaskTypeScopedSettings();
 }
@@ -2688,9 +2759,12 @@ async function saveOptions(event) {
   const taskRegions = sanitizeTaskRegionsMap(highlightState.taskRegions);
   const universalRegions = sanitizeUniversalRegionsMap(highlightState.universalRegions);
   const zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
+  const zoneDividerLengths = getServerControlZoneDividerLengthInputValues();
   highlightState.taskRegions = taskRegions;
   highlightState.universalRegions = universalRegions;
   highlightState.zoneDividerOpacity = zoneDividerOpacity;
+  highlightState.zoneDividerTopLengthPx = zoneDividerLengths.topLengthPx;
+  highlightState.zoneDividerBottomLengthPx = zoneDividerLengths.bottomLengthPx;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
   syncActiveTaskTypeScopedSettings();
@@ -2759,6 +2833,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: taskRegions,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: universalRegions,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: zoneDividerOpacity,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: zoneDividerLengths.topLengthPx,
+    [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: zoneDividerLengths.bottomLengthPx,
   });
 
   await chrome.storage.sync.set({
@@ -2807,6 +2883,10 @@ async function saveOptions(event) {
   highlightState.tocColumnOpacity = tocColumnOpacity;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
+  setServerControlZoneDividerLengthInputs(
+    highlightState.zoneDividerTopLengthPx,
+    highlightState.zoneDividerBottomLengthPx,
+  );
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
@@ -2838,6 +2918,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
+  const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
+  const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
 
   void loadOptions();
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
@@ -2903,6 +2985,18 @@ document.addEventListener("DOMContentLoaded", () => {
     setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
     setStatus("Zone divider translucence changed. Save settings to apply it.");
   });
+  for (const input of [zoneDividerTopLengthInput, zoneDividerBottomLengthInput]) {
+    input?.addEventListener("input", () => {
+      const values = getServerControlZoneDividerLengthInputValues();
+      highlightState.zoneDividerTopLengthPx = values.topLengthPx;
+      highlightState.zoneDividerBottomLengthPx = values.bottomLengthPx;
+      setServerControlZoneDividerLengthInputs(
+        highlightState.zoneDividerTopLengthPx,
+        highlightState.zoneDividerBottomLengthPx,
+      );
+      setStatus("Zone divider length changed. Save settings to apply it.");
+    });
+  }
   saveRuleButton.addEventListener("click", () => {
     void upsertHighlightRule();
   });

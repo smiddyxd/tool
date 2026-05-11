@@ -108,7 +108,7 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
 - enable OCR and add one or more OCR regions
 - edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
-- set the on-screen processing-zone divider translucence
+- set the on-screen processing-zone divider translucence and separate top/bottom visible segment lengths
 - edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
 
 Prompt placeholder behavior:

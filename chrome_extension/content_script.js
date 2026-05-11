@@ -113,6 +113,9 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = 0.38;
   const SERVER_CONTROL_ZONE_DIVIDER_MIN_OPACITY = 0.05;
   const SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY = 1;
+  const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX = 50;
+  const SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX = 0;
+  const SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX = 500;
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE = "serverControlTaskType";
   const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
   const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
@@ -120,6 +123,8 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
+  const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
+  const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -408,6 +413,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     projectPickerOpen: false,
     zoneClickEnabled: false,
     zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+    zoneDividerTopLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+    zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -2773,12 +2780,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-divider {
         position: absolute;
         top: 0;
-        bottom: 0;
         width: 3px;
         transform: translateX(-50%);
         border-radius: 999px;
+        height: 100%;
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-divider-segment {
+        position: absolute;
+        right: 0;
+        left: 0;
+        border-radius: 999px;
         background: rgba(37, 99, 235, var(--local-query-bridge-zone-divider-opacity, ${DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY}));
         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42), 0 0 18px rgba(37, 99, 235, 0.24);
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-divider-segment[data-zone-divider-segment="top"] {
+        top: 0;
+        height: min(var(--local-query-bridge-zone-divider-top-length, ${DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX}px), 50%);
+      }
+
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-divider-segment[data-zone-divider-segment="bottom"] {
+        bottom: 0;
+        height: min(var(--local-query-bridge-zone-divider-bottom-length, ${DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX}px), 50%);
       }
 
       .local-query-bridge-server-control-project-account-button {
@@ -2973,6 +2997,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     );
   }
 
+  function sanitizeServerControlZoneDividerLength(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX;
+    }
+
+    return Math.min(
+      SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX,
+      Math.max(SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX, parsedValue),
+    );
+  }
+
   function getServerControlZoneOverlay() {
     const overlay = document.getElementById(SERVER_CONTROL_ZONE_OVERLAY_ID);
     return overlay instanceof HTMLElement ? overlay : null;
@@ -3020,6 +3056,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       "--local-query-bridge-zone-divider-opacity",
       `${sanitizeServerControlZoneDividerOpacity(serverControlMenuState.zoneDividerOpacity)}`,
     );
+    overlay.style.setProperty(
+      "--local-query-bridge-zone-divider-top-length",
+      `${sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerTopLengthPx)}px`,
+    );
+    overlay.style.setProperty(
+      "--local-query-bridge-zone-divider-bottom-length",
+      `${sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerBottomLengthPx)}px`,
+    );
     if (
       !serverControlMenuState.zoneClickEnabled
       || actionEntries.length <= 1
@@ -3046,6 +3090,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       const divider = document.createElement("div");
       divider.className = "local-query-bridge-server-control-zone-divider";
       divider.style.left = `${(index / actionEntries.length) * 100}%`;
+      for (const segment of ["top", "bottom"]) {
+        const segmentElement = document.createElement("div");
+        segmentElement.className = "local-query-bridge-server-control-zone-divider-segment";
+        segmentElement.dataset.zoneDividerSegment = segment;
+        divider.append(segmentElement);
+      }
       overlay.append(divider);
     }
     overlay.classList.add(SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS);
@@ -3715,6 +3765,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: sanitizeServerControlZoneDividerOpacity(
           serverControlMenuState.zoneDividerOpacity,
         ),
+        [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: sanitizeServerControlZoneDividerLength(
+          serverControlMenuState.zoneDividerTopLengthPx,
+        ),
+        [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: sanitizeServerControlZoneDividerLength(
+          serverControlMenuState.zoneDividerBottomLengthPx,
+        ),
       });
     } catch (error) {
       console.warn("Local Query Bridge failed to persist server control menu settings", error);
@@ -3731,6 +3787,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION,
         STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT,
         STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+        STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH,
+        STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
       ]);
       applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]);
 
@@ -3751,6 +3809,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         : "";
       serverControlMenuState.zoneDividerOpacity = sanitizeServerControlZoneDividerOpacity(
         stored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY],
+      );
+      serverControlMenuState.zoneDividerTopLengthPx = sanitizeServerControlZoneDividerLength(
+        stored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH],
+      );
+      serverControlMenuState.zoneDividerBottomLengthPx = sanitizeServerControlZoneDividerLength(
+        stored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH],
       );
       syncServerControlTaskTypeControls();
       syncServerControlActionControls();
@@ -4495,6 +4559,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || changes[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]
       || changes[STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]
       || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]
+      || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]
+      || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]
     )) {
       void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       return;
