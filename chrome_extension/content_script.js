@@ -1577,25 +1577,31 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   async function loadHighlightRules() {
-    const stored = await chrome.storage.sync.get({
-      [STORAGE_KEY_HIGHLIGHT_RULES]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
-      [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
-      [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
-      [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
-      [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
-      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
-    });
+    const [localStored, stored] = await Promise.all([
+      chrome.storage.local.get({
+        [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+        [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+      }),
+      chrome.storage.sync.get({
+        [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
+        [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+        [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
+        [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
+      }),
+    ]);
     const taskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
     analysisTocState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES],
@@ -1603,9 +1609,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const entries = getAnalysisTocEntries(taskType);
 
     highlightState.rules = compileHighlightRules(getTaskTypeScopedStorageValue(
-      stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
+      localStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES] ?? stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
       taskType,
-      stored[STORAGE_KEY_HIGHLIGHT_RULES],
+      localStored[STORAGE_KEY_HIGHLIGHT_RULES] ?? stored[STORAGE_KEY_HIGHLIGHT_RULES],
     ));
     analysisTocState.buttonColors = sanitizeAnalysisTocButtonColors(getTaskTypeScopedStorageValue(
       stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
@@ -1677,11 +1683,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ]);
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== "sync") {
+      if (areaName !== "sync" && areaName !== "local") {
         return;
       }
 
-      if (Object.keys(changes).some((key) => scopedSettingKeys.has(key))) {
+      if (
+        areaName === "local"
+        && !changes[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]
+        && !changes[STORAGE_KEY_HIGHLIGHT_RULES]
+      ) {
+        return;
+      }
+
+      if (areaName === "local" || Object.keys(changes).some((key) => scopedSettingKeys.has(key))) {
         void loadHighlightRules().catch((error) => {
           console.error("Local Query Bridge scoped highlight/TOC setting reload failed", error);
         });

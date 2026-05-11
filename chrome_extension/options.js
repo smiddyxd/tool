@@ -2586,10 +2586,14 @@ async function saveHighlightRules(message = "Highlight rules saved.") {
   setStatus(`${message} Saving...`);
 
   try {
-    await chrome.storage.sync.set({
+    await chrome.storage.local.set({
       [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: highlightState.taskTypeHighlightRules,
       [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     });
+    await chrome.storage.sync.remove([
+      STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+      STORAGE_KEY_HIGHLIGHT_RULES,
+    ]);
     setStatus(message);
   } catch (error) {
     console.error("Local Query Bridge failed to save highlight rules", error);
@@ -2634,6 +2638,8 @@ async function loadOptions() {
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+    [STORAGE_KEY_HIGHLIGHT_RULES]: null,
   });
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
@@ -2699,9 +2705,9 @@ async function loadOptions() {
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES],
   );
   highlightState.taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
-    stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
+    localStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES] ?? stored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES],
     sanitizeHighlightRules,
-    stored[STORAGE_KEY_HIGHLIGHT_RULES],
+    localStored[STORAGE_KEY_HIGHLIGHT_RULES] ?? stored[STORAGE_KEY_HIGHLIGHT_RULES],
   );
   highlightState.taskTypeTocButtonColors = sanitizeTaskTypeScopedTocMap(
     stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS],
@@ -2835,6 +2841,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: zoneDividerOpacity,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: zoneDividerLengths.topLengthPx,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: zoneDividerLengths.bottomLengthPx,
+    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: taskTypeHighlightRules,
+    [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
   });
 
   await chrome.storage.sync.set({
@@ -2845,7 +2853,6 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
-    [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: taskTypeHighlightRules,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: taskTypeTocButtonColors,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: taskTypeTocButtonSettings,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: taskTypeTocButtonLabels,
@@ -2854,7 +2861,6 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: taskTypeTocColumnOpacity,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: taskTypeLatestPromptScrollHoldSeconds,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: highlightState.taskTypeTocEntries,
-    [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: tocButtonSettings,
     [STORAGE_KEY_ANALYSIS_TOC_LABELS]: tocButtonLabels,
@@ -2863,6 +2869,10 @@ async function saveOptions(event) {
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: tocColumnOpacity,
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
   });
+  await chrome.storage.sync.remove([
+    STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+    STORAGE_KEY_HIGHLIGHT_RULES,
+  ]);
 
   highlightState.taskTypeProjectIds = taskTypeProjectIds;
   highlightState.taskTypeActiveProjectAccounts = taskTypeActiveProjectAccounts;
