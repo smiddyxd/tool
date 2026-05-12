@@ -1601,7 +1601,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     addButton.className = "local-query-bridge-highlight-selection-add";
     addButton.textContent = "Add";
     addButton.addEventListener("click", () => {
-      void saveHighlightSelectionEditorLine();
+      void saveHighlightSelectionEditorLine({ closeOnSuccess: true });
     });
     actionRow.append(closeButton, addButton);
 
@@ -1787,7 +1787,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     setHighlightSelectionEditorStatus("Marker changed.");
   }
 
-  async function saveHighlightSelectionEditorLine() {
+  async function saveHighlightSelectionEditorLine(options = {}) {
     const input = getHighlightSelectionEditorInput();
     if (!(input instanceof HTMLInputElement)) {
       return;
@@ -1870,7 +1870,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           ? "That line is already saved for this rule."
           : `Added to ${rule.label} as ${highlightSelectionEditorState.mode === "match" ? "a matched string" : "an adjacent term"}.`,
       );
-      input.focus();
+      if (options.closeOnSuccess) {
+        hideHighlightSelectionEditor();
+      } else {
+        input.focus();
+      }
       scheduleHighlightPass();
     } catch (error) {
       console.error("Local Query Bridge failed to save selected highlight text", error);
