@@ -447,16 +447,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     lastCommand: "",
   };
 
-  const serverControlZonePointerState = {
-    button: null,
-    startX: 0,
-    startY: 0,
-    downInZone: false,
-    downExcluded: false,
-    hadSelectionOnPointerDown: false,
-    validStationaryClick: false,
-  };
-
   const MANUAL_SCROLL_KEYS = new Set([
     "ArrowUp",
     "ArrowDown",
@@ -4008,15 +3998,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return actionEntries[zoneIndex] ?? null;
   }
 
-  function getSelectedTextForServerControlZone() {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
-      return "";
-    }
-
-    return selection.toString().trim();
-  }
-
   function isServerControlZoneExcludedTarget(target) {
     if (!(target instanceof HTMLElement)) {
       return false;
@@ -4036,51 +4017,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
-    const excluded = isServerControlZoneExcludedTarget(event.target);
-    const downInZone = !excluded && Boolean(getServerControlZoneActionForPoint(event.clientX, event.clientY));
-    serverControlZonePointerState.button = event.button;
-    serverControlZonePointerState.startX = event.clientX;
-    serverControlZonePointerState.startY = event.clientY;
-    serverControlZonePointerState.downInZone = downInZone;
-    serverControlZonePointerState.downExcluded = excluded;
-    serverControlZonePointerState.hadSelectionOnPointerDown = Boolean(getSelectedTextForServerControlZone());
-    serverControlZonePointerState.validStationaryClick = false;
-
-    if (downInZone && event.button !== 0) {
+    if (
+      event.button === 2
+      && !isServerControlZoneExcludedTarget(event.target)
+      && getServerControlZoneActionForPoint(event.clientX, event.clientY)
+    ) {
       setServerControlZoneClickEnabled(false);
     }
-  }
-
-  function handleServerControlZonePointerUp(event) {
-    if (!(event instanceof MouseEvent)) {
-      return;
-    }
-
-    const excluded = isServerControlZoneExcludedTarget(event.target);
-    const upInZone = !excluded && Boolean(getServerControlZoneActionForPoint(event.clientX, event.clientY));
-    const interactionInZone = serverControlZonePointerState.downInZone || upInZone;
-    serverControlZonePointerState.validStationaryClick = false;
-    if (!interactionInZone) {
-      return;
-    }
-
-    const isStationaryLeftClick = serverControlZonePointerState.button === 0
-      && event.button === 0
-      && serverControlZonePointerState.startX === event.clientX
-      && serverControlZonePointerState.startY === event.clientY
-      && serverControlZonePointerState.downInZone
-      && upInZone
-      && !serverControlZonePointerState.downExcluded
-      && !excluded
-      && !serverControlZonePointerState.hadSelectionOnPointerDown
-      && !getSelectedTextForServerControlZone();
-
-    if (isStationaryLeftClick) {
-      serverControlZonePointerState.validStationaryClick = true;
-      return;
-    }
-
-    setServerControlZoneClickEnabled(false);
   }
 
   function shouldIgnoreServerControlZoneClick(event) {
@@ -4089,17 +4032,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     if (!serverControlMenuState.zoneClickEnabled) {
-      return true;
-    }
-
-    if (!serverControlZonePointerState.validStationaryClick) {
-      return true;
-    }
-
-    if (
-      serverControlZonePointerState.startX !== event.clientX
-      || serverControlZonePointerState.startY !== event.clientY
-    ) {
       return true;
     }
 
@@ -4112,8 +4044,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     const actionEntry = getServerControlZoneActionForPoint(event.clientX, event.clientY);
-    serverControlZonePointerState.button = null;
-    serverControlZonePointerState.validStationaryClick = false;
     if (!actionEntry) {
       return;
     }
@@ -5552,10 +5482,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     chrome.storage.onChanged.addListener(handleServerControlProjectStorageChange);
     document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
     document.addEventListener("pointerdown", handleServerControlZonePointerDown, {
-      capture: true,
-      passive: true,
-    });
-    document.addEventListener("pointerup", handleServerControlZonePointerUp, {
       capture: true,
       passive: true,
     });
