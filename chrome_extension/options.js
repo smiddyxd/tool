@@ -1265,6 +1265,7 @@ function getDefaultAnalysisTocButtonSettings(entries = getAnalysisTocEntries()) 
       {
         side: ANALYSIS_TOC_SIDE_LEFT,
         offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+        caseSensitive: false,
       },
     ]),
   );
@@ -1286,6 +1287,10 @@ function sanitizeAnalysisTocButtonOffset(value) {
   );
 }
 
+function sanitizeAnalysisTocButtonCaseSensitive(value) {
+  return value === true;
+}
+
 function sanitizeAnalysisTocButtonSettings(rawValue, entries = getAnalysisTocEntries()) {
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue
@@ -1304,6 +1309,7 @@ function sanitizeAnalysisTocButtonSettings(rawValue, entries = getAnalysisTocEnt
         {
           side: sanitizeAnalysisTocButtonSide(rawEntry.side ?? defaultEntry.side),
           offsetPx: sanitizeAnalysisTocButtonOffset(rawEntry.offsetPx ?? defaultEntry.offsetPx),
+          caseSensitive: sanitizeAnalysisTocButtonCaseSensitive(rawEntry.caseSensitive ?? defaultEntry.caseSensitive),
         },
       ];
     }),
@@ -2362,6 +2368,7 @@ function renderAnalysisTocSettings(options = {}) {
     const settings = highlightState.tocButtonSettings[headingEntry.key] ?? {
       side: ANALYSIS_TOC_SIDE_LEFT,
       offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+      caseSensitive: false,
     };
     const row = document.createElement("div");
     row.className = "toc-settings-row";
@@ -2469,6 +2476,7 @@ function renderAnalysisTocSettings(options = {}) {
         ...currentSettings,
         side: sanitizeAnalysisTocButtonSide(sideSelect.value),
         offsetPx: sanitizeAnalysisTocButtonOffset(currentSettings.offsetPx),
+        caseSensitive: sanitizeAnalysisTocButtonCaseSensitive(currentSettings.caseSensitive),
       };
     });
 
@@ -2494,6 +2502,7 @@ function renderAnalysisTocSettings(options = {}) {
         ...currentSettings,
         side: sanitizeAnalysisTocButtonSide(currentSettings.side),
         offsetPx: sanitizeAnalysisTocButtonOffset(offsetInput.value),
+        caseSensitive: sanitizeAnalysisTocButtonCaseSensitive(currentSettings.caseSensitive),
       };
     });
     offsetInput.addEventListener("blur", () => {
@@ -2507,9 +2516,37 @@ function renderAnalysisTocSettings(options = {}) {
     offsetLabelText.textContent = "Offset px";
     offsetLabel.append(offsetLabelText, offsetInput);
 
+    const caseSensitiveInput = document.createElement("input");
+    caseSensitiveInput.id = `analysis-toc-case-sensitive-${headingEntry.index}`;
+    caseSensitiveInput.type = "checkbox";
+    caseSensitiveInput.dataset.headingKey = headingEntry.key;
+    caseSensitiveInput.checked = sanitizeAnalysisTocButtonCaseSensitive(settings.caseSensitive);
+    caseSensitiveInput.addEventListener("change", () => {
+      const currentSettings = highlightState.tocButtonSettings[headingEntry.key] ?? {};
+      highlightState.tocButtonSettings[headingEntry.key] = {
+        ...currentSettings,
+        side: sanitizeAnalysisTocButtonSide(currentSettings.side),
+        offsetPx: sanitizeAnalysisTocButtonOffset(currentSettings.offsetPx),
+        caseSensitive: caseSensitiveInput.checked,
+      };
+      setStatus("TOC case sensitivity changed. Save settings to apply it.");
+    });
+
+    const caseSensitiveControl = document.createElement("label");
+    caseSensitiveControl.className = "toc-control";
+    caseSensitiveControl.htmlFor = caseSensitiveInput.id;
+    const caseSensitiveLabelText = document.createElement("span");
+    caseSensitiveLabelText.textContent = "Case";
+    const caseSensitiveInline = document.createElement("span");
+    caseSensitiveInline.className = "toc-inline-checkbox";
+    const caseSensitiveText = document.createElement("span");
+    caseSensitiveText.textContent = "Sensitive";
+    caseSensitiveInline.append(caseSensitiveInput, caseSensitiveText);
+    caseSensitiveControl.append(caseSensitiveLabelText, caseSensitiveInline);
+
     const controls = document.createElement("span");
     controls.className = "toc-settings-controls";
-    controls.append(colorLabel, sideLabel, offsetLabel);
+    controls.append(colorLabel, sideLabel, offsetLabel, caseSensitiveControl);
 
     row.append(reorderActions, labelInput, controls);
     list.append(row);

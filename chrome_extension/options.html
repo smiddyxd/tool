@@ -527,7 +527,7 @@
 
     .toc-settings-controls {
       display: grid;
-      grid-template-columns: minmax(0, 220px) minmax(0, 120px) minmax(0, 120px);
+      grid-template-columns: minmax(0, 220px) minmax(0, 120px) minmax(0, 120px) minmax(0, 120px);
       gap: 10px;
       align-items: end;
     }
@@ -544,6 +544,20 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .toc-inline-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      font-weight: 650;
+    }
+
+    .toc-inline-checkbox input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
     }
 
     .rule-row {
@@ -816,7 +830,7 @@
       <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">These buttons are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, column position, idle opacity, and latest prompt re-check window.</p>
+          <p class="hint">These buttons are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, case sensitivity, column position, idle opacity, and latest prompt re-check window.</p>
         </div>
 
         <div id="custom-toc-editor" class="custom-toc-editor">
@@ -824,7 +838,7 @@
             <h3>Custom TOC targets</h3>
             <button id="add-custom-toc-entry" type="button">Add TOC button</button>
           </div>
-          <p class="hint">For non-hardcoded task types, each button jumps to the latest assistant response line or block containing the target text, regardless of whether it is rendered as a heading.</p>
+          <p class="hint">For non-hardcoded task types, each button jumps to the latest assistant response line or block containing the target text, regardless of whether it is rendered as a heading. Target matching is case-insensitive unless the button's Case toggle is enabled.</p>
           <div id="custom-toc-entry-list" class="custom-toc-entry-list"></div>
         </div>
 

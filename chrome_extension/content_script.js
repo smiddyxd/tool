@@ -438,23 +438,23 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     index,
   }));
 
-  function normalizeAnalysisHeadingText(value) {
-    return (typeof value === "string" ? value : "")
+  function normalizeAnalysisHeadingText(value, options = {}) {
+    const normalizedText = (typeof value === "string" ? value : "")
       .replace(/^\s*#+\s*/, "")
       .replace(/^\s*(?:(?:\(?\d+[.)]|\(?[a-z][.)]|\(?[ivxlcdm]+[.)])\s*)+/i, "")
       .replace(/\([^)]*\)/g, "")
       .replace(/\s+/g, " ")
       .replace(/[:.]+$/g, "")
-      .trim()
-      .toLocaleLowerCase();
+      .trim();
+    return options.caseSensitive === true ? normalizedText : normalizedText.toLocaleLowerCase();
   }
 
-  function normalizeAnalysisTargetText(value) {
-    return (typeof value === "string" ? value : "")
+  function normalizeAnalysisTargetText(value, options = {}) {
+    const normalizedText = (typeof value === "string" ? value : "")
       .replace(/^\s*#+\s*/, "")
       .replace(/\s+/g, " ")
-      .trim()
-      .toLocaleLowerCase();
+      .trim();
+    return options.caseSensitive === true ? normalizedText : normalizedText.toLocaleLowerCase();
   }
 
   function isHardCodedAnalysisTocTaskType(taskType = serverControlMenuState.currentTaskType) {
@@ -707,6 +707,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         {
           side: ANALYSIS_TOC_SIDE_LEFT,
           offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+          caseSensitive: false,
         },
       ]),
     );
@@ -746,6 +747,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           {
             side: sanitizeAnalysisTocButtonSide(rawEntry.side ?? defaultEntry.side),
             offsetPx: sanitizeAnalysisTocButtonOffset(rawEntry.offsetPx ?? defaultEntry.offsetPx),
+            caseSensitive: rawEntry.caseSensitive === true,
           },
         ];
       }),
@@ -756,6 +758,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return analysisTocState.buttonSettings[headingKey] ?? {
       side: ANALYSIS_TOC_SIDE_LEFT,
       offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+      caseSensitive: false,
     };
   }
 
@@ -4773,12 +4776,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return false;
     }
 
+    const settings = getAnalysisTocButtonSettings(entry.key);
+    const normalizeOptions = { caseSensitive: settings.caseSensitive === true };
+
     if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT) {
-      const targetText = normalizeAnalysisTargetText(entry.targetText ?? entry.heading);
-      return Boolean(targetText) && normalizeAnalysisTargetText(element.textContent ?? "").includes(targetText);
+      const targetText = normalizeAnalysisTargetText(entry.targetText ?? entry.heading, normalizeOptions);
+      return Boolean(targetText) && normalizeAnalysisTargetText(element.textContent ?? "", normalizeOptions).includes(targetText);
     }
 
     if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING) {
+      if (settings.caseSensitive === true) {
+        return normalizeAnalysisHeadingText(element.textContent ?? "", normalizeOptions)
+          === normalizeAnalysisHeadingText(entry.heading, normalizeOptions);
+      }
+
       return normalizeAnalysisHeadingText(element.textContent ?? "") === entry.key;
     }
 
