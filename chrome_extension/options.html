@@ -481,6 +481,7 @@
     }
 
     .toc-copy-row,
+    .toc-column-copy-row,
     .rule-copy-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -490,6 +491,10 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       background: #ffffff;
+    }
+
+    .toc-column-copy-row {
+      grid-column: 1 / -1;
     }
 
     .toc-column-position-grid {
@@ -631,6 +636,7 @@
       .region-coordinate-grid,
       .custom-toc-entry-row,
       .toc-copy-row,
+      .toc-column-copy-row,
       .rule-copy-row,
       .toc-column-position-grid,
       .toc-settings-row,
@@ -862,6 +868,14 @@
         </div>
 
         <div class="toc-column-position-grid" aria-label="TOC column position, opacity, and scale">
+          <div class="toc-column-copy-row">
+            <label for="analysis-toc-column-settings-copy-source">
+              Copy column controls from
+              <select id="analysis-toc-column-settings-copy-source"></select>
+            </label>
+            <button id="copy-analysis-toc-column-settings" type="button">Copy</button>
+          </div>
+
           <label for="analysis-toc-left-x">
             Left column x
             <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">

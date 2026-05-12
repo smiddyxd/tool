@@ -1553,10 +1553,91 @@ function renderActiveTaskTypeScopedSettings() {
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
+  renderAnalysisTocColumnSettingsCopyControl();
   clearRuleForm();
   renderHighlightRules();
   renderCustomAnalysisTocEntryEditor();
   renderAnalysisTocSettings();
+}
+
+function getAnalysisTocColumnSettings(taskType) {
+  return {
+    positions: sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]),
+    opacity: sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]),
+    scale: sanitizeAnalysisTocColumnScale(highlightState.taskTypeTocColumnScale[taskType]),
+    latestPromptScrollHoldSeconds: sanitizeLatestPromptScrollHoldSeconds(
+      highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
+    ),
+  };
+}
+
+function setActiveAnalysisTocColumnSettings(settings) {
+  const taskType = getActiveTaskTypeKey();
+  const positions = sanitizeAnalysisTocColumnPositions(settings?.positions);
+  const opacity = sanitizeAnalysisTocColumnOpacity(settings?.opacity);
+  const scale = sanitizeAnalysisTocColumnScale(settings?.scale);
+  const latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
+    settings?.latestPromptScrollHoldSeconds,
+  );
+
+  highlightState.tocColumnPositions = positions;
+  highlightState.tocColumnOpacity = opacity;
+  highlightState.tocColumnScale = scale;
+  highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
+  highlightState.taskTypeTocColumnPositions = {
+    ...highlightState.taskTypeTocColumnPositions,
+    [taskType]: positions,
+  };
+  highlightState.taskTypeTocColumnOpacity = {
+    ...highlightState.taskTypeTocColumnOpacity,
+    [taskType]: opacity,
+  };
+  highlightState.taskTypeTocColumnScale = {
+    ...highlightState.taskTypeTocColumnScale,
+    [taskType]: scale,
+  };
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
+    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
+    [taskType]: latestPromptScrollHoldSeconds,
+  };
+
+  setAnalysisTocColumnPositionInputs(positions);
+  setAnalysisTocColumnOpacityInputs(opacity);
+  setAnalysisTocColumnScaleInputs(scale);
+  setLatestPromptScrollHoldSecondsInput(latestPromptScrollHoldSeconds);
+}
+
+function copyAnalysisTocColumnSettingsFromTaskType(sourceTaskType) {
+  const targetTaskType = getActiveTaskTypeKey();
+  const sourceDefinition = getTaskTypeDefinitions().find((definition) => definition.key === sourceTaskType);
+  if (!sourceDefinition || sourceDefinition.key === targetTaskType) {
+    setStatus("Choose another task type to copy column controls from.");
+    return;
+  }
+
+  syncActiveTaskTypeScopedSettings();
+  setActiveAnalysisTocColumnSettings(getAnalysisTocColumnSettings(sourceDefinition.key));
+  renderAnalysisTocColumnSettingsCopyControl();
+  setStatus(`Copied TOC column controls from ${sourceDefinition.label}. Save settings to apply it.`);
+}
+
+function renderAnalysisTocColumnSettingsCopyControl() {
+  const select = document.querySelector("#analysis-toc-column-settings-copy-source");
+  const button = document.querySelector("#copy-analysis-toc-column-settings");
+  if (!(select instanceof HTMLSelectElement) || !(button instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const activeTaskType = getActiveTaskTypeKey();
+  const sourceDefinitions = getTaskTypeDefinitions().filter((definition) => definition.key !== activeTaskType);
+  select.replaceChildren(new Option("Choose a task type", ""));
+  for (const definition of sourceDefinitions) {
+    select.append(new Option(definition.label, definition.key));
+  }
+
+  select.value = "";
+  select.disabled = sourceDefinitions.length === 0;
+  button.disabled = true;
 }
 
 function removeTaskTypeScopedSettings(taskType) {
@@ -3414,6 +3495,7 @@ async function saveOptions(event) {
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
+  renderAnalysisTocColumnSettingsCopyControl();
   renderAnalysisTocSettings();
   setStatus("Settings saved.");
 }
@@ -3448,6 +3530,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#analysis-toc-left-opacity"),
     document.querySelector("#analysis-toc-right-opacity"),
   ];
+  const tocColumnSettingsCopySource = document.querySelector("#analysis-toc-column-settings-copy-source");
+  const copyTocColumnSettingsButton = document.querySelector("#copy-analysis-toc-column-settings");
   const tocLeftScaleInput = document.querySelector("#analysis-toc-left-scale");
   const tocRightScaleInput = document.querySelector("#analysis-toc-right-scale");
   const latestPromptScrollHoldInput = document.querySelector("#latest-prompt-scroll-hold-seconds");
@@ -3538,6 +3622,18 @@ document.addEventListener("DOMContentLoaded", () => {
       setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
     });
   }
+  tocColumnSettingsCopySource?.addEventListener("change", () => {
+    if (copyTocColumnSettingsButton instanceof HTMLButtonElement) {
+      copyTocColumnSettingsButton.disabled = !(tocColumnSettingsCopySource instanceof HTMLSelectElement && tocColumnSettingsCopySource.value);
+    }
+  });
+  copyTocColumnSettingsButton?.addEventListener("click", () => {
+    if (!(tocColumnSettingsCopySource instanceof HTMLSelectElement) || !tocColumnSettingsCopySource.value) {
+      return;
+    }
+
+    copyAnalysisTocColumnSettingsFromTaskType(tocColumnSettingsCopySource.value);
+  });
   for (const input of [tocLeftScaleInput, tocRightScaleInput]) {
     input?.addEventListener("input", () => {
       highlightState.tocColumnScale = getAnalysisTocColumnScaleInputValues();
