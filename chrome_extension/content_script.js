@@ -396,6 +396,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     rangeRect: null,
     updateTimerId: null,
     suppressUntil: 0,
+    primaryPointerDown: false,
   };
 
   const analysisTocState = {
@@ -1797,7 +1798,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function scheduleHighlightSelectionEditorUpdate() {
-    if (Date.now() < highlightSelectionEditorState.suppressUntil) {
+    if (
+      Date.now() < highlightSelectionEditorState.suppressUntil
+      || highlightSelectionEditorState.primaryPointerDown
+    ) {
       return;
     }
 
@@ -1808,6 +1812,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     highlightSelectionEditorState.updateTimerId = window.setTimeout(() => {
       highlightSelectionEditorState.updateTimerId = null;
       if (Date.now() < highlightSelectionEditorState.suppressUntil) {
+        return;
+      }
+
+      if (highlightSelectionEditorState.primaryPointerDown) {
         return;
       }
 
@@ -1824,6 +1832,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       showHighlightSelectionEditor(selectionDetails);
     }, 80);
+  }
+
+  function handleHighlightSelectionPointerDown(event) {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest(`#${HIGHLIGHT_SELECTION_EDITOR_ID}`)) {
+      return;
+    }
+
+    if (event.button === 0) {
+      highlightSelectionEditorState.primaryPointerDown = true;
+      if (highlightSelectionEditorState.updateTimerId !== null) {
+        window.clearTimeout(highlightSelectionEditorState.updateTimerId);
+        highlightSelectionEditorState.updateTimerId = null;
+      }
+    }
+  }
+
+  function handleHighlightSelectionPointerRelease() {
+    if (!highlightSelectionEditorState.primaryPointerDown) {
+      return;
+    }
+
+    highlightSelectionEditorState.primaryPointerDown = false;
+    scheduleHighlightSelectionEditorUpdate();
   }
 
   function deleteHighlightSelectionEditorInputText() {
@@ -1988,15 +2020,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const attach = () => {
       ensureHighlightSelectionEditorStyles();
       document.addEventListener("selectionchange", scheduleHighlightSelectionEditorUpdate);
-      document.addEventListener("mouseup", scheduleHighlightSelectionEditorUpdate, true);
+      document.addEventListener("mouseup", handleHighlightSelectionPointerRelease, true);
       document.addEventListener("keyup", scheduleHighlightSelectionEditorUpdate, true);
-      document.addEventListener("pointerdown", (event) => {
-        const target = event.target;
-        if (target instanceof HTMLElement && target.closest(`#${HIGHLIGHT_SELECTION_EDITOR_ID}`)) {
-          return;
-        }
-        window.setTimeout(scheduleHighlightSelectionEditorUpdate, 0);
-      }, true);
+      document.addEventListener("pointerdown", handleHighlightSelectionPointerDown, true);
+      window.addEventListener("pointerup", handleHighlightSelectionPointerRelease, true);
+      window.addEventListener("pointercancel", handleHighlightSelectionPointerRelease, true);
+      window.addEventListener("blur", handleHighlightSelectionPointerRelease);
       window.addEventListener("resize", scheduleHighlightSelectionEditorUpdate, { passive: true });
       document.addEventListener("scroll", scheduleHighlightSelectionEditorUpdate, {
         capture: true,
