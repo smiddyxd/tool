@@ -771,7 +771,7 @@ async function ensureContentScript(tabId) {
   });
 }
 
-async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText) {
+async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskType) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -779,18 +779,20 @@ async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText) {
     imageDataUrls,
     taskCount,
     promptText,
+    taskType,
   });
 
   return response?.ok === true;
 }
 
-async function sendTextPromptToChatGpt(tabId, taskCount, promptText) {
+async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
     type: CONTENT_SCRIPT_SUBMIT_TEXT_TYPE,
     taskCount,
     promptText,
+    taskType,
   });
 
   return response?.ok === true;
@@ -838,13 +840,14 @@ async function queueRepeatScreenshot(tabId, imageDataUrls, taskCount) {
   return response?.ok === true;
 }
 
-async function submitRepeatDraft(tabId, taskCount, promptText) {
+async function submitRepeatDraft(tabId, taskCount, promptText, taskType) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
     type: CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE,
     taskCount,
     promptText,
+    taskType,
   });
 
   return response?.ok === true;
@@ -894,7 +897,8 @@ async function handleActionClick(tab) {
   });
 }
 
-async function assignPromptTargets(baseTabs, promptTexts, logLabel) {
+async function assignPromptTargets(baseTabs, promptTexts, logLabel, taskType) {
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
   const promptCount = Math.max(1, Array.isArray(promptTexts) && promptTexts.length > 0 ? promptTexts.length : 1);
   const slotMap = await getTabPromptSlots();
   let slotMapChanged = false;
@@ -977,6 +981,7 @@ async function assignPromptTargets(baseTabs, promptTexts, logLabel) {
     targets.push({
       tabId: tab.id,
       promptText: selectPromptForIndex(promptTexts, slot),
+      taskType: sanitizedTaskType,
     });
   }
 
@@ -1039,7 +1044,7 @@ async function buildSubmissionTargets(promptTexts) {
     }
   }
 
-  return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved submission targets");
+  return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved submission targets", settings.activeBridgeTaskType);
 }
 
 async function buildRepeatTargets(promptTexts) {
@@ -1053,7 +1058,7 @@ async function buildRepeatTargets(promptTexts) {
     }
   }
 
-  return assignPromptTargets(baseTabs, promptTexts, "Local Query Bridge resolved repeat targets");
+  return assignPromptTargets(baseTabs, promptTexts, "Local Query Bridge resolved repeat targets", settings.activeBridgeTaskType);
 }
 
 async function buildAlertTargets(alertTexts) {
@@ -1071,6 +1076,7 @@ async function buildAlertTargets(alertTexts) {
   return [{
     tabId: tab.id,
     promptText: selectPromptForIndex(alertTexts, 0),
+    taskType: settings.activeBridgeTaskType,
   }];
 }
 
@@ -1088,6 +1094,7 @@ async function validateSubmissionTargets(targets) {
         validTargets.push({
           tabId: tab.id,
           promptText: typeof target.promptText === "string" ? target.promptText : "",
+          taskType: sanitizeBridgeTaskType(target.taskType ?? settings.activeBridgeTaskType),
         });
       }
     } catch (_error) {
@@ -1142,8 +1149,8 @@ async function deliverPendingSubmission() {
       isAlertSubmission
         ? showAlertInChatGpt(target.tabId, taskCount, target.promptText)
         : isTextSubmission
-        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText)
-        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText)
+        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText, target.taskType)
+        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText, target.taskType)
     )),
   );
 
@@ -1523,7 +1530,7 @@ async function handleRepeatConfirmRequest() {
   state.pendingRepeatDraft.targets = validTargets;
   const { taskCount, targets } = state.pendingRepeatDraft;
   const results = await Promise.allSettled(
-    targets.map((target) => submitRepeatDraft(target.tabId, taskCount, target.promptText)),
+    targets.map((target) => submitRepeatDraft(target.tabId, taskCount, target.promptText, target.taskType)),
   );
 
   const failedTargets = [];

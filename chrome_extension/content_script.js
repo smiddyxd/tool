@@ -261,6 +261,7 @@ Base everything strictly on the screenshot attachment.`;
       label: "Search Experience to Product Usefulness",
       regions: ["query", "productCard", "productDescription", "googleResults", SERVER_CONTROL_REGION_DEFAULT_KEY],
       actions: ["ocr", "screenshot", "googleSearch"],
+      requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
 
 Query: [query]
@@ -275,6 +276,7 @@ Use the screenshot and any OCR text above to judge how useful the product is for
       label: "Get Rich Quick",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
+      requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
 Full task OCR: [full task ocr]
@@ -286,6 +288,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       label: "Video Games",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
+      requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Video Games task.
 
 Full task OCR: [full task ocr]
@@ -297,6 +300,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       label: "Weight Loss",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
       actions: ["ocr", "screenshot"],
+      requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
 Full task OCR: [full task ocr]
@@ -308,6 +312,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ...definition,
     regions: [...definition.regions],
     actions: [...definition.actions],
+    requireWebSearchChip: definition.requireWebSearchChip !== false,
   }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
@@ -2072,6 +2077,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     markWebSearchEnsured();
   }
 
+  async function ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount) {
+    const sanitizedTaskTypeKey = sanitizeServerControlTaskTypeKey(taskTypeKey);
+    if (!doesServerControlTaskTypeRequireWebSearchChip(sanitizedTaskTypeKey)) {
+      console.log("Local Query Bridge skipping web search requirement", {
+        taskCount,
+        taskType: sanitizedTaskTypeKey,
+      });
+      return;
+    }
+
+    await ensureWebSearchEnabled();
+  }
+
   async function attachScreenshotFiles(files, editor) {
     for (const file of files) {
       const attachmentInput = await waitForOptionalElement(ATTACHMENT_INPUT_SELECTOR, ATTACHMENT_INPUT_WAIT_TIMEOUT_MS);
@@ -3314,6 +3332,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       });
   }
 
+  function normalizeServerControlRequireWebSearchChip(value) {
+    return value !== false;
+  }
+
   function ensureServerControlTaskDefinitionFeatures(taskDefinition, regionDefinitionsByKey) {
     const actions = new Set(normalizeServerControlActionKeys(taskDefinition.actions));
     const regions = taskDefinition.regions.filter((regionKey) => {
@@ -3405,6 +3427,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         label,
         regions,
         actions: normalizeServerControlActionKeys(rawDefinition.actions),
+        requireWebSearchChip: normalizeServerControlRequireWebSearchChip(rawDefinition.requireWebSearchChip),
         boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
           ? rawDefinition.boilerplatePrompt.trim()
           : "",
@@ -3438,6 +3461,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function getCurrentServerControlTaskTypeDefinition() {
     return getServerControlTaskTypeDefinition(serverControlMenuState.currentTaskType);
+  }
+
+  function doesServerControlTaskTypeRequireWebSearchChip(taskTypeKey = serverControlMenuState.currentTaskType) {
+    return getServerControlTaskTypeDefinition(sanitizeServerControlTaskTypeKey(taskTypeKey))?.requireWebSearchChip !== false;
   }
 
   function getTaskRegionDefinitions(taskTypeKey = serverControlMenuState.currentTaskType) {
@@ -5301,7 +5328,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
   }
 
-  async function submitPromptOnly(taskCount, promptText) {
+  async function submitPromptOnly(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
     console.log("Local Query Bridge received prompt-only submit request", {
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
@@ -5310,15 +5337,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       ? promptText
       : prepareServerControlBoilerplatePromptForSubmission();
 
-    await ensureWebSearchEnabled();
+    await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     editor.focus();
     populatePromptEditor(editor, prompt);
     await clickSendWhenReady(taskCount);
   }
 
-  async function submitRepeatDraft(taskCount, promptText) {
-    await submitPromptOnly(taskCount, promptText);
+  async function submitRepeatDraft(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
+    await submitPromptOnly(taskCount, promptText, taskTypeKey);
   }
 
   function showNativeAlert(taskCount, alertText) {
@@ -5328,7 +5355,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     window.alert(normalizedAlertText);
   }
 
-  async function submitScreenshot(imageDataUrls, taskCount, promptText) {
+  async function submitScreenshot(imageDataUrls, taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
     console.log("Local Query Bridge received submit request", {
       taskCount,
@@ -5342,12 +5369,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       ? promptText
       : prepareServerControlBoilerplatePromptForSubmission();
 
-    console.log("Local Query Bridge ensuring web search before inserting prompt", {
+    console.log("Local Query Bridge checking web search requirement before inserting prompt", {
       taskCount,
+      taskType: taskTypeKey,
       promptSettleMs: PROMPT_SETTLE_MS,
       screenshotCount: screenshotFiles.length,
     });
-    await ensureWebSearchEnabled();
+    await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     editor.focus();
     populatePromptEditor(editor, prompt);
@@ -5423,6 +5451,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       void submitRepeatDraft(
         message.taskCount ?? 0,
         typeof message.promptText === "string" ? message.promptText : "",
+        typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
       ).catch((error) => {
         console.error("Local Query Bridge repeat draft submit failed", error);
       });
@@ -5439,6 +5468,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       void submitPromptOnly(
         message.taskCount ?? 0,
         typeof message.promptText === "string" ? message.promptText : "",
+        typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
       ).catch((error) => {
         console.error("Local Query Bridge text prompt submit failed", error);
       });
@@ -5482,6 +5512,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       imageDataUrls,
       message.taskCount ?? 0,
       typeof message.promptText === "string" ? message.promptText : "",
+      typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
     ).catch((error) => {
       console.error("Local Query Bridge submit failed", error);
     });

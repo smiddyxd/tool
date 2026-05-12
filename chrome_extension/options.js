@@ -178,6 +178,7 @@ const DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS = [
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH],
+    requireWebSearchChip: true,
     regions: [
       { key: "query", label: "Query", kind: TASK_REGION_KIND_OCR },
       { key: "productCard", label: "Product card", kind: TASK_REGION_KIND_OCR },
@@ -198,6 +199,7 @@ Use the screenshot and any OCR text above to judge how useful the product is for
     key: "get-rich-quick",
     label: "Get Rich Quick",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
@@ -212,6 +214,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     key: "video-games",
     label: "Video Games",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
@@ -226,6 +229,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     key: "weight-loss",
     label: "Weight Loss",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
@@ -378,6 +382,7 @@ function sanitizeProjectIds(rawValue, fallbackProjectId = DEFAULT_PROJECT_ID) {
 function cloneTaskTypeDefinitions(definitions = DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS) {
   return definitions.map((definition) => ({
     ...definition,
+    requireWebSearchChip: definition.requireWebSearchChip !== false,
     actions: Array.isArray(definition.actions) ? [...definition.actions] : [],
     regions: Array.isArray(definition.regions)
       ? definition.regions.map((region) => ({ ...region }))
@@ -427,6 +432,10 @@ function normalizeTaskActionKeys(rawValue) {
       seenKeys.add(value);
       return true;
     });
+}
+
+function normalizeTaskRequireWebSearchChip(value) {
+  return value !== false;
 }
 
 function normalizeTaskRegionKind(value) {
@@ -565,6 +574,7 @@ function sanitizeTaskTypeDefinitions(rawValue) {
       key,
       label,
       actions: normalizeTaskActionKeys(rawDefinition.actions),
+      requireWebSearchChip: normalizeTaskRequireWebSearchChip(rawDefinition.requireWebSearchChip),
       regions,
       boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
         ? rawDefinition.boilerplatePrompt.trim()
@@ -1676,7 +1686,12 @@ function syncTaskTypeDefinitionEditorValues() {
   const activeTaskType = highlightState.activeBridgeTaskType;
   const labelInput = document.querySelector("#task-type-label");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
-  if (!(labelInput instanceof HTMLInputElement) && !(promptInput instanceof HTMLTextAreaElement)) {
+  const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
+  if (
+    !(labelInput instanceof HTMLInputElement)
+    && !(promptInput instanceof HTMLTextAreaElement)
+    && !(requireSearchChipInput instanceof HTMLInputElement)
+  ) {
     return;
   }
 
@@ -1690,6 +1705,9 @@ function syncTaskTypeDefinitionEditorValues() {
       label: labelInput instanceof HTMLInputElement
         ? labelInput.value
         : definition.label,
+      requireWebSearchChip: requireSearchChipInput instanceof HTMLInputElement
+        ? requireSearchChipInput.checked
+        : normalizeTaskRequireWebSearchChip(definition.requireWebSearchChip),
       boilerplatePrompt: promptInput instanceof HTMLTextAreaElement
         ? promptInput.value
         : definition.boilerplatePrompt,
@@ -1947,6 +1965,7 @@ function renderTaskTypeConfiguration() {
   const screenshotInput = document.querySelector("#task-type-enable-screenshot");
   const googleInput = document.querySelector("#task-type-enable-google-results");
   const ocrInput = document.querySelector("#task-type-enable-ocr");
+  const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
   if (labelInput instanceof HTMLInputElement) {
@@ -1966,6 +1985,9 @@ function renderTaskTypeConfiguration() {
   }
   if (ocrInput instanceof HTMLInputElement) {
     ocrInput.checked = taskDefinition.actions.includes(TASK_ACTION_OCR);
+  }
+  if (requireSearchChipInput instanceof HTMLInputElement) {
+    requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
   }
   if (deleteButton instanceof HTMLButtonElement) {
     deleteButton.disabled = getTaskTypeDefinitions().length <= 1;
@@ -2962,6 +2984,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const screenshotToggle = document.querySelector("#task-type-enable-screenshot");
   const googleResultsToggle = document.querySelector("#task-type-enable-google-results");
   const ocrToggle = document.querySelector("#task-type-enable-ocr");
+  const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
@@ -2996,6 +3019,10 @@ document.addEventListener("DOMContentLoaded", () => {
   taskTypePromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Boilerplate prompt changed. Save settings to apply it.");
+  });
+  requireSearchChipToggle?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Search chip requirement changed. Save settings to apply it.");
   });
   screenshotToggle?.addEventListener("change", () => {
     updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(

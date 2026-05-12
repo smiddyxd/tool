@@ -107,6 +107,7 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable Google search results, which adds the `Google search` processing button and `Google results` region
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
 - enable OCR and add one or more OCR regions
+- toggle whether the ChatGPT `Search` chip must be present before the prompt is inserted
 - edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
 - set the on-screen processing-zone divider translucence and separate top/bottom visible segment lengths
 - edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
