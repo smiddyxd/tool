@@ -1667,21 +1667,53 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return offset - wordStartOffset;
   }
 
-  function expandRangeStartForPartialFirstWord(range) {
-    const startNode = range.startContainer;
-    if (startNode?.nodeType !== Node.TEXT_NODE) {
-      return { range, expanded: false };
+  function getTrailingPartialWordSuffixLength(text, offset) {
+    if (
+      typeof text !== "string"
+      || offset <= 0
+      || offset >= text.length
+      || !isHighlightWordCharacter(text.charAt(offset - 1))
+      || !isHighlightWordCharacter(text.charAt(offset))
+    ) {
+      return 0;
     }
 
-    const text = startNode.nodeValue ?? "";
-    const prefixLength = getLeadingPartialWordPrefixLength(text, range.startOffset);
-    if (prefixLength <= 0) {
-      return { range, expanded: false };
+    let wordEndOffset = offset;
+    while (
+      wordEndOffset < text.length
+      && isHighlightWordCharacter(text.charAt(wordEndOffset))
+    ) {
+      wordEndOffset += 1;
     }
 
+    return wordEndOffset - offset;
+  }
+
+  function expandRangeForPartialBoundaryWords(range) {
     const expandedRange = range.cloneRange();
-    expandedRange.setStart(startNode, range.startOffset - prefixLength);
-    return { range: expandedRange, expanded: true };
+    let expanded = false;
+
+    const startNode = range.startContainer;
+    if (startNode?.nodeType === Node.TEXT_NODE) {
+      const startText = startNode.nodeValue ?? "";
+      const prefixLength = getLeadingPartialWordPrefixLength(startText, range.startOffset);
+      if (prefixLength > 0) {
+        expandedRange.setStart(startNode, range.startOffset - prefixLength);
+        expanded = true;
+      }
+    }
+
+    const endNode = range.endContainer;
+    if (endNode?.nodeType === Node.TEXT_NODE) {
+      const endText = endNode.nodeValue ?? "";
+      const suffixLength = getTrailingPartialWordSuffixLength(endText, range.endOffset);
+      if (suffixLength > 0) {
+        expandedRange.setEnd(endNode, range.endOffset + suffixLength);
+        expanded = true;
+      }
+    }
+
+    return { range: expandedRange, expanded };
   }
 
   function getCurrentHighlightTextSelection() {
@@ -1702,7 +1734,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return null;
     }
 
-    const { range, expanded } = expandRangeStartForPartialFirstWord(initialRange);
+    const { range, expanded } = expandRangeForPartialBoundaryWords(initialRange);
     if (expanded) {
       selection.removeAllRanges();
       selection.addRange(range);
