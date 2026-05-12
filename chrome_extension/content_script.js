@@ -64,6 +64,9 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_DEFAULT_IDLE_OPACITY = 1;
   const ANALYSIS_TOC_MIN_IDLE_OPACITY = 0.05;
   const ANALYSIS_TOC_MAX_IDLE_OPACITY = 1;
+  const ANALYSIS_TOC_DEFAULT_COLUMN_SCALE = 1;
+  const ANALYSIS_TOC_MIN_COLUMN_SCALE = 0.5;
+  const ANALYSIS_TOC_MAX_COLUMN_SCALE = 2.5;
   const ANALYSIS_TOC_SIDE_LEFT = "left";
   const ANALYSIS_TOC_SIDE_RIGHT = "right";
   const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
@@ -85,6 +88,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
   const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
+  const STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE = "analysisTocColumnScale";
   const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
   const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
   const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
@@ -94,6 +98,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS = "taskTypeAnalysisTocButtonLabels";
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisTocColumnPositions";
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
+  const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE = "taskTypeAnalysisTocColumnScale";
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
   const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
   const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
@@ -395,6 +400,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     columnOpacity: {
       [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
       [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+    },
+    columnScale: {
+      [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+      [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
     },
     latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
     taskTypeTocEntries: {},
@@ -717,6 +726,52 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return sanitizeAnalysisTocColumnOpacityValue(
       columnOpacity[side],
       ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+    );
+  }
+
+  function getDefaultAnalysisTocColumnScale() {
+    return {
+      [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+      [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+    };
+  }
+
+  function sanitizeAnalysisTocColumnScaleValue(value, fallback) {
+    const parsedValue = Number.parseFloat(`${value}`);
+    if (!Number.isFinite(parsedValue)) {
+      return fallback;
+    }
+
+    const normalizedValue = parsedValue > 10 ? parsedValue / 100 : parsedValue;
+    return Math.min(
+      ANALYSIS_TOC_MAX_COLUMN_SCALE,
+      Math.max(ANALYSIS_TOC_MIN_COLUMN_SCALE, normalizedValue),
+    );
+  }
+
+  function sanitizeAnalysisTocColumnScale(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    const defaults = getDefaultAnalysisTocColumnScale();
+
+    return {
+      [ANALYSIS_TOC_SIDE_LEFT]: sanitizeAnalysisTocColumnScaleValue(
+        source[ANALYSIS_TOC_SIDE_LEFT],
+        defaults[ANALYSIS_TOC_SIDE_LEFT],
+      ),
+      [ANALYSIS_TOC_SIDE_RIGHT]: sanitizeAnalysisTocColumnScaleValue(
+        source[ANALYSIS_TOC_SIDE_RIGHT],
+        defaults[ANALYSIS_TOC_SIDE_RIGHT],
+      ),
+    };
+  }
+
+  function getAnalysisTocColumnScale(side) {
+    const columnScale = analysisTocState.columnScale ?? getDefaultAnalysisTocColumnScale();
+    return sanitizeAnalysisTocColumnScaleValue(
+      columnScale[side],
+      ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
     );
   }
 
@@ -1612,6 +1667,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
         [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
         [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+        [STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE]: null,
         [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
         [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
         [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
@@ -1620,6 +1676,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
         [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
         [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+        [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE]: null,
         [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
         [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
         [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
@@ -1666,6 +1723,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       taskType,
       stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY],
     ));
+    analysisTocState.columnScale = sanitizeAnalysisTocColumnScale(getTaskTypeScopedStorageValue(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE],
+      taskType,
+      stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE],
+    ));
     analysisTocState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
       getTaskTypeScopedStorageValue(
         stored[STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
@@ -1692,6 +1754,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       STORAGE_KEY_ANALYSIS_TOC_LABELS,
       STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS,
       STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY,
+      STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE,
       STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER,
       STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
       STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
@@ -1700,6 +1763,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS,
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY,
+      STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE,
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER,
       STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
       STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES,
@@ -2171,7 +2235,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         position: fixed;
         left: ${ANALYSIS_TOC_DEFAULT_LEFT_X_PX}px;
         z-index: 2147483647;
-        transform: translateY(-50%);
+        transform: translateY(-50%) scale(var(--local-query-bridge-analysis-toc-scale, 1));
         max-width: 220px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2184,7 +2248,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         cursor: pointer;
         font: 650 12px/1.2 "Segoe UI", system-ui, sans-serif;
         padding: 6px 9px;
-        transition: opacity 120ms ease, filter 120ms ease, background-color 120ms ease;
+        transition: opacity 120ms ease, filter 120ms ease, background-color 120ms ease, transform 120ms ease;
       }
 
       .${ANALYSIS_TOC_BUTTON_CLASS}:hover {
@@ -2211,7 +2275,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         position: fixed;
         left: ${ANALYSIS_TOC_DEFAULT_LEFT_X_PX}px;
         z-index: 2147483647;
-        transform: translateY(-50%);
+        transform: translateY(-50%) scale(var(--local-query-bridge-analysis-toc-scale, 1));
         width: 26px;
         height: 24px;
         border: 1px solid rgba(15, 23, 42, 0.2);
@@ -2222,7 +2286,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         cursor: pointer;
         font: 800 12px/1 "Segoe UI", system-ui, sans-serif;
         padding: 0;
-        transition: opacity 120ms ease, background-color 120ms ease;
+        transition: opacity 120ms ease, background-color 120ms ease, transform 120ms ease;
       }
 
       .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}:hover {
@@ -2360,6 +2424,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function applyAnalysisTocColumnSidePosition(element, side) {
     const columnPositions = getAnalysisTocColumnPositions();
     element.dataset.tocSide = side;
+    element.style.setProperty("--local-query-bridge-analysis-toc-scale", String(getAnalysisTocColumnScale(side)));
+    element.style.transformOrigin = side === ANALYSIS_TOC_SIDE_RIGHT ? "right center" : "left center";
     bindAnalysisTocColumnHover(element);
     if (side === ANALYSIS_TOC_SIDE_RIGHT) {
       element.style.left = "auto";
@@ -2430,7 +2496,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       const toggleButton = getAnalysisTocToggleButton(side);
       const isCollapsed = isAnalysisTocSideCollapsed(side);
       const buttonMidpoint = (entries.length - 1) / 2;
-      const toggleOffsetPx = -(buttonMidpoint + 1) * ANALYSIS_TOC_GAP_PX;
+      const scaledGapPx = ANALYSIS_TOC_GAP_PX * getAnalysisTocColumnScale(side);
+      const toggleOffsetPx = -(buttonMidpoint + 1) * scaledGapPx;
 
       if (toggleButton instanceof HTMLButtonElement) {
         applyAnalysisTocToggleButtonState(
@@ -2448,7 +2515,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           applyAnalysisTocButtonPlacement(
             button,
             headingEntry.key,
-            (groupIndex - buttonMidpoint) * ANALYSIS_TOC_GAP_PX,
+            (groupIndex - buttonMidpoint) * scaledGapPx,
           );
         }
       });
@@ -5051,8 +5118,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     window.scrollBy({ top: offsetPx, left: 0, behavior: "auto" });
   }
 
-  async function watchResponseGenerationAndHeadings(runId, baselineAssistantCount) {
+  async function watchResponseGenerationAndHeadings(runId, baselineAssistantCount, options = {}) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
+    const allowLatestPromptRecheck = options.allowLatestPromptRecheck === true;
     let sawGenerating = false;
     let scrolledToLatestPrompt = false;
     let latestPromptScrollHoldUntil = 0;
@@ -5062,6 +5130,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     console.log("Local Query Bridge watching response generation", {
       runId,
       baselineAssistantCount,
+      allowLatestPromptRecheck,
     });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
       const currentAssistantElement = getCurrentAssistantMessageForRun(baselineAssistantCount);
@@ -5077,7 +5146,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         if (!scrolledToLatestPrompt) {
           scrolledToLatestPrompt = true;
           const didScroll = scrollToAnalysisTocTarget(LATEST_USER_PROMPT_TOC_KEY);
-          const holdMs = getLatestPromptScrollHoldMs();
+          const holdMs = allowLatestPromptRecheck ? getLatestPromptScrollHoldMs() : 0;
           if (didScroll && holdMs > 0) {
             latestPromptScrollHoldUntil = now + holdMs;
             nextLatestPromptScrollCheckAt = now + LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS;
@@ -5086,6 +5155,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           console.log("Local Query Bridge latest prompt generation-start jump", {
             runId,
             didScroll,
+            allowLatestPromptRecheck,
             holdSeconds: holdMs / 1000,
           });
         }
@@ -5127,14 +5197,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
-  function startAutoScrollWatch() {
+  function startAutoScrollWatch(options = {}) {
     autoScrollState.runId += 1;
     autoScrollState.userScrolled = false;
     const runId = autoScrollState.runId;
     const baselineAssistantCount = getAssistantMessages().length;
     const baselineHeadingCounts = getAnalysisHeadingCounts();
     resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts);
-    void watchResponseGenerationAndHeadings(runId, baselineAssistantCount);
+    void watchResponseGenerationAndHeadings(runId, baselineAssistantCount, {
+      allowLatestPromptRecheck: options.allowLatestPromptRecheck === true,
+    });
   }
 
   window.addEventListener("wheel", () => {
@@ -5297,7 +5369,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ensureScrollLoop();
   }
 
-  async function clickSendWhenReady(taskCount) {
+  async function clickSendWhenReady(taskCount, options = {}) {
+    const allowLatestPromptRecheck = options.allowLatestPromptRecheck !== false;
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
     console.log("Local Query Bridge waiting before send", {
       promptSettleMs: PROMPT_SETTLE_MS,
@@ -5314,7 +5387,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
-        startAutoScrollWatch();
+        startAutoScrollWatch({ allowLatestPromptRecheck });
         return;
       }
 
@@ -5343,7 +5416,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
   }
 
-  async function submitPromptOnly(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
+  async function submitPromptOnly(
+    taskCount,
+    promptText,
+    taskTypeKey = serverControlMenuState.currentTaskType,
+    options = {},
+  ) {
     console.log("Local Query Bridge received prompt-only submit request", {
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
@@ -5356,11 +5434,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     editor.focus();
     populatePromptEditor(editor, prompt);
-    await clickSendWhenReady(taskCount);
+    await clickSendWhenReady(taskCount, {
+      allowLatestPromptRecheck: options.allowLatestPromptRecheck !== false,
+    });
   }
 
   async function submitRepeatDraft(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
-    await submitPromptOnly(taskCount, promptText, taskTypeKey);
+    await submitPromptOnly(taskCount, promptText, taskTypeKey, {
+      allowLatestPromptRecheck: false,
+    });
   }
 
   function showNativeAlert(taskCount, alertText) {
@@ -5412,7 +5494,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
-        startAutoScrollWatch();
+        startAutoScrollWatch({ allowLatestPromptRecheck: false });
         return;
       }
 

@@ -48,6 +48,9 @@ const ANALYSIS_TOC_MAX_COLUMN_POSITION_PX = 5000;
 const ANALYSIS_TOC_DEFAULT_IDLE_OPACITY = 1;
 const ANALYSIS_TOC_MIN_IDLE_OPACITY = 0.05;
 const ANALYSIS_TOC_MAX_IDLE_OPACITY = 1;
+const ANALYSIS_TOC_DEFAULT_COLUMN_SCALE = 1;
+const ANALYSIS_TOC_MIN_COLUMN_SCALE = 0.5;
+const ANALYSIS_TOC_MAX_COLUMN_SCALE = 2.5;
 const ANALYSIS_TOC_SIDE_LEFT = "left";
 const ANALYSIS_TOC_SIDE_RIGHT = "right";
 const ANALYSIS_TOC_ALLOWED_SIDES = new Set([ANALYSIS_TOC_SIDE_LEFT, ANALYSIS_TOC_SIDE_RIGHT]);
@@ -107,6 +110,7 @@ const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
 const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
 const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
+const STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE = "analysisTocColumnScale";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
 const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
 const STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES = "taskTypeHighlightRules";
@@ -115,6 +119,7 @@ const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS = "taskTypeAnalysisTocB
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS = "taskTypeAnalysisTocButtonLabels";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisTocColumnPositions";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE = "taskTypeAnalysisTocColumnScale";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
 const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
@@ -264,6 +269,7 @@ const highlightState = {
   taskTypeTocButtonOrder: {},
   taskTypeTocColumnPositions: {},
   taskTypeTocColumnOpacity: {},
+  taskTypeTocColumnScale: {},
   taskTypeLatestPromptScrollHoldSeconds: {},
   taskTypeTocEntries: {},
   activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
@@ -286,6 +292,10 @@ const highlightState = {
   tocColumnOpacity: {
     [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
     [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_IDLE_OPACITY,
+  },
+  tocColumnScale: {
+    [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+    [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
   },
   latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
 };
@@ -1299,6 +1309,48 @@ function opacityToPercent(value) {
   return Math.round(sanitizeAnalysisTocColumnOpacityValue(value, ANALYSIS_TOC_DEFAULT_IDLE_OPACITY) * 100);
 }
 
+function getDefaultAnalysisTocColumnScale() {
+  return {
+    [ANALYSIS_TOC_SIDE_LEFT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+    [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
+  };
+}
+
+function sanitizeAnalysisTocColumnScaleValue(value, fallback) {
+  const parsedValue = Number.parseFloat(`${value}`);
+  if (!Number.isFinite(parsedValue)) {
+    return fallback;
+  }
+
+  const normalizedValue = parsedValue > 10 ? parsedValue / 100 : parsedValue;
+  return Math.min(
+    ANALYSIS_TOC_MAX_COLUMN_SCALE,
+    Math.max(ANALYSIS_TOC_MIN_COLUMN_SCALE, normalizedValue),
+  );
+}
+
+function sanitizeAnalysisTocColumnScale(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const defaults = getDefaultAnalysisTocColumnScale();
+
+  return {
+    [ANALYSIS_TOC_SIDE_LEFT]: sanitizeAnalysisTocColumnScaleValue(
+      source[ANALYSIS_TOC_SIDE_LEFT],
+      defaults[ANALYSIS_TOC_SIDE_LEFT],
+    ),
+    [ANALYSIS_TOC_SIDE_RIGHT]: sanitizeAnalysisTocColumnScaleValue(
+      source[ANALYSIS_TOC_SIDE_RIGHT],
+      defaults[ANALYSIS_TOC_SIDE_RIGHT],
+    ),
+  };
+}
+
+function scaleToPercent(value) {
+  return Math.round(sanitizeAnalysisTocColumnScaleValue(value, ANALYSIS_TOC_DEFAULT_COLUMN_SCALE) * 100);
+}
+
 function getDefaultAnalysisTocButtonSettings(entries = getAnalysisTocEntries()) {
   return Object.fromEntries(
     entries.map((entry) => [
@@ -1470,6 +1522,10 @@ function syncActiveTaskTypeScopedSettings() {
     ...highlightState.taskTypeTocColumnOpacity,
     [taskType]: getAnalysisTocColumnOpacityInputValues(),
   };
+  highlightState.taskTypeTocColumnScale = {
+    ...highlightState.taskTypeTocColumnScale,
+    [taskType]: getAnalysisTocColumnScaleInputValues(),
+  };
   highlightState.taskTypeLatestPromptScrollHoldSeconds = {
     ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
     [taskType]: getLatestPromptScrollHoldSecondsInputValue(),
@@ -1486,6 +1542,7 @@ function applyActiveTaskTypeScopedSettings() {
   highlightState.tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType], entries);
   highlightState.tocColumnPositions = sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]);
   highlightState.tocColumnOpacity = sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]);
+  highlightState.tocColumnScale = sanitizeAnalysisTocColumnScale(highlightState.taskTypeTocColumnScale[taskType]);
   highlightState.latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
     highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
   );
@@ -1494,6 +1551,7 @@ function applyActiveTaskTypeScopedSettings() {
 function renderActiveTaskTypeScopedSettings() {
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   clearRuleForm();
   renderHighlightRules();
@@ -1510,6 +1568,7 @@ function removeTaskTypeScopedSettings(taskType) {
     "taskTypeTocButtonOrder",
     "taskTypeTocColumnPositions",
     "taskTypeTocColumnOpacity",
+    "taskTypeTocColumnScale",
     "taskTypeLatestPromptScrollHoldSeconds",
     "taskTypeTocEntries",
   ]) {
@@ -2083,6 +2142,10 @@ Use the screenshot and OCR text above to complete the task.`,
     ...highlightState.taskTypeTocColumnOpacity,
     [key]: getDefaultAnalysisTocColumnOpacity(),
   };
+  highlightState.taskTypeTocColumnScale = {
+    ...highlightState.taskTypeTocColumnScale,
+    [key]: getDefaultAnalysisTocColumnScale(),
+  };
   highlightState.taskTypeLatestPromptScrollHoldSeconds = {
     ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
     [key]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
@@ -2200,6 +2263,7 @@ function renderHighlightRules() {
     emptyMessage.className = "empty-state";
     emptyMessage.textContent = "No highlight rules are configured.";
     list.append(emptyMessage);
+    renderHighlightRuleCopyControl(list);
     return;
   }
 
@@ -2249,6 +2313,96 @@ function renderHighlightRules() {
     item.append(swatch, body, actions);
     list.append(item);
   }
+}
+
+function copyHighlightRule(rule) {
+  return {
+    ...rule,
+    id: createRuleId(),
+    matchStrings: Array.isArray(rule.matchStrings) ? [...rule.matchStrings] : [],
+    companionWords: Array.isArray(rule.companionWords) ? [...rule.companionWords] : [],
+  };
+}
+
+function getCopyableHighlightRules(taskType) {
+  return sanitizeHighlightRules(highlightState.taskTypeHighlightRules[taskType]);
+}
+
+function getHighlightRuleCopySourceDefinitions(targetTaskType = getActiveTaskTypeKey()) {
+  return getTaskTypeDefinitions().filter((definition) => (
+    definition.key !== targetTaskType
+    && getCopyableHighlightRules(definition.key).length > 0
+  ));
+}
+
+function copyHighlightRulesFromTaskType(sourceTaskType) {
+  const targetTaskType = getActiveTaskTypeKey();
+  if (highlightState.rules.length > 0) {
+    setStatus("This task type already has highlight rules.");
+    return;
+  }
+
+  const sourceDefinition = getTaskTypeDefinition(sourceTaskType);
+  if (!sourceDefinition || sourceDefinition.key === targetTaskType) {
+    setStatus("Choose another task type with highlight rules.");
+    return;
+  }
+
+  const copiedRules = getCopyableHighlightRules(sourceDefinition.key).map(copyHighlightRule);
+  if (copiedRules.length === 0) {
+    setStatus(`${sourceDefinition.label} has no highlight rules to copy.`);
+    return;
+  }
+
+  highlightState.rules = copiedRules;
+  highlightState.taskTypeHighlightRules = {
+    ...highlightState.taskTypeHighlightRules,
+    [targetTaskType]: copiedRules,
+  };
+  clearRuleForm();
+  void saveHighlightRules(
+    `Copied ${copiedRules.length} highlight rule${copiedRules.length === 1 ? "" : "s"} from ${sourceDefinition.label}.`,
+  );
+}
+
+function renderHighlightRuleCopyControl(list) {
+  const targetTaskType = getActiveTaskTypeKey();
+  const sourceDefinitions = getHighlightRuleCopySourceDefinitions(targetTaskType);
+  if (sourceDefinitions.length === 0) {
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "rule-copy-row";
+
+  const label = document.createElement("label");
+  label.textContent = "Copy highlight rules from";
+
+  const select = document.createElement("select");
+  select.append(new Option("Choose a task type", ""));
+  for (const definition of sourceDefinitions) {
+    const count = getCopyableHighlightRules(definition.key).length;
+    select.append(new Option(`${definition.label} (${count})`, definition.key));
+  }
+  label.append(select);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Copy";
+  button.disabled = true;
+  select.addEventListener("change", () => {
+    button.disabled = !select.value;
+  });
+  button.addEventListener("click", () => {
+    if (!select.value) {
+      return;
+    }
+
+    copyHighlightRulesFromTaskType(select.value);
+  });
+
+  row.append(label, button);
+  list.append(row);
 }
 
 function moveAnalysisTocButtonOrder(headingKey, direction) {
@@ -2311,6 +2465,7 @@ function getSourceAnalysisTocState(taskType) {
     order: sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType], entries),
     columnPositions: sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]),
     columnOpacity: sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]),
+    columnScale: sanitizeAnalysisTocColumnScale(highlightState.taskTypeTocColumnScale[taskType]),
     latestPromptScrollHoldSeconds: sanitizeLatestPromptScrollHoldSeconds(
       highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
     ),
@@ -2448,6 +2603,10 @@ function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
     ...highlightState.taskTypeTocColumnOpacity,
     [targetTaskType]: source.columnOpacity,
   };
+  highlightState.taskTypeTocColumnScale = {
+    ...highlightState.taskTypeTocColumnScale,
+    [targetTaskType]: source.columnScale,
+  };
   highlightState.taskTypeLatestPromptScrollHoldSeconds = {
     ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
     [targetTaskType]: source.latestPromptScrollHoldSeconds,
@@ -2458,6 +2617,7 @@ function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
   renderAnalysisTocSettings();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   setStatus(`Copied ${entries.length} TOC button${entries.length === 1 ? "" : "s"} from ${sourceDefinition.label}. Save settings to apply it.`);
 }
@@ -2881,6 +3041,26 @@ function getAnalysisTocColumnOpacityInputValues() {
   });
 }
 
+function setAnalysisTocColumnScaleInputs(scale) {
+  const normalizedScale = sanitizeAnalysisTocColumnScale(scale);
+  const leftInput = document.querySelector("#analysis-toc-left-scale");
+  const rightInput = document.querySelector("#analysis-toc-right-scale");
+  if (leftInput instanceof HTMLInputElement) {
+    leftInput.value = String(scaleToPercent(normalizedScale[ANALYSIS_TOC_SIDE_LEFT]));
+  }
+
+  if (rightInput instanceof HTMLInputElement) {
+    rightInput.value = String(scaleToPercent(normalizedScale[ANALYSIS_TOC_SIDE_RIGHT]));
+  }
+}
+
+function getAnalysisTocColumnScaleInputValues() {
+  return sanitizeAnalysisTocColumnScale({
+    [ANALYSIS_TOC_SIDE_LEFT]: document.querySelector("#analysis-toc-left-scale")?.value,
+    [ANALYSIS_TOC_SIDE_RIGHT]: document.querySelector("#analysis-toc-right-scale")?.value,
+  });
+}
+
 function setLatestPromptScrollHoldSecondsInput(value) {
   const input = document.querySelector("#latest-prompt-scroll-hold-seconds");
   if (input instanceof HTMLInputElement) {
@@ -2988,6 +3168,7 @@ async function loadOptions() {
     [STORAGE_KEY_ANALYSIS_TOC_LABELS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+    [STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE]: null,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: null,
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
@@ -2996,6 +3177,7 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: null,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
@@ -3053,6 +3235,11 @@ async function loadOptions() {
     sanitizeAnalysisTocColumnOpacity,
     stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY],
   );
+  highlightState.taskTypeTocColumnScale = sanitizeTaskTypeScopedMap(
+    stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE],
+    sanitizeAnalysisTocColumnScale,
+    stored[STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE],
+  );
   highlightState.taskTypeLatestPromptScrollHoldSeconds = sanitizeTaskTypeScopedMap(
     stored[STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
     sanitizeLatestPromptScrollHoldSeconds,
@@ -3095,6 +3282,7 @@ async function saveOptions(event) {
   const tocButtonOrder = sanitizeAnalysisTocButtonOrder(highlightState.tocButtonOrder);
   const tocColumnPositions = getAnalysisTocColumnPositionInputValues();
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
+  const tocColumnScale = getAnalysisTocColumnScaleInputValues();
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
   const taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
     highlightState.taskTypeHighlightRules,
@@ -3130,6 +3318,11 @@ async function saveOptions(event) {
     highlightState.taskTypeTocColumnOpacity,
     sanitizeAnalysisTocColumnOpacity,
     tocColumnOpacity,
+  );
+  const taskTypeTocColumnScale = sanitizeTaskTypeScopedMap(
+    highlightState.taskTypeTocColumnScale,
+    sanitizeAnalysisTocColumnScale,
+    tocColumnScale,
   );
   const taskTypeLatestPromptScrollHoldSeconds = sanitizeTaskTypeScopedMap(
     highlightState.taskTypeLatestPromptScrollHoldSeconds,
@@ -3173,6 +3366,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: taskTypeTocButtonOrder,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: taskTypeTocColumnPositions,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: taskTypeTocColumnOpacity,
+    [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE]: taskTypeTocColumnScale,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: taskTypeLatestPromptScrollHoldSeconds,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: highlightState.taskTypeTocEntries,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: tocButtonColors,
@@ -3181,6 +3375,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: tocButtonOrder,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: tocColumnPositions,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: tocColumnOpacity,
+    [STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE]: tocColumnScale,
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
   });
   await chrome.storage.sync.remove([
@@ -3197,6 +3392,7 @@ async function saveOptions(event) {
   highlightState.taskTypeTocButtonOrder = taskTypeTocButtonOrder;
   highlightState.taskTypeTocColumnPositions = taskTypeTocColumnPositions;
   highlightState.taskTypeTocColumnOpacity = taskTypeTocColumnOpacity;
+  highlightState.taskTypeTocColumnScale = taskTypeTocColumnScale;
   highlightState.taskTypeLatestPromptScrollHoldSeconds = taskTypeLatestPromptScrollHoldSeconds;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
   highlightState.tocButtonColors = tocButtonColors;
@@ -3205,6 +3401,7 @@ async function saveOptions(event) {
   highlightState.tocButtonOrder = tocButtonOrder;
   highlightState.tocColumnPositions = tocColumnPositions;
   highlightState.tocColumnOpacity = tocColumnOpacity;
+  highlightState.tocColumnScale = tocColumnScale;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlZoneDividerLengthInputs(
@@ -3215,6 +3412,7 @@ async function saveOptions(event) {
   renderTaskTypeProjectIds();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   renderAnalysisTocSettings();
   setStatus("Settings saved.");
@@ -3242,6 +3440,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
+  const tocPositionInputs = [
+    document.querySelector("#analysis-toc-left-x"),
+    document.querySelector("#analysis-toc-right-inset"),
+  ];
+  const tocOpacityInputs = [
+    document.querySelector("#analysis-toc-left-opacity"),
+    document.querySelector("#analysis-toc-right-opacity"),
+  ];
+  const tocLeftScaleInput = document.querySelector("#analysis-toc-left-scale");
+  const tocRightScaleInput = document.querySelector("#analysis-toc-right-scale");
+  const latestPromptScrollHoldInput = document.querySelector("#latest-prompt-scroll-hold-seconds");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
@@ -3308,6 +3517,44 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   addCustomTocEntryButton?.addEventListener("click", () => {
     addCustomAnalysisTocEntry();
+  });
+  for (const input of tocPositionInputs) {
+    input?.addEventListener("input", () => {
+      highlightState.tocColumnPositions = getAnalysisTocColumnPositionInputValues();
+      setStatus("TOC column position changed for this task type. Save settings to apply it.");
+    });
+    input?.addEventListener("blur", () => {
+      highlightState.tocColumnPositions = getAnalysisTocColumnPositionInputValues();
+      setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
+    });
+  }
+  for (const input of tocOpacityInputs) {
+    input?.addEventListener("input", () => {
+      highlightState.tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
+      setStatus("TOC column opacity changed for this task type. Save settings to apply it.");
+    });
+    input?.addEventListener("blur", () => {
+      highlightState.tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
+      setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+    });
+  }
+  for (const input of [tocLeftScaleInput, tocRightScaleInput]) {
+    input?.addEventListener("input", () => {
+      highlightState.tocColumnScale = getAnalysisTocColumnScaleInputValues();
+      setStatus("TOC column scale changed for this task type. Save settings to apply it.");
+    });
+    input?.addEventListener("blur", () => {
+      highlightState.tocColumnScale = getAnalysisTocColumnScaleInputValues();
+      setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
+    });
+  }
+  latestPromptScrollHoldInput?.addEventListener("input", () => {
+    highlightState.latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
+    setStatus("Latest prompt re-check window changed for this task type. Save settings to apply it.");
+  });
+  latestPromptScrollHoldInput?.addEventListener("blur", () => {
+    highlightState.latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
+    setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   });
   zoneDividerOpacityInput?.addEventListener("input", () => {
     highlightState.zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();

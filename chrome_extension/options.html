@@ -480,7 +480,8 @@
       background: #ffffff;
     }
 
-    .toc-copy-row {
+    .toc-copy-row,
+    .rule-copy-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
@@ -630,6 +631,7 @@
       .region-coordinate-grid,
       .custom-toc-entry-row,
       .toc-copy-row,
+      .rule-copy-row,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
@@ -847,7 +849,7 @@
       <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">These buttons are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, case sensitivity, column position, idle opacity, and latest prompt re-check window.</p>
+          <p class="hint">These buttons and column controls are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, case sensitivity, column position, idle opacity, scale, and OCR-only latest prompt re-check window.</p>
         </div>
 
         <div id="custom-toc-editor" class="custom-toc-editor">
@@ -859,7 +861,7 @@
           <div id="custom-toc-entry-list" class="custom-toc-entry-list"></div>
         </div>
 
-        <div class="toc-column-position-grid" aria-label="TOC column position and opacity">
+        <div class="toc-column-position-grid" aria-label="TOC column position, opacity, and scale">
           <label for="analysis-toc-left-x">
             Left column x
             <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">
@@ -884,10 +886,22 @@
             <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
           </label>
 
+          <label for="analysis-toc-left-scale">
+            Left scale
+            <input id="analysis-toc-left-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
+            <p class="hint">Percent size for the left TOC column.</p>
+          </label>
+
+          <label for="analysis-toc-right-scale">
+            Right scale
+            <input id="analysis-toc-right-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
+            <p class="hint">Percent size for the right TOC column.</p>
+          </label>
+
           <label for="latest-prompt-scroll-hold-seconds">
             Latest prompt re-check seconds
             <input id="latest-prompt-scroll-hold-seconds" type="number" min="0" max="60" step="1" inputmode="numeric">
-            <p class="hint">After the generation-start jump, re-check once per second for this many seconds. Use 0 to disable.</p>
+            <p class="hint">For OCR/text-only submissions, re-check once per second after the generation-start jump. Screenshot submissions do the first jump only.</p>
           </label>
         </div>
 
