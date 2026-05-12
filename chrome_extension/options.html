@@ -166,7 +166,7 @@
     .textarea-label-row {
       display: flex;
       gap: 10px;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       font-weight: 650;
     }
@@ -174,6 +174,30 @@
     .textarea-label-row label {
       display: block;
       gap: 0;
+    }
+
+    .textarea-label-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .indicator-buttons {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .indicator-button {
+      min-width: 34px;
+      padding: 6px 8px;
+      font-size: 12px;
+      line-height: 1.2;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     }
 
     .paste-line-button {
@@ -845,7 +869,18 @@
             <div class="textarea-field">
               <div class="textarea-label-row">
                 <label for="highlight-rule-matches">Matched strings</label>
-                <button id="paste-highlight-rule-matches" class="paste-line-button" type="button">Paste</button>
+                <div class="textarea-label-actions">
+                  <div class="indicator-buttons" aria-label="Matched string line indicators">
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="toggle-priority" title="Toggle priority marker at the start of the current line">!</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="toggle-exclude" title="Toggle exclusion marker for the current matched-string line">--</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="toggle-regex" title="Toggle regex marker for the current line">r-</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="wildcard-exact" title="Remove ellipsis markers from the current line">Exact</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="wildcard-starts" title="Match terms that start with this text">abc...</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="wildcard-ends" title="Match terms that end with this text">...abc</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-matches" data-highlight-line-field="Matched strings" data-highlight-line-command="wildcard-contains" title="Match terms that contain this text">...abc...</button>
+                  </div>
+                  <button id="paste-highlight-rule-matches" class="paste-line-button" type="button">Paste</button>
+                </div>
               </div>
               <textarea id="highlight-rule-matches" placeholder="poor&#10;...substitut...&#10;r-\bpoor\b&#10;--r-\b2\.(?!\d)"></textarea>
               <p class="hint">Add one target per line. Prefix with r- for regex, !r- for priority regex, or -- to subtract a target. Use --r- for regex exclusions.</p>
@@ -854,7 +889,17 @@
             <div class="textarea-field">
               <div class="textarea-label-row">
                 <label for="highlight-rule-companions">Adjacent terms</label>
-                <button id="paste-highlight-rule-companions" class="paste-line-button" type="button">Paste</button>
+                <div class="textarea-label-actions">
+                  <div class="indicator-buttons" aria-label="Adjacent term line indicators">
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="toggle-priority" title="Toggle priority marker at the start of the current line">!</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="toggle-regex" title="Toggle regex marker for the current line">r-</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="wildcard-exact" title="Remove ellipsis markers from the current line">Exact</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="wildcard-starts" title="Match terms that start with this text">abc...</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="wildcard-ends" title="Match terms that end with this text">...abc</button>
+                    <button class="indicator-button" type="button" data-highlight-line-target="#highlight-rule-companions" data-highlight-line-field="Adjacent terms" data-highlight-line-command="wildcard-contains" title="Match terms that contain this text">...abc...</button>
+                  </div>
+                  <button id="paste-highlight-rule-companions" class="paste-line-button" type="button">Paste</button>
+                </div>
               </div>
               <textarea id="highlight-rule-companions" placeholder="low&#10;mid&#10;high&#10;...accept...&#10;r-accept\w*"></textarea>
               <p class="hint">Add one adjacent term per line. Prefix with r- for regex, or !r- for priority regex when included.</p>

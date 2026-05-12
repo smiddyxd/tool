@@ -2353,6 +2353,141 @@ async function pasteClipboardAsNewTextareaLine(textareaSelector, fieldLabel) {
   setStatus(`${fieldLabel} pasted as a new line. Update or create the rule to keep it.`);
 }
 
+function getTextareaCurrentLineRange(textarea) {
+  const value = textarea.value;
+  const selectionStart = typeof textarea.selectionStart === "number"
+    ? textarea.selectionStart
+    : value.length;
+  const previousBreakIndex = selectionStart === 0
+    ? -1
+    : value.lastIndexOf("\n", selectionStart - 1);
+  const nextBreakIndex = value.indexOf("\n", selectionStart);
+  const lineStart = previousBreakIndex + 1;
+  const lineEnd = nextBreakIndex === -1 ? value.length : nextBreakIndex;
+
+  return {
+    lineStart,
+    lineEnd,
+    line: value.slice(lineStart, lineEnd),
+  };
+}
+
+function stripOuterEllipsisMarkers(value) {
+  return value.replace(/^\.{3}/, "").replace(/\.{3}$/, "");
+}
+
+function parseHighlightIndicatorLine(line, allowExclude) {
+  let text = typeof line === "string" ? line.trim() : "";
+  const excluded = allowExclude && text.startsWith("--");
+  if (excluded) {
+    text = text.slice(2).trimStart();
+  }
+
+  const priority = text.startsWith("!");
+  if (priority) {
+    text = text.slice(1).trimStart();
+  }
+
+  const regex = text.startsWith("r-");
+  if (regex) {
+    text = text.slice(2).trimStart();
+  }
+
+  const hasLeadingWildcard = !regex && text.startsWith("...");
+  const hasTrailingWildcard = !regex && text.endsWith("...");
+  const wildcardMode = hasLeadingWildcard && hasTrailingWildcard
+    ? "contains"
+    : (hasLeadingWildcard ? "ends" : (hasTrailingWildcard ? "starts" : "exact"));
+
+  return {
+    excluded,
+    priority,
+    regex,
+    wildcardMode,
+    body: regex ? text : stripOuterEllipsisMarkers(text),
+  };
+}
+
+function buildHighlightIndicatorLine(parsed, allowExclude) {
+  const prefix = [
+    allowExclude && parsed.excluded ? "--" : "",
+    parsed.priority ? "!" : "",
+    parsed.regex ? "r-" : "",
+  ].join("");
+  let body = parsed.body;
+  if (!parsed.regex) {
+    if (parsed.wildcardMode === "starts") {
+      body = `${body}...`;
+    } else if (parsed.wildcardMode === "ends") {
+      body = `...${body}`;
+    } else if (parsed.wildcardMode === "contains") {
+      body = `...${body}...`;
+    }
+  }
+
+  return `${prefix}${body}`;
+}
+
+function getHighlightIndicatorCaretOffset(nextLine, parsed, command, allowExclude) {
+  const prefixLength = [
+    allowExclude && parsed.excluded ? "--" : "",
+    parsed.priority ? "!" : "",
+    parsed.regex ? "r-" : "",
+  ].join("").length;
+  if (!parsed.body && command === "wildcard-starts") {
+    return prefixLength;
+  }
+  if (!parsed.body && command === "wildcard-contains") {
+    return prefixLength + 3;
+  }
+
+  return nextLine.length;
+}
+
+function applyHighlightLineIndicator(textareaSelector, command, fieldLabel) {
+  const textarea = document.querySelector(textareaSelector);
+  if (!(textarea instanceof HTMLTextAreaElement) || !command) {
+    return;
+  }
+
+  const allowExclude = textareaSelector === "#highlight-rule-matches";
+  const { lineStart, lineEnd, line } = getTextareaCurrentLineRange(textarea);
+  const parsedLine = parseHighlightIndicatorLine(line, allowExclude);
+
+  if (command === "toggle-priority") {
+    parsedLine.priority = !parsedLine.priority;
+  } else if (command === "toggle-exclude") {
+    if (!allowExclude) {
+      setStatus("Exclusion markers only apply to matched strings.");
+      return;
+    }
+    parsedLine.excluded = !parsedLine.excluded;
+  } else if (command === "toggle-regex") {
+    parsedLine.regex = !parsedLine.regex;
+    parsedLine.body = stripOuterEllipsisMarkers(parsedLine.body);
+    parsedLine.wildcardMode = "exact";
+  } else if (command.startsWith("wildcard-")) {
+    if (parsedLine.regex) {
+      textarea.focus();
+      setStatus("Ellipsis markers apply to normal lines. Turn off r- before using them.");
+      return;
+    }
+    parsedLine.wildcardMode = command.replace("wildcard-", "");
+  } else {
+    return;
+  }
+
+  const nextLine = buildHighlightIndicatorLine(parsedLine, allowExclude);
+  const nextValue = `${textarea.value.slice(0, lineStart)}${nextLine}${textarea.value.slice(lineEnd)}`;
+  const caretOffset = getHighlightIndicatorCaretOffset(nextLine, parsedLine, command, allowExclude);
+  const caretPosition = lineStart + Math.min(caretOffset, nextLine.length);
+  textarea.value = nextValue;
+  textarea.focus();
+  textarea.setSelectionRange(caretPosition, caretPosition);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  setStatus(`${fieldLabel} line marker changed. Update or create the rule to keep it.`);
+}
+
 function createRuleSummary(rule) {
   const targetSummary = getPositiveMatchStrings(rule.matchStrings).join(", ");
   const excludedMatches = getExcludedMatchStrings(rule.matchStrings);
@@ -3709,6 +3844,19 @@ document.addEventListener("DOMContentLoaded", () => {
     clearRuleForm();
     setStatus("Ready for a new rule.");
   });
+  for (const button of document.querySelectorAll("[data-highlight-line-command]")) {
+    button.addEventListener("click", () => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      applyHighlightLineIndicator(
+        button.dataset.highlightLineTarget,
+        button.dataset.highlightLineCommand,
+        button.dataset.highlightLineField || "Highlight",
+      );
+    });
+  }
   pasteHighlightMatchesButton?.addEventListener("click", () => {
     void pasteClipboardAsNewTextareaLine("#highlight-rule-matches", "Matched strings");
   });
