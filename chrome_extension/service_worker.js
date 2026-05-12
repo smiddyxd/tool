@@ -1349,10 +1349,34 @@ async function applyServerControlCommandSideEffects(command, sender) {
   return {};
 }
 
+function isProjectSwitchCommand(command) {
+  return command?.command === "set_task_type" || command?.command === "set_project_account";
+}
+
+async function navigateServerControlProject(sideEffects) {
+  if (!Number.isInteger(sideEffects?.navigateTabId) || !sideEffects.projectUrl) {
+    return false;
+  }
+
+  await clearTabSubmissionCount(sideEffects.navigateTabId);
+  await clearTabPromptSlot(sideEffects.navigateTabId);
+  await chrome.tabs.update(sideEffects.navigateTabId, {
+    active: true,
+    url: sideEffects.projectUrl,
+  });
+  state.lastChatGptTabId = sideEffects.navigateTabId;
+  return true;
+}
+
 async function sendServerControlCommand(command, sender) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const sideEffects = await applyServerControlCommandSideEffects(command, sender);
+  const navigationPromise = navigateServerControlProject(sideEffects)
+    .catch((error) => {
+      console.warn("Local Query Bridge task type project navigation failed", error);
+      return false;
+    });
   const payload = {
     ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
     ...sideEffects,
@@ -1373,7 +1397,7 @@ async function sendServerControlCommand(command, sender) {
 
     if (!response.ok) {
       console.warn("Local Query Bridge server control response not ok", response.status);
-      return false;
+      return isProjectSwitchCommand(command) ? navigationPromise : false;
     }
 
     console.log("Local Query Bridge forwarded server control command", {
@@ -1382,15 +1406,16 @@ async function sendServerControlCommand(command, sender) {
       group: payload.group,
       tabId: payload.tabId,
     });
-    if (Number.isInteger(sideEffects.navigateTabId) && sideEffects.projectUrl) {
-      void chrome.tabs.update(sideEffects.navigateTabId, {
-        active: true,
-        url: sideEffects.projectUrl,
-      }).catch((error) => {
-        console.warn("Local Query Bridge task type project navigation failed", error);
-      });
+    const navigationOk = await navigationPromise;
+    return isProjectSwitchCommand(command) ? navigationOk : true;
+  } catch (error) {
+    if (isProjectSwitchCommand(command)) {
+      const navigationOk = await navigationPromise;
+      console.warn("Local Query Bridge server control log failed after project switch", error);
+      return navigationOk;
     }
-    return true;
+
+    throw error;
   } finally {
     clearTimeout(timeoutId);
   }
