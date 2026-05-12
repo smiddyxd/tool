@@ -42,6 +42,8 @@ Base everything strictly on the screenshot attachment.`;
   const WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS = 2500;
   const WEB_SEARCH_POST_ENABLE_SETTLE_MS = 250;
   const ATTACHMENT_SETTLE_MS = 1500;
+  const ATTACHMENT_RENDER_WAIT_TIMEOUT_MS = 12000;
+  const ATTACHMENT_RENDER_POLL_MS = 250;
   const PROMPT_SETTLE_MS = 2000;
   const RESPONSE_STATE_POLL_MS = 250;
   const RESPONSE_COMPLETE_TIMEOUT_MS = 300000;
@@ -112,6 +114,7 @@ Base everything strictly on the screenshot attachment.`;
   const HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS = "local-query-bridge-highlight-selection-editor-open";
   const HIGHLIGHT_SELECTION_EDITOR_RULE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-rule-active";
   const HIGHLIGHT_SELECTION_EDITOR_MODE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-mode-active";
+  const HIGHLIGHT_SELECTION_MAX_LEADING_WORD_PREFIX_CHARS = 2;
   const SERVER_CONTROL_MENU_ID = "local-query-bridge-server-control-menu";
   const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
@@ -159,6 +162,7 @@ Base everything strictly on the screenshot attachment.`;
   ];
   const HIGHLIGHT_DEBOUNCE_MS = 250;
   const WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
+  const WORD_CHARACTER_PATTERN = /[\p{L}\p{N}]/u;
   const TERM_PATTERN_PART_PATTERN = /\.{3}[\p{L}\p{N}]+\.{3}|\.{3}[\p{L}\p{N}]+|[\p{L}\p{N}]+\.{3}|[\p{L}\p{N}]+/gu;
   const DEFAULT_HIGHLIGHT_RULES = [
     {
@@ -392,6 +396,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     selectionText: "",
     rangeRect: null,
     updateTimerId: null,
+    suppressUntil: 0,
   };
 
   const analysisTocState = {
@@ -1636,19 +1641,61 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return node?.parentElement ?? null;
   }
 
+  function isHighlightWordCharacter(character) {
+    WORD_CHARACTER_PATTERN.lastIndex = 0;
+    return WORD_CHARACTER_PATTERN.test(character);
+  }
+
+  function getLeadingPartialWordPrefixLength(text, offset) {
+    if (
+      typeof text !== "string"
+      || offset <= 0
+      || offset >= text.length
+      || !isHighlightWordCharacter(text.charAt(offset))
+      || !isHighlightWordCharacter(text.charAt(offset - 1))
+    ) {
+      return 0;
+    }
+
+    let wordStartOffset = offset;
+    while (
+      wordStartOffset > 0
+      && isHighlightWordCharacter(text.charAt(wordStartOffset - 1))
+    ) {
+      wordStartOffset -= 1;
+    }
+
+    return offset - wordStartOffset;
+  }
+
+  function expandRangeStartForPartialFirstWord(range) {
+    const startNode = range.startContainer;
+    if (startNode?.nodeType !== Node.TEXT_NODE) {
+      return { range, expanded: false };
+    }
+
+    const text = startNode.nodeValue ?? "";
+    const prefixLength = getLeadingPartialWordPrefixLength(text, range.startOffset);
+    if (
+      prefixLength <= 0
+      || prefixLength > HIGHLIGHT_SELECTION_MAX_LEADING_WORD_PREFIX_CHARS
+    ) {
+      return { range, expanded: false };
+    }
+
+    const expandedRange = range.cloneRange();
+    expandedRange.setStart(startNode, range.startOffset - prefixLength);
+    return { range: expandedRange, expanded: true };
+  }
+
   function getCurrentHighlightTextSelection() {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
       return null;
     }
 
-    const text = selection.toString().replace(/\s+/g, " ").trim();
-    if (!text) {
-      return null;
-    }
-
-    const range = selection.getRangeAt(0);
-    const container = getElementFromSelectionNode(range.commonAncestorContainer);
+    const initialRange = selection.getRangeAt(0);
+    const container = getElementFromSelectionNode(initialRange.commonAncestorContainer);
     if (
       !(container instanceof HTMLElement)
       || container.closest(`#${HIGHLIGHT_SELECTION_EDITOR_ID}`)
@@ -1656,6 +1703,17 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || container.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`)
       || isEditableTarget(container)
     ) {
+      return null;
+    }
+
+    const { range, expanded } = expandRangeStartForPartialFirstWord(initialRange);
+    if (expanded) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    const text = range.toString().replace(/\s+/g, " ").trim();
+    if (!text) {
       return null;
     }
 
@@ -1697,13 +1755,34 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  function suppressHighlightSelectionEditorReopen() {
+    highlightSelectionEditorState.suppressUntil = Date.now() + 700;
+    if (highlightSelectionEditorState.updateTimerId !== null) {
+      window.clearTimeout(highlightSelectionEditorState.updateTimerId);
+      highlightSelectionEditorState.updateTimerId = null;
+    }
+
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+    }
+  }
+
   function scheduleHighlightSelectionEditorUpdate() {
+    if (Date.now() < highlightSelectionEditorState.suppressUntil) {
+      return;
+    }
+
     if (highlightSelectionEditorState.updateTimerId !== null) {
       window.clearTimeout(highlightSelectionEditorState.updateTimerId);
     }
 
     highlightSelectionEditorState.updateTimerId = window.setTimeout(() => {
       highlightSelectionEditorState.updateTimerId = null;
+      if (Date.now() < highlightSelectionEditorState.suppressUntil) {
+        return;
+      }
+
       const editor = getHighlightSelectionEditor();
       if (editor instanceof HTMLElement && editor.contains(document.activeElement)) {
         return;
@@ -1865,6 +1944,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           : `Added to ${rule.label} as ${highlightSelectionEditorState.mode === "match" ? "a matched string" : "an adjacent term"}.`,
       );
       if (options.closeOnSuccess) {
+        suppressHighlightSelectionEditorReopen();
         hideHighlightSelectionEditor();
       } else {
         input.focus();
@@ -2871,7 +2951,125 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const extension = mimeType === "image/jpeg" ? "jpg" : "png";
     const suffix = Number.isInteger(screenshotIndex) ? `-${screenshotIndex + 1}` : "";
-    return new File([bytes], `task-${taskCount}${suffix}.${extension}`, { type: mimeType });
+    return new File([bytes], `task-${taskCount}-${Date.now()}${suffix}.${extension}`, { type: mimeType });
+  }
+
+  function getPromptComposerRoot(editor) {
+    if (!(editor instanceof HTMLElement)) {
+      return document.body;
+    }
+
+    return editor.closest("form")
+      ?? editor.closest('[data-testid*="composer" i]')
+      ?? editor.closest('[class*="composer" i]')
+      ?? editor.parentElement
+      ?? document.body;
+  }
+
+  function getElementVisibleTextAndAttributes(element) {
+    if (!(element instanceof Element)) {
+      return "";
+    }
+
+    return [
+      element.textContent ?? "",
+      element.getAttribute("aria-label") ?? "",
+      element.getAttribute("title") ?? "",
+      element.getAttribute("alt") ?? "",
+      element.getAttribute("data-testid") ?? "",
+    ].join(" ");
+  }
+
+  function countRenderedBridgeAttachments(editor, fileNames) {
+    const composerRoot = getPromptComposerRoot(editor);
+    if (!(composerRoot instanceof HTMLElement)) {
+      return 0;
+    }
+
+    const matchedFileNames = new Set();
+    const candidates = Array.from(composerRoot.querySelectorAll([
+      "[aria-label]",
+      "[title]",
+      "[alt]",
+      "[data-testid]",
+      "span",
+      "div",
+      "img",
+      "button",
+    ].join(",")));
+    for (const candidate of candidates) {
+      if (!(candidate instanceof Element)) {
+        continue;
+      }
+
+      const haystack = getElementVisibleTextAndAttributes(candidate).toLocaleLowerCase();
+      for (const fileName of fileNames) {
+        if (haystack.includes(fileName.toLocaleLowerCase())) {
+          matchedFileNames.add(fileName);
+        }
+      }
+    }
+
+    return matchedFileNames.size;
+  }
+
+  function countRenderedAttachmentElements(editor) {
+    const composerRoot = getPromptComposerRoot(editor);
+    if (!(composerRoot instanceof HTMLElement)) {
+      return 0;
+    }
+
+    const candidates = Array.from(composerRoot.querySelectorAll([
+      '[data-testid*="attachment" i]',
+      '[data-testid*="file" i]',
+      '[data-testid*="upload" i]',
+      '[aria-label*="attachment" i]',
+      '[aria-label*="file" i]',
+      '[aria-label*="upload" i]',
+      '[aria-label*="remove" i]',
+      'img[src^="blob:"]',
+      'img[src^="data:"]',
+    ].join(",")));
+
+    return new Set(candidates.filter((candidate) => (
+      candidate instanceof HTMLElement
+      && !candidate.closest(`${PROMPT_TEXTAREA_SELECTOR}, button[type="submit"], ${SEND_BUTTON_SELECTOR}`)
+    ))).size;
+  }
+
+  async function waitForRenderedBridgeAttachments(editor, files, baselineAttachmentCount = 0) {
+    const fileNames = files
+      .map((file) => (typeof file?.name === "string" ? file.name.trim() : ""))
+      .filter(Boolean);
+    if (fileNames.length === 0) {
+      return;
+    }
+
+    const deadline = Date.now() + ATTACHMENT_RENDER_WAIT_TIMEOUT_MS;
+    let lastCount = 0;
+    let lastGenericCount = baselineAttachmentCount;
+    while (Date.now() < deadline) {
+      lastCount = countRenderedBridgeAttachments(editor, fileNames);
+      lastGenericCount = countRenderedAttachmentElements(editor);
+      if (
+        lastCount >= fileNames.length
+        || lastGenericCount >= baselineAttachmentCount + fileNames.length
+      ) {
+        console.log("Local Query Bridge detected rendered screenshot attachments", {
+          expectedCount: fileNames.length,
+          renderedCount: lastCount,
+          genericRenderedCount: lastGenericCount,
+          baselineAttachmentCount,
+        });
+        return;
+      }
+
+      await delay(ATTACHMENT_RENDER_POLL_MS);
+    }
+
+    throw new Error(
+      `Screenshot attachment did not render before send (${lastCount}/${fileNames.length}, generic ${lastGenericCount}/${baselineAttachmentCount + fileNames.length})`,
+    );
   }
 
   async function ensureWebSearchEnabled() {
@@ -6196,7 +6394,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ));
 
     editor.focus();
+    const baselineAttachmentCount = countRenderedAttachmentElements(editor);
     await attachScreenshotFiles(screenshotFiles, editor);
+    await waitForRenderedBridgeAttachments(editor, screenshotFiles, baselineAttachmentCount);
     console.log("Local Query Bridge queued repeat screenshots in draft", {
       taskCount,
       screenshotCount: screenshotFiles.length,
@@ -6262,8 +6462,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     editor.focus();
-    populatePromptEditor(editor, prompt);
+    const baselineAttachmentCount = countRenderedAttachmentElements(editor);
     await attachScreenshotFiles(screenshotFiles, editor);
+    await waitForRenderedBridgeAttachments(editor, screenshotFiles, baselineAttachmentCount);
+    populatePromptEditor(editor, prompt);
 
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
     console.log("Local Query Bridge waiting before send", {
