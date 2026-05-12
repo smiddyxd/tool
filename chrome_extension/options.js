@@ -59,6 +59,7 @@ const LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS = 0;
 const LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS = 60;
 const ANALYSIS_TOC_ENTRY_TYPE_HEADING = "heading";
 const ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT = "latestUserPrompt";
+const ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT = "customText";
 const LATEST_USER_PROMPT_TOC_KEY = "latest-user-prompt";
 const ANALYSIS_SECTION_HEADINGS = [
   {
@@ -1038,6 +1039,21 @@ function sanitizeCustomAnalysisTocEntries(rawValue) {
         return null;
       }
 
+      if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT || entry.key === LATEST_USER_PROMPT_TOC_KEY) {
+        if (usedKeys.has(LATEST_USER_PROMPT_TOC_KEY)) {
+          return null;
+        }
+
+        usedKeys.add(LATEST_USER_PROMPT_TOC_KEY);
+        return {
+          key: LATEST_USER_PROMPT_TOC_KEY,
+          heading: "Latest prompt",
+          label: sanitizeAnalysisTocButtonLabel(entry.label, "Latest prompt"),
+          type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+          index,
+        };
+      }
+
       const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
       const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
       if (!targetText) {
@@ -1052,7 +1068,7 @@ function sanitizeCustomAnalysisTocEntries(rawValue) {
         heading: targetText,
         label,
         targetText,
-        type: "customText",
+        type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
         index,
       };
     })
@@ -1072,6 +1088,21 @@ function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBri
         return null;
       }
 
+      if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT || entry.key === LATEST_USER_PROMPT_TOC_KEY) {
+        if (usedKeys.has(LATEST_USER_PROMPT_TOC_KEY)) {
+          return null;
+        }
+
+        usedKeys.add(LATEST_USER_PROMPT_TOC_KEY);
+        return {
+          key: LATEST_USER_PROMPT_TOC_KEY,
+          heading: "Latest prompt",
+          label: sanitizeAnalysisTocButtonLabel(entry.label, "Latest prompt"),
+          type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+          index,
+        };
+      }
+
       const targetText = typeof entry.targetText === "string" ? entry.targetText : "";
       const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
       const rawKey = typeof entry.key === "string" && entry.key.trim()
@@ -1083,7 +1114,7 @@ function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBri
         heading: targetText,
         label,
         targetText,
-        type: "customText",
+        type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
         index,
       };
     })
@@ -2256,6 +2287,181 @@ function updateCustomAnalysisTocEntries(updater) {
   renderAnalysisTocSettings();
 }
 
+function getCopyableAnalysisTocEntries(taskType) {
+  return getAnalysisTocEntries(taskType).filter((entry) => (
+    entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
+    || Boolean((entry.targetText ?? entry.heading ?? "").trim())
+  ));
+}
+
+function getAnalysisTocCopySourceDefinitions(targetTaskType = getActiveTaskTypeKey()) {
+  return getTaskTypeDefinitions().filter((definition) => (
+    definition.key !== targetTaskType
+    && getCopyableAnalysisTocEntries(definition.key).length > 0
+  ));
+}
+
+function getSourceAnalysisTocState(taskType) {
+  const entries = getCopyableAnalysisTocEntries(taskType);
+  return {
+    entries,
+    colors: sanitizeAnalysisTocButtonColors(highlightState.taskTypeTocButtonColors[taskType], entries),
+    settings: sanitizeAnalysisTocButtonSettings(highlightState.taskTypeTocButtonSettings[taskType], entries),
+    labels: sanitizeAnalysisTocButtonLabels(highlightState.taskTypeTocButtonLabels[taskType], entries),
+    order: sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType], entries),
+    columnPositions: sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]),
+    columnOpacity: sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]),
+    latestPromptScrollHoldSeconds: sanitizeLatestPromptScrollHoldSeconds(
+      highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
+    ),
+  };
+}
+
+function createCopiedAnalysisTocEntries(sourceEntries, sourceLabels) {
+  const usedKeys = new Set();
+  const keyMap = {};
+  const copiedEntries = [];
+
+  for (const [index, entry] of sourceEntries.entries()) {
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT) {
+      if (usedKeys.has(LATEST_USER_PROMPT_TOC_KEY)) {
+        continue;
+      }
+
+      usedKeys.add(LATEST_USER_PROMPT_TOC_KEY);
+      keyMap[entry.key] = LATEST_USER_PROMPT_TOC_KEY;
+      copiedEntries.push({
+        key: LATEST_USER_PROMPT_TOC_KEY,
+        label: sanitizeAnalysisTocButtonLabel(sourceLabels[entry.key], entry.label ?? "Latest prompt"),
+        type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+      });
+      continue;
+    }
+
+    const targetText = typeof entry.targetText === "string" && entry.targetText.trim()
+      ? entry.targetText.trim()
+      : (typeof entry.heading === "string" ? entry.heading.trim() : "");
+    if (!targetText) {
+      continue;
+    }
+
+    const fallbackLabel = entry.label || targetText || `TOC ${index + 1}`;
+    const label = sanitizeAnalysisTocButtonLabel(sourceLabels[entry.key], fallbackLabel);
+    const copiedKey = makeUniqueAnalysisTocEntryKey(
+      createAnalysisTocEntryKey(entry.key || label || targetText, "toc"),
+      usedKeys,
+    );
+    keyMap[entry.key] = copiedKey;
+    copiedEntries.push({
+      key: copiedKey,
+      label,
+      targetText,
+      type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
+    });
+  }
+
+  return {
+    entries: sanitizeCustomAnalysisTocEntries(copiedEntries),
+    keyMap,
+  };
+}
+
+function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
+  if (isHardCodedAnalysisTocTaskType()) {
+    return;
+  }
+
+  syncActiveTaskTypeScopedSettings();
+  const targetTaskType = getActiveTaskTypeKey();
+  if (getAnalysisTocEntries(targetTaskType).length > 0) {
+    setStatus("This task type already has TOC buttons.");
+    return;
+  }
+
+  const sourceDefinition = getTaskTypeDefinition(sourceTaskType);
+  if (!sourceDefinition || sourceDefinition.key === targetTaskType) {
+    setStatus("Choose another task type with TOC buttons.");
+    return;
+  }
+
+  const source = getSourceAnalysisTocState(sourceDefinition.key);
+  if (source.entries.length === 0) {
+    setStatus(`${sourceDefinition.label} has no TOC buttons to copy.`);
+    return;
+  }
+
+  const { entries, keyMap } = createCopiedAnalysisTocEntries(source.entries, source.labels);
+  if (entries.length === 0) {
+    setStatus(`${sourceDefinition.label} has no copyable TOC buttons.`);
+    return;
+  }
+
+  const copyMappedValues = (sourceMap, fallbackFactory) => Object.fromEntries(entries.map((entry) => {
+    const sourceKey = Object.entries(keyMap).find(([, targetKey]) => targetKey === entry.key)?.[0] ?? "";
+    return [
+      entry.key,
+      sourceKey && Object.prototype.hasOwnProperty.call(sourceMap, sourceKey)
+        ? sourceMap[sourceKey]
+        : fallbackFactory(entry),
+    ];
+  }));
+  const order = source.order.map((sourceKey) => keyMap[sourceKey]).filter(Boolean);
+
+  highlightState.taskTypeTocEntries = {
+    ...highlightState.taskTypeTocEntries,
+    [targetTaskType]: entries,
+  };
+  highlightState.taskTypeTocButtonColors = {
+    ...highlightState.taskTypeTocButtonColors,
+    [targetTaskType]: sanitizeAnalysisTocButtonColors(
+      copyMappedValues(source.colors, () => DEFAULT_ANALYSIS_TOC_ACTIVE_COLOR),
+      entries,
+    ),
+  };
+  highlightState.taskTypeTocButtonSettings = {
+    ...highlightState.taskTypeTocButtonSettings,
+    [targetTaskType]: sanitizeAnalysisTocButtonSettings(
+      copyMappedValues(source.settings, () => ({
+        side: ANALYSIS_TOC_SIDE_LEFT,
+        offsetPx: ANALYSIS_TOC_DEFAULT_OFFSET_PX,
+        caseSensitive: false,
+      })),
+      entries,
+    ),
+  };
+  highlightState.taskTypeTocButtonLabels = {
+    ...highlightState.taskTypeTocButtonLabels,
+    [targetTaskType]: sanitizeAnalysisTocButtonLabels(
+      copyMappedValues(source.labels, (entry) => entry.label),
+      entries,
+    ),
+  };
+  highlightState.taskTypeTocButtonOrder = {
+    ...highlightState.taskTypeTocButtonOrder,
+    [targetTaskType]: sanitizeAnalysisTocButtonOrder(order, entries),
+  };
+  highlightState.taskTypeTocColumnPositions = {
+    ...highlightState.taskTypeTocColumnPositions,
+    [targetTaskType]: source.columnPositions,
+  };
+  highlightState.taskTypeTocColumnOpacity = {
+    ...highlightState.taskTypeTocColumnOpacity,
+    [targetTaskType]: source.columnOpacity,
+  };
+  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
+    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
+    [targetTaskType]: source.latestPromptScrollHoldSeconds,
+  };
+
+  applyActiveTaskTypeScopedSettings();
+  renderCustomAnalysisTocEntryEditor();
+  renderAnalysisTocSettings();
+  setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
+  setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
+  setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
+  setStatus(`Copied ${entries.length} TOC button${entries.length === 1 ? "" : "s"} from ${sourceDefinition.label}. Save settings to apply it.`);
+}
+
 function addCustomAnalysisTocEntry() {
   updateCustomAnalysisTocEntries((entries) => {
     const usedKeys = new Set(entries.map((entry) => entry.key));
@@ -2275,6 +2481,46 @@ function deleteCustomAnalysisTocEntry(entryKey) {
   const entry = getAnalysisTocEntries().find((candidate) => candidate.key === entryKey);
   updateCustomAnalysisTocEntries((entries) => entries.filter((candidate) => candidate.key !== entryKey));
   setStatus(`${entry?.label ?? "TOC button"} deleted. Save settings to apply it.`);
+}
+
+function renderAnalysisTocCopyControl(list) {
+  const targetTaskType = getActiveTaskTypeKey();
+  const sourceDefinitions = getAnalysisTocCopySourceDefinitions(targetTaskType);
+  if (sourceDefinitions.length === 0) {
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "toc-copy-row";
+
+  const label = document.createElement("label");
+  label.textContent = "Copy TOC buttons from";
+
+  const select = document.createElement("select");
+  select.append(new Option("Choose a task type", ""));
+  for (const definition of sourceDefinitions) {
+    const count = getCopyableAnalysisTocEntries(definition.key).length;
+    select.append(new Option(`${definition.label} (${count})`, definition.key));
+  }
+  label.append(select);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Copy";
+  button.disabled = true;
+  select.addEventListener("change", () => {
+    button.disabled = !select.value;
+  });
+  button.addEventListener("click", () => {
+    if (!select.value) {
+      return;
+    }
+
+    copyAnalysisTocButtonsFromTaskType(select.value);
+  });
+
+  row.append(label, button);
+  list.append(row);
 }
 
 function renderCustomAnalysisTocEntryEditor() {
@@ -2306,6 +2552,7 @@ function renderCustomAnalysisTocEntryEditor() {
     message.className = "empty-state";
     message.textContent = "No custom TOC buttons are configured for this task type.";
     list.append(message);
+    renderAnalysisTocCopyControl(list);
     return;
   }
 
@@ -2336,23 +2583,31 @@ function renderCustomAnalysisTocEntryEditor() {
     labelControl.append(labelInput);
 
     const targetControl = document.createElement("label");
-    targetControl.textContent = "Response text to find";
+    targetControl.textContent = entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
+      ? "Target"
+      : "Response text to find";
     const targetInput = document.createElement("input");
     targetInput.type = "text";
-    targetInput.value = entry.targetText;
+    targetInput.value = entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
+      ? "Latest user prompt"
+      : entry.targetText;
     targetInput.autocomplete = "off";
     targetInput.spellcheck = false;
-    targetInput.addEventListener("input", () => {
-      const taskType = getActiveTaskTypeKey();
-      highlightState.taskTypeTocEntries = {
-        ...highlightState.taskTypeTocEntries,
-        [taskType]: getEditableCustomAnalysisTocEntries(taskType).map((candidate) => (
-          candidate.key === entry.key ? { ...candidate, targetText: targetInput.value } : candidate
-        )),
-      };
-      renderAnalysisTocSettings();
-      setStatus("TOC target text changed. Save settings to apply it.");
-    });
+    if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT) {
+      targetInput.disabled = true;
+    } else {
+      targetInput.addEventListener("input", () => {
+        const taskType = getActiveTaskTypeKey();
+        highlightState.taskTypeTocEntries = {
+          ...highlightState.taskTypeTocEntries,
+          [taskType]: getEditableCustomAnalysisTocEntries(taskType).map((candidate) => (
+            candidate.key === entry.key ? { ...candidate, targetText: targetInput.value } : candidate
+          )),
+        };
+        renderAnalysisTocSettings();
+        setStatus("TOC target text changed. Save settings to apply it.");
+      });
+    }
     targetControl.append(targetInput);
 
     const deleteButton = document.createElement("button");

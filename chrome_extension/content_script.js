@@ -475,6 +475,21 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           return null;
         }
 
+        if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT || entry.key === LATEST_USER_PROMPT_TOC_KEY) {
+          if (usedKeys.has(LATEST_USER_PROMPT_TOC_KEY)) {
+            return null;
+          }
+
+          usedKeys.add(LATEST_USER_PROMPT_TOC_KEY);
+          return {
+            key: LATEST_USER_PROMPT_TOC_KEY,
+            heading: "Latest prompt",
+            label: sanitizeAnalysisTocButtonLabel(entry.label, "Latest prompt"),
+            type: ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT,
+            index,
+          };
+        }
+
         const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
         const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
         if (!targetText) {
