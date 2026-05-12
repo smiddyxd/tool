@@ -32,6 +32,7 @@ const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
 const STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE = "activeBridgeTaskType";
 const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
 const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
+const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
@@ -286,9 +287,26 @@ function getKnownBridgeTaskTypeDefinitions(rawSource = {}) {
   return Array.from(definitionsByKey.values());
 }
 
+function normalizeBridgeTaskTypeAlias(value) {
+  return typeof value === "string"
+    ? value.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    : "";
+}
+
 function sanitizeBridgeTaskType(value) {
   const taskType = typeof value === "string" ? value.trim() : "";
-  return taskType || BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+  if (!taskType) {
+    return BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+  }
+
+  const taskTypeAlias = normalizeBridgeTaskTypeAlias(taskType);
+  const knownDefinition = BRIDGE_TASK_TYPE_DEFINITIONS.find((definition) => (
+    definition.key === taskType
+    || normalizeBridgeTaskTypeAlias(definition.key) === taskTypeAlias
+    || normalizeBridgeTaskTypeAlias(definition.label) === taskTypeAlias
+  ));
+
+  return knownDefinition?.key ?? taskType;
 }
 
 function getBridgeTaskTypeLabel(taskType) {
@@ -551,6 +569,59 @@ async function getOptions() {
     ...projectSettings,
     activeBridgeTaskType: sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]),
     resetLimit: sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]),
+  };
+}
+
+async function resolveBridgeTaskType(value) {
+  const taskType = typeof value === "string" ? value.trim() : "";
+  if (!taskType) {
+    return BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS;
+  }
+
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
+  const taskTypeAlias = normalizeBridgeTaskTypeAlias(taskType);
+  try {
+    const stored = await chrome.storage.local.get({
+      [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: {},
+    });
+    const definitions = stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS];
+    if (definitions && typeof definitions === "object" && !Array.isArray(definitions)) {
+      for (const [key, definition] of Object.entries(definitions)) {
+        const label = definition && typeof definition === "object" ? definition.label : "";
+        if (
+          normalizeBridgeTaskTypeAlias(key) === taskTypeAlias
+          || normalizeBridgeTaskTypeAlias(label) === taskTypeAlias
+        ) {
+          return key;
+        }
+      }
+    }
+  } catch (_error) {
+    // Local task type definitions are only needed to map labels for custom task types.
+  }
+
+  return sanitizedTaskType;
+}
+
+async function getRoutingOptionsForTaskType(taskType) {
+  const options = await getOptions();
+  const activeBridgeTaskType = await resolveBridgeTaskType(taskType || options.activeBridgeTaskType);
+  const taskTypeProjectIds = await getTaskTypeProjectIds();
+  const taskTypeActiveProjectAccounts = await getTaskTypeActiveProjectAccounts();
+  const activeProjectAccount = sanitizeProjectAccountKey(taskTypeActiveProjectAccounts[activeBridgeTaskType]);
+  const projectIds = getProjectIdsForTaskType(taskTypeProjectIds, activeBridgeTaskType);
+  const activeProjectId = getProjectIdForTaskTypeAccount(
+    taskTypeProjectIds,
+    activeBridgeTaskType,
+    activeProjectAccount,
+  );
+
+  return {
+    ...options,
+    activeBridgeTaskType,
+    projectIds,
+    activeProjectId,
+    defaultStartPageUrl: buildProjectStartPageUrl(activeProjectId),
   };
 }
 
@@ -993,8 +1064,8 @@ async function assignPromptTargets(baseTabs, promptTexts, logLabel, taskType) {
   return targets;
 }
 
-async function buildSubmissionTargets(promptTexts) {
-  const settings = await getOptions();
+async function buildSubmissionTargets(promptTexts, taskType = "") {
+  const settings = await getRoutingOptionsForTaskType(taskType);
   let baseTabs = await getActiveChatGptTabsAcrossWindows(settings.defaultStartPageUrl);
 
   if (baseTabs.length === 0) {
@@ -1047,8 +1118,8 @@ async function buildSubmissionTargets(promptTexts) {
   return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved submission targets", settings.activeBridgeTaskType);
 }
 
-async function buildRepeatTargets(promptTexts) {
-  const settings = await getOptions();
+async function buildRepeatTargets(promptTexts, taskType = "") {
+  const settings = await getRoutingOptionsForTaskType(taskType);
   let baseTabs = await getActiveChatGptTabsAcrossWindows(settings.defaultStartPageUrl);
 
   if (baseTabs.length === 0) {
@@ -1061,8 +1132,8 @@ async function buildRepeatTargets(promptTexts) {
   return assignPromptTargets(baseTabs, promptTexts, "Local Query Bridge resolved repeat targets", settings.activeBridgeTaskType);
 }
 
-async function buildAlertTargets(alertTexts) {
-  const settings = await getOptions();
+async function buildAlertTargets(alertTexts, taskType = "") {
+  const settings = await getRoutingOptionsForTaskType(taskType);
   let tab = await getPreferredChatGptTab(settings.defaultStartPageUrl);
 
   if (!tab?.id) {
@@ -1118,8 +1189,8 @@ async function getOrCreatePendingTargets() {
   }
 
   const nextTargets = state.pendingSubmission.submissionMode === EVENT_TYPE_ALERT_TASK
-    ? await buildAlertTargets(state.pendingSubmission.promptTexts)
-    : await buildSubmissionTargets(state.pendingSubmission.promptTexts);
+    ? await buildAlertTargets(state.pendingSubmission.promptTexts, state.pendingSubmission.taskType)
+    : await buildSubmissionTargets(state.pendingSubmission.promptTexts, state.pendingSubmission.taskType);
   state.pendingSubmission.targets = nextTargets;
   return nextTargets;
 }
@@ -1251,6 +1322,11 @@ async function fetchRepeatCapturePayload() {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function decodeOptionalEventTaskType(payload, field = "e") {
+  const taskType = xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
+  return taskType ? sanitizeBridgeTaskType(taskType) : "";
 }
 
 async function switchBridgeTaskType(taskType, sender) {
@@ -1428,7 +1504,7 @@ async function sendServerControlCommand(command, sender) {
   }
 }
 
-async function getOrCreatePendingRepeatTargets(taskCount, promptTexts) {
+async function getOrCreatePendingRepeatTargets(taskCount, promptTexts, taskType = "") {
   if (
     state.pendingRepeatDraft
     && state.pendingRepeatDraft.taskCount === taskCount
@@ -1442,7 +1518,7 @@ async function getOrCreatePendingRepeatTargets(taskCount, promptTexts) {
     }
   }
 
-  return buildRepeatTargets(promptTexts);
+  return buildRepeatTargets(promptTexts, taskType);
 }
 
 async function handleRepeatCaptureRequest() {
@@ -1456,6 +1532,7 @@ async function handleRepeatCaptureRequest() {
   const taskCount = Number.parseInt(taskText, 10);
   const capturedImageDataUrl = xorDecryptBase64ToDataUrl(payload.b, XOR_KEY);
   const baseImageDataUrl = xorDecryptBase64ToDataUrl(payload.e, XOR_KEY);
+  const taskType = decodeOptionalEventTaskType(payload, "f");
   const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
   if (Number.isNaN(taskCount) || !capturedImageDataUrl || !baseImageDataUrl) {
     console.warn("Local Query Bridge repeat capture payload invalid");
@@ -1472,7 +1549,8 @@ async function handleRepeatCaptureRequest() {
   }
 
   const existingDraft = state.pendingRepeatDraft;
-  const targets = await getOrCreatePendingRepeatTargets(taskCount, promptTexts);
+  const draftTaskType = taskType || existingDraft?.taskType || "";
+  const targets = await getOrCreatePendingRepeatTargets(taskCount, promptTexts, draftTaskType);
   if (targets.length === 0) {
     console.warn("Local Query Bridge has no eligible ChatGPT repeat targets");
     return;
@@ -1504,6 +1582,7 @@ async function handleRepeatCaptureRequest() {
   state.pendingRepeatDraft = {
     taskCount,
     promptTexts,
+    taskType: draftTaskType,
     targets: successfulTargets,
     captureCount: (existingDraft && existingDraft.taskCount === taskCount ? existingDraft.captureCount : 0) + 1,
   };
@@ -1597,6 +1676,8 @@ async function pollLocalBridge() {
         return;
       }
 
+      const eventTaskType = decodeOptionalEventTaskType(payload);
+
       if (eventType === EVENT_TYPE_TEXT_TASK) {
         if (!payload?.a) {
           return;
@@ -1620,6 +1701,7 @@ async function pollLocalBridge() {
         console.log("Local Query Bridge retrieved new task text prompt", {
           taskCount,
           promptCount: promptTexts.length,
+          taskType: eventTaskType || "(active)",
         });
         state.pendingRepeatDraft = null;
         state.pendingSubmission = {
@@ -1627,6 +1709,7 @@ async function pollLocalBridge() {
           promptTexts,
           targets: null,
           submissionMode: EVENT_TYPE_TEXT_TASK,
+          taskType: eventTaskType,
         };
 
         await deliverPendingSubmission();
@@ -1656,6 +1739,7 @@ async function pollLocalBridge() {
         console.log("Local Query Bridge retrieved alert event", {
           taskCount,
           alertCount: alertTexts.length,
+          taskType: eventTaskType || "(active)",
         });
         state.pendingRepeatDraft = null;
         state.pendingSubmission = {
@@ -1663,6 +1747,7 @@ async function pollLocalBridge() {
           promptTexts: alertTexts,
           targets: null,
           submissionMode: EVENT_TYPE_ALERT_TASK,
+          taskType: eventTaskType,
         };
 
         await deliverPendingSubmission();
@@ -1701,6 +1786,7 @@ async function pollLocalBridge() {
       console.log("Local Query Bridge retrieved new task screenshot", {
         taskCount,
         screenshotCount: imageDataUrls.length,
+        taskType: eventTaskType || "(active)",
       });
       state.pendingRepeatDraft = null;
       state.pendingSubmission = {
@@ -1709,6 +1795,7 @@ async function pollLocalBridge() {
         promptTexts,
         targets: null,
         submissionMode: EVENT_TYPE_TASK,
+        taskType: eventTaskType,
       };
 
       await deliverPendingSubmission();

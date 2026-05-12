@@ -343,6 +343,7 @@ class SharedState:
         task_count: int,
         screenshots_png: list[bytes] | tuple[bytes, ...],
         prompts: list[str] | tuple[str, ...],
+        task_type: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -351,6 +352,7 @@ class SharedState:
                     "task_count": task_count,
                     "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
                     "prompts": list(prompts),
+                    "task_type": str(task_type or ""),
                 }
             )
 
@@ -358,6 +360,7 @@ class SharedState:
         self,
         task_count: int,
         prompts: list[str] | tuple[str, ...],
+        task_type: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -365,6 +368,7 @@ class SharedState:
                     "type": TEXT_TASK_EVENT_TYPE,
                     "task_count": task_count,
                     "prompts": list(prompts),
+                    "task_type": str(task_type or ""),
                 }
             )
 
@@ -372,6 +376,7 @@ class SharedState:
         self,
         task_count: int,
         alerts: list[str] | tuple[str, ...],
+        task_type: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -379,6 +384,7 @@ class SharedState:
                     "type": ALERT_TASK_EVENT_TYPE,
                     "task_count": task_count,
                     "alerts": list(alerts),
+                    "task_type": str(task_type or ""),
                 }
             )
 
@@ -404,10 +410,11 @@ class SharedState:
             task_count = int(event["task_count"])
             screenshot_pngs = [bytes(screenshot_png) for screenshot_png in event.get("screenshots_png", [])]
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
+            task_type = str(event.get("task_type", ""))
             encoded_screenshots = [base64.b64encode(screenshot_png).decode("ascii") for screenshot_png in screenshot_pngs]
             total_bytes = sum(len(screenshot_png) for screenshot_png in screenshot_pngs)
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes}",
+                f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes} type={task_type or '-'}",
                 flush=True,
             )
             return {
@@ -415,13 +422,15 @@ class SharedState:
                 "b": xor_encrypt_string_to_base64(json.dumps(encoded_screenshots, ensure_ascii=False), XOR_KEY),
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
+                "e": xor_encrypt_to_hex(task_type, XOR_KEY),
             }
 
         if event_type == TEXT_TASK_EVENT_TYPE:
             task_count = int(event["task_count"])
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
+            task_type = str(event.get("task_type", ""))
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)}",
+                f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)} type={task_type or '-'}",
                 flush=True,
             )
             return {
@@ -429,13 +438,15 @@ class SharedState:
                 "b": "",
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex(TEXT_TASK_EVENT_TYPE, XOR_KEY),
+                "e": xor_encrypt_to_hex(task_type, XOR_KEY),
             }
 
         if event_type == ALERT_TASK_EVENT_TYPE:
             task_count = int(event["task_count"])
             alerts = [str(alert_text) for alert_text in event.get("alerts", [])]
+            task_type = str(event.get("task_type", ""))
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)}",
+                f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)} type={task_type or '-'}",
                 flush=True,
             )
             return {
@@ -443,6 +454,7 @@ class SharedState:
                 "b": "",
                 "c": xor_encrypt_string_to_base64(json.dumps(alerts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex(ALERT_TASK_EVENT_TYPE, XOR_KEY),
+                "e": xor_encrypt_to_hex(task_type, XOR_KEY),
             }
 
         if event_type == "scroll":
@@ -480,7 +492,7 @@ def get_pending_task() -> Any:
 def capture_repeat_screenshot() -> Any:
     repeatable_task = STATE.get_repeatable_task()
     if repeatable_task is None:
-        return jsonify({"a": "", "b": "", "c": "", "d": "", "e": ""})
+        return jsonify({"a": "", "b": "", "c": "", "d": "", "e": "", "f": ""})
 
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
@@ -499,6 +511,7 @@ def capture_repeat_screenshot() -> Any:
             "c": xor_encrypt_string_to_base64(json.dumps(list(repeat_prompts), ensure_ascii=False), XOR_KEY),
             "d": xor_encrypt_to_hex("repeat", XOR_KEY),
             "e": xor_encrypt_bytes_to_base64(repeatable_task.base_screenshot_png, XOR_KEY),
+            "f": xor_encrypt_to_hex(repeatable_task.task_type, XOR_KEY),
         }
     )
 
@@ -579,6 +592,11 @@ def get_control_payload_task_type(payload: dict[str, Any]) -> str:
     return "Control Task"
 
 
+def get_control_payload_task_type_key(payload: dict[str, Any], fallback: str = "") -> str:
+    task_type_key = sanitize_control_command_field(payload.get("currentTaskType"), 120)
+    return task_type_key or fallback
+
+
 def resolve_control_task_settings(payload: dict[str, Any]) -> TaskSettings | None:
     config = CONFIG_CACHE.load()
     candidates = [
@@ -643,7 +661,12 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
         settings.repeat_prefix,
         screenshot_png,
     )
-    STATE.publish_payload(effective_task_count, [screenshot_png], prompts)
+    STATE.publish_payload(
+        effective_task_count,
+        [screenshot_png],
+        prompts,
+        task_type=get_control_payload_task_type_key(payload, settings.task_type),
+    )
     print(
         f"[control {timestamp_now()}] queued-screenshot counter={effective_task_count} type={settings.task_type}",
         flush=True,
@@ -688,7 +711,11 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
             ocr_warning=ocr_warning,
         )
         if abort_alerts:
-            STATE.publish_alert_payload(effective_task_count, abort_alerts)
+            STATE.publish_alert_payload(
+                effective_task_count,
+                abort_alerts,
+                task_type=get_control_payload_task_type_key(payload, settings.task_type),
+            )
             print(
                 f"[control {timestamp_now()}] queued-ocr-alert counter={effective_task_count} type={settings.task_type}",
                 flush=True,
@@ -705,7 +732,11 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
         print(f"[control {timestamp_now()}] ocr no-text-prompts type={settings.task_type}", flush=True)
         return False
 
-    STATE.publish_text_payload(effective_task_count, text_prompts)
+    STATE.publish_text_payload(
+        effective_task_count,
+        text_prompts,
+        task_type=get_control_payload_task_type_key(payload, settings.task_type),
+    )
     print(
         f"[control {timestamp_now()}] queued-ocr-text counter={effective_task_count} type={settings.task_type}",
         flush=True,
@@ -1438,6 +1469,7 @@ def monitor_screen() -> None:
                             effective_task_count,
                             [screenshot_png],
                             test_settings.prompts,
+                            task_type=test_settings.task_type,
                         )
                         print(
                             f"[test {timestamp_now()}] hotkey={TEST_HOTKEY_LABEL} queued type={test_settings.task_type}",
@@ -1482,7 +1514,11 @@ def monitor_screen() -> None:
                                     ocr_warning=ocr_warning,
                                 )
                                 if abort_alerts:
-                                    STATE.publish_alert_payload(effective_task_count, abort_alerts)
+                                    STATE.publish_alert_payload(
+                                        effective_task_count,
+                                        abort_alerts,
+                                        task_type=test_settings.task_type,
+                                    )
                                     print(
                                         f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} queued-alert type={test_settings.task_type}",
                                         flush=True,
@@ -1495,7 +1531,11 @@ def monitor_screen() -> None:
                                     ocr_warning=ocr_warning,
                                 )
                                 if text_prompts:
-                                    STATE.publish_text_payload(effective_task_count, text_prompts)
+                                    STATE.publish_text_payload(
+                                        effective_task_count,
+                                        text_prompts,
+                                        task_type=test_settings.task_type,
+                                    )
                                     print(
                                         f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} queued-text type={test_settings.task_type}",
                                         flush=True,
@@ -1523,7 +1563,12 @@ def monitor_screen() -> None:
                                 settings.repeat_prefix,
                                 screenshot_png,
                             )
-                            STATE.publish_payload(task_count, [screenshot_png], settings.prompts)
+                            STATE.publish_payload(
+                                task_count,
+                                [screenshot_png],
+                                settings.prompts,
+                                task_type=settings.task_type,
+                            )
                             print(
                                 f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} total={task_type_total}",
                                 flush=True,
@@ -1550,6 +1595,7 @@ def monitor_screen() -> None:
                             armed_task.task_count,
                             [screenshot_png],
                             armed_task.prompts,
+                            task_type=armed_task.task_type,
                         )
                         print(
                             f"[task {timestamp_now()}] counter={armed_task.task_count} type={armed_task.task_type} released",

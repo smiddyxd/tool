@@ -81,14 +81,23 @@ Local endpoint on the same PC:
 
 Current JSON contract:
 - `GET /a`: extension polling endpoint
-- `d`: XOR+hex event type (`task` or `scroll`)
+- `d`: XOR+hex event type (`task`, `text_task`, `alert_task`, or `scroll`)
 - task events:
   - `a`: XOR+hex task counter string
   - `b`: XOR+base64 PNG bytes
   - `c`: XOR+base64 JSON prompt list
+  - `e`: optional XOR+hex task type key used for task-specific project routing
+- text/alert events:
+  - `a`: XOR+hex task counter string
+  - `c`: XOR+base64 JSON prompt or alert list
+  - `d`: XOR+hex event type (`text_task` or `alert_task`)
+  - `e`: optional XOR+hex task type key used for task-specific project routing
 - scroll events:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
+- repeat events from `GET /b`:
+  - `e`: XOR+base64 base screenshot PNG bytes
+  - `f`: optional XOR+hex task type key used for task-specific project routing
 - `GET /b`: repeat-capture endpoint for the active repeatable task
 - `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, `processingMode`, selected region bounds, project URL details, and the full region map
 
