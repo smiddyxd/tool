@@ -2322,6 +2322,37 @@ function clearRuleForm() {
   });
 }
 
+async function pasteClipboardAsNewTextareaLine(textareaSelector, fieldLabel) {
+  const textarea = document.querySelector(textareaSelector);
+  if (!(textarea instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  let clipboardText = "";
+  try {
+    clipboardText = await navigator.clipboard.readText();
+  } catch (error) {
+    console.error("Local Query Bridge failed to read clipboard", error);
+    setStatus("Clipboard paste failed. Check the extension clipboard permission and try again.");
+    return;
+  }
+
+  const pastedLine = clipboardText.replace(/\r\n?/g, "\n").replace(/\n+$/g, "");
+  if (pastedLine.length === 0) {
+    textarea.focus();
+    setStatus(`Clipboard is empty. ${fieldLabel} unchanged.`);
+    return;
+  }
+
+  const separator = textarea.value.length === 0 || textarea.value.endsWith("\n") ? "" : "\n";
+  textarea.value = `${textarea.value}${separator}${pastedLine}`;
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  textarea.scrollTop = textarea.scrollHeight;
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  setStatus(`${fieldLabel} pasted as a new line. Update or create the rule to keep it.`);
+}
+
 function createRuleSummary(rule) {
   const targetSummary = getPositiveMatchStrings(rule.matchStrings).join(", ");
   const excludedMatches = getExcludedMatchStrings(rule.matchStrings);
@@ -3510,6 +3541,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetButton = document.querySelector("#reset-changes");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
+  const pasteHighlightMatchesButton = document.querySelector("#paste-highlight-rule-matches");
+  const pasteHighlightCompanionsButton = document.querySelector("#paste-highlight-rule-companions");
   const highlightColorInput = document.querySelector("#highlight-rule-color");
   const highlightHexInput = document.querySelector("#highlight-rule-color-hex");
   const addTaskTypeButton = document.querySelector("#add-task-type");
@@ -3675,5 +3708,11 @@ document.addEventListener("DOMContentLoaded", () => {
   clearRuleButton.addEventListener("click", () => {
     clearRuleForm();
     setStatus("Ready for a new rule.");
+  });
+  pasteHighlightMatchesButton?.addEventListener("click", () => {
+    void pasteClipboardAsNewTextareaLine("#highlight-rule-matches", "Matched strings");
+  });
+  pasteHighlightCompanionsButton?.addEventListener("click", () => {
+    void pasteClipboardAsNewTextareaLine("#highlight-rule-companions", "Adjacent terms");
   });
 });

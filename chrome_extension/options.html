@@ -157,6 +157,31 @@
       background: #fafbfc;
     }
 
+    .textarea-field {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .textarea-label-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 650;
+    }
+
+    .textarea-label-row label {
+      display: block;
+      gap: 0;
+    }
+
+    .paste-line-button {
+      padding: 6px 10px;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
     .checkbox-row {
       display: flex;
       gap: 10px;
@@ -817,17 +842,23 @@
           </div>
 
           <div class="grid-2">
-            <label for="highlight-rule-matches">
-              Matched strings
+            <div class="textarea-field">
+              <div class="textarea-label-row">
+                <label for="highlight-rule-matches">Matched strings</label>
+                <button id="paste-highlight-rule-matches" class="paste-line-button" type="button">Paste</button>
+              </div>
               <textarea id="highlight-rule-matches" placeholder="poor&#10;...substitut...&#10;r-\bpoor\b&#10;--r-\b2\.(?!\d)"></textarea>
               <p class="hint">Add one target per line. Prefix with r- for regex, !r- for priority regex, or -- to subtract a target. Use --r- for regex exclusions.</p>
-            </label>
+            </div>
 
-            <label for="highlight-rule-companions">
-              Adjacent terms
+            <div class="textarea-field">
+              <div class="textarea-label-row">
+                <label for="highlight-rule-companions">Adjacent terms</label>
+                <button id="paste-highlight-rule-companions" class="paste-line-button" type="button">Paste</button>
+              </div>
               <textarea id="highlight-rule-companions" placeholder="low&#10;mid&#10;high&#10;...accept...&#10;r-accept\w*"></textarea>
               <p class="hint">Add one adjacent term per line. Prefix with r- for regex, or !r- for priority regex when included.</p>
-            </label>
+            </div>
           </div>
 
           <div class="grid-2">
