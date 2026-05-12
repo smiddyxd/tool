@@ -107,6 +107,11 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
   const HIGHLIGHT_CLASS = "local-query-bridge-highlight";
   const HIGHLIGHT_STYLE_ID = "local-query-bridge-highlight-styles";
+  const HIGHLIGHT_SELECTION_EDITOR_ID = "local-query-bridge-highlight-selection-editor";
+  const HIGHLIGHT_SELECTION_EDITOR_STYLE_ID = "local-query-bridge-highlight-selection-editor-styles";
+  const HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS = "local-query-bridge-highlight-selection-editor-open";
+  const HIGHLIGHT_SELECTION_EDITOR_RULE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-rule-active";
+  const HIGHLIGHT_SELECTION_EDITOR_MODE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-mode-active";
   const SERVER_CONTROL_MENU_ID = "local-query-bridge-server-control-menu";
   const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
@@ -121,8 +126,6 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX = 50;
   const SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX = 0;
   const SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX = 500;
-  const SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX = 5;
-  const SERVER_CONTROL_ZONE_CONTEXT_MENU_SUPPRESS_MS = 800;
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE = "serverControlTaskType";
   const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
   const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
@@ -383,6 +386,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     applying: false,
   };
 
+  const highlightSelectionEditorState = {
+    selectedRuleId: "",
+    mode: "match",
+    selectionText: "",
+    rangeRect: null,
+    updateTimerId: null,
+  };
+
   const analysisTocState = {
     currentRunId: 0,
     baselineAssistantCount: 0,
@@ -440,8 +451,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     button: null,
     startX: 0,
     startY: 0,
-    moved: false,
-    lastContextMenuAt: 0,
+    downInZone: false,
+    downExcluded: false,
+    hadSelectionOnPointerDown: false,
+    validStationaryClick: false,
   };
 
   const MANUAL_SCROLL_KEYS = new Set([
@@ -1113,6 +1126,98 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .filter(Boolean);
   }
 
+  function isExcludedHighlightMatchString(value) {
+    return typeof value === "string" && value.trim().startsWith("--");
+  }
+
+  function sanitizeHighlightRuleForStorage(rawRule, index = 0) {
+    const fallbackRule = DEFAULT_HIGHLIGHT_RULES[index % DEFAULT_HIGHLIGHT_RULES.length] ?? DEFAULT_HIGHLIGHT_RULES[0];
+    const matchStrings = normalizeStringList(rawRule?.matchStrings ?? rawRule?.matchedStrings ?? rawRule?.matches);
+    const positiveMatchStrings = matchStrings.filter((value) => !isExcludedHighlightMatchString(value));
+    if (positiveMatchStrings.length === 0) {
+      return null;
+    }
+
+    const companionWords = normalizeStringList(rawRule?.companionWords ?? rawRule?.prefixWords ?? rawRule?.nearbyWords);
+    const parsedDistance = Number.parseInt(`${rawRule?.companionDistance ?? rawRule?.distance ?? 0}`, 10);
+    const companionDistance = Number.isFinite(parsedDistance) && parsedDistance > 0
+      ? Math.min(parsedDistance, 20)
+      : 0;
+
+    return {
+      id: typeof rawRule?.id === "string" && rawRule.id.trim() ? rawRule.id.trim() : fallbackRule.id,
+      label: typeof rawRule?.label === "string" && rawRule.label.trim() ? rawRule.label.trim() : positiveMatchStrings[0],
+      color: sanitizeColor(rawRule?.color, fallbackRule.color),
+      matchStrings,
+      companionWords,
+      companionDistance,
+      enabled: rawRule?.enabled !== false,
+    };
+  }
+
+  function sanitizeHighlightRulesForStorage(rawRules) {
+    const sourceRules = Array.isArray(rawRules) ? rawRules : cloneDefaultHighlightRules();
+    return sourceRules
+      .map((rule, index) => sanitizeHighlightRuleForStorage(rule, index))
+      .filter(Boolean);
+  }
+
+  function stripOuterEllipsisMarkers(value) {
+    return (typeof value === "string" ? value : "").replace(/^\.{3}/, "").replace(/\.{3}$/, "");
+  }
+
+  function parseHighlightIndicatorLine(line, allowExclude) {
+    let text = typeof line === "string" ? line.trim() : "";
+    const excluded = allowExclude && text.startsWith("--");
+    if (excluded) {
+      text = text.slice(2).trimStart();
+    }
+
+    const priority = text.startsWith("!");
+    if (priority) {
+      text = text.slice(1).trimStart();
+    }
+
+    const regex = text.startsWith("r-");
+    if (regex) {
+      text = text.slice(2).trimStart();
+    }
+
+    const hasLeadingWildcard = !regex && text.startsWith("...");
+    const hasTrailingWildcard = !regex && text.endsWith("...");
+    const wildcardMode = hasLeadingWildcard && hasTrailingWildcard
+      ? "contains"
+      : (hasLeadingWildcard ? "ends" : (hasTrailingWildcard ? "starts" : "exact"));
+
+    return {
+      excluded,
+      priority,
+      regex,
+      wildcardMode,
+      body: regex ? text : stripOuterEllipsisMarkers(text),
+    };
+  }
+
+  function buildHighlightIndicatorLine(parsed, allowExclude) {
+    const prefix = [
+      allowExclude && parsed.excluded ? "--" : "",
+      parsed.priority ? "!" : "",
+      parsed.regex ? "r-" : "",
+    ].join("");
+    let body = parsed.body;
+    if (!parsed.regex) {
+      if (parsed.wildcardMode === "starts") {
+        body = `${body}...`;
+      } else if (parsed.wildcardMode === "ends") {
+        body = `...${body}`;
+      } else if (parsed.wildcardMode === "contains") {
+        body = `...${body}...`;
+      }
+    }
+
+    return `${prefix}${body}`;
+  }
+
   function isPlainObject(value) {
     return value && typeof value === "object" && !Array.isArray(value);
   }
@@ -1149,6 +1254,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     return Boolean(element.closest([
       `.${HIGHLIGHT_CLASS}`,
+      `#${HIGHLIGHT_SELECTION_EDITOR_ID}`,
       "script",
       "style",
       "noscript",
@@ -1168,6 +1274,635 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       "[contenteditable]",
       PROMPT_TEXTAREA_SELECTOR,
     ].join(",")));
+  }
+
+  function ensureHighlightSelectionEditorStyles() {
+    if (document.getElementById(HIGHLIGHT_SELECTION_EDITOR_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = HIGHLIGHT_SELECTION_EDITOR_STYLE_ID;
+    style.textContent = `
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} {
+        position: fixed;
+        z-index: 2147483647;
+        display: none;
+        width: min(420px, calc(100vw - 16px));
+        padding: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.18);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24);
+        color: #111827;
+        font: 13px/1.35 "Segoe UI", system-ui, sans-serif;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID}.${HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS} {
+        display: grid;
+        gap: 8px;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} input {
+        min-width: 0;
+        width: 100%;
+        height: 34px;
+        border: 1px solid rgba(100, 116, 139, 0.48);
+        border-radius: 7px;
+        padding: 6px 8px;
+        color: #111827;
+        background: #ffffff;
+        font: 13px/1.35 "Segoe UI", system-ui, sans-serif;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} input:focus,
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} button:focus {
+        outline: 2px solid rgba(37, 99, 235, 0.28);
+        outline-offset: 1px;
+      }
+
+      .local-query-bridge-highlight-selection-input-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .local-query-bridge-highlight-selection-rules,
+      .local-query-bridge-highlight-selection-mode,
+      .local-query-bridge-highlight-selection-markers,
+      .local-query-bridge-highlight-selection-actions {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} button {
+        min-height: 28px;
+        border: 1px solid rgba(100, 116, 139, 0.28);
+        border-radius: 7px;
+        padding: 5px 8px;
+        background: #f8fafc;
+        color: #111827;
+        cursor: pointer;
+        font: 700 12px/1.2 "Segoe UI", system-ui, sans-serif;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} button:hover {
+        background: #eef2f7;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} button:disabled {
+        opacity: 0.48;
+        cursor: default;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} .local-query-bridge-highlight-selection-rule {
+        display: inline-grid;
+        grid-template-columns: 14px auto;
+        gap: 5px;
+        align-items: center;
+        max-width: 128px;
+        overflow: hidden;
+        padding-right: 7px;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} .local-query-bridge-highlight-selection-rule span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-highlight-selection-swatch {
+        width: 14px;
+        height: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.18);
+        border-radius: 999px;
+      }
+
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} .${HIGHLIGHT_SELECTION_EDITOR_RULE_ACTIVE_CLASS},
+      #${HIGHLIGHT_SELECTION_EDITOR_ID} .${HIGHLIGHT_SELECTION_EDITOR_MODE_ACTIVE_CLASS} {
+        border-color: rgba(37, 99, 235, 0.58);
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+
+      .local-query-bridge-highlight-selection-markers button {
+        min-width: 32px;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      }
+
+      .local-query-bridge-highlight-selection-add {
+        margin-left: auto;
+        background: #2563eb !important;
+        color: #ffffff !important;
+      }
+
+      .local-query-bridge-highlight-selection-status {
+        min-height: 16px;
+        color: #64748b;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function getHighlightSelectionEditor() {
+    const editor = document.getElementById(HIGHLIGHT_SELECTION_EDITOR_ID);
+    return editor instanceof HTMLElement ? editor : null;
+  }
+
+  function getHighlightSelectionEditorInput() {
+    const input = getHighlightSelectionEditor()?.querySelector("[data-highlight-selection-input]");
+    return input instanceof HTMLInputElement ? input : null;
+  }
+
+  function setHighlightSelectionEditorStatus(message) {
+    const status = getHighlightSelectionEditor()?.querySelector("[data-highlight-selection-status]");
+    if (status instanceof HTMLElement) {
+      status.textContent = message;
+    }
+  }
+
+  function getHighlightSelectionEditorRules() {
+    return highlightState.rules;
+  }
+
+  function syncHighlightSelectionEditorButtonStates() {
+    const editor = getHighlightSelectionEditor();
+    if (!(editor instanceof HTMLElement)) {
+      return;
+    }
+
+    const ruleButtons = Array.from(editor.querySelectorAll("[data-highlight-selection-rule-id]"));
+    for (const button of ruleButtons) {
+      if (button instanceof HTMLButtonElement) {
+        button.classList.toggle(
+          HIGHLIGHT_SELECTION_EDITOR_RULE_ACTIVE_CLASS,
+          button.dataset.highlightSelectionRuleId === highlightSelectionEditorState.selectedRuleId,
+        );
+      }
+    }
+
+    const modeButtons = Array.from(editor.querySelectorAll("[data-highlight-selection-mode]"));
+    for (const button of modeButtons) {
+      if (button instanceof HTMLButtonElement) {
+        button.classList.toggle(
+          HIGHLIGHT_SELECTION_EDITOR_MODE_ACTIVE_CLASS,
+          button.dataset.highlightSelectionMode === highlightSelectionEditorState.mode,
+        );
+      }
+    }
+
+    const excludeButton = editor.querySelector('[data-highlight-selection-command="toggle-exclude"]');
+    if (excludeButton instanceof HTMLButtonElement) {
+      excludeButton.disabled = highlightSelectionEditorState.mode !== "match";
+      excludeButton.title = highlightSelectionEditorState.mode === "match"
+        ? "Toggle exclusion marker for the current matched-string line"
+        : "Exclusion markers only apply to matched strings";
+    }
+  }
+
+  function renderHighlightSelectionEditorRuleButtons(editor) {
+    const container = editor.querySelector("[data-highlight-selection-rules]");
+    if (!(container instanceof HTMLElement)) {
+      return;
+    }
+
+    const rules = getHighlightSelectionEditorRules();
+    container.replaceChildren();
+    if (rules.length === 0) {
+      highlightSelectionEditorState.selectedRuleId = "";
+      const empty = document.createElement("span");
+      empty.textContent = "No highlight colors for this task type.";
+      container.append(empty);
+      syncHighlightSelectionEditorButtonStates();
+      return;
+    }
+
+    if (!rules.some((rule) => rule.id === highlightSelectionEditorState.selectedRuleId)) {
+      highlightSelectionEditorState.selectedRuleId = rules[0]?.id ?? "";
+    }
+
+    for (const rule of rules) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "local-query-bridge-highlight-selection-rule";
+      button.dataset.highlightSelectionRuleId = rule.id;
+      button.title = `Use ${rule.label}`;
+
+      const swatch = document.createElement("span");
+      swatch.className = "local-query-bridge-highlight-selection-swatch";
+      swatch.style.backgroundColor = rule.color;
+
+      const label = document.createElement("span");
+      label.textContent = rule.label;
+
+      button.append(swatch, label);
+      button.addEventListener("click", () => {
+        highlightSelectionEditorState.selectedRuleId = rule.id;
+        syncHighlightSelectionEditorButtonStates();
+      });
+      container.append(button);
+    }
+
+    syncHighlightSelectionEditorButtonStates();
+  }
+
+  function ensureHighlightSelectionEditor() {
+    const existingEditor = getHighlightSelectionEditor();
+    if (existingEditor) {
+      renderHighlightSelectionEditorRuleButtons(existingEditor);
+      return existingEditor;
+    }
+
+    ensureHighlightSelectionEditorStyles();
+    const editor = document.createElement("aside");
+    editor.id = HIGHLIGHT_SELECTION_EDITOR_ID;
+    editor.setAttribute("aria-label", "Highlight selected text");
+
+    const inputRow = document.createElement("div");
+    inputRow.className = "local-query-bridge-highlight-selection-input-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.dataset.highlightSelectionInput = "true";
+    input.addEventListener("input", () => {
+      highlightSelectionEditorState.selectionText = input.value;
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void saveHighlightSelectionEditorLine();
+      } else if (event.key === "Escape") {
+        hideHighlightSelectionEditor();
+      }
+    });
+
+    const backspaceButton = document.createElement("button");
+    backspaceButton.type = "button";
+    backspaceButton.textContent = "Backspace";
+    backspaceButton.title = "Delete one character from the editor text";
+    backspaceButton.addEventListener("click", deleteHighlightSelectionEditorInputText);
+
+    inputRow.append(input, backspaceButton);
+
+    const rules = document.createElement("div");
+    rules.className = "local-query-bridge-highlight-selection-rules";
+    rules.dataset.highlightSelectionRules = "true";
+
+    const modeRow = document.createElement("div");
+    modeRow.className = "local-query-bridge-highlight-selection-mode";
+    for (const [mode, label] of [["match", "Matched string"], ["adjacent", "Adjacent term"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.dataset.highlightSelectionMode = mode;
+      button.addEventListener("click", () => {
+        highlightSelectionEditorState.mode = mode;
+        syncHighlightSelectionEditorButtonStates();
+      });
+      modeRow.append(button);
+    }
+
+    const markerRow = document.createElement("div");
+    markerRow.className = "local-query-bridge-highlight-selection-markers";
+    for (const marker of [
+      ["toggle-priority", "!"],
+      ["toggle-exclude", "--"],
+      ["toggle-regex", "r-"],
+      ["wildcard-exact", "Exact"],
+      ["wildcard-starts", "abc..."],
+      ["wildcard-ends", "...abc"],
+      ["wildcard-contains", "...abc..."],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = marker[1];
+      button.dataset.highlightSelectionCommand = marker[0];
+      button.addEventListener("click", () => {
+        applyHighlightSelectionEditorIndicator(marker[0]);
+      });
+      markerRow.append(button);
+    }
+
+    const actionRow = document.createElement("div");
+    actionRow.className = "local-query-bridge-highlight-selection-actions";
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "Close";
+    closeButton.addEventListener("click", hideHighlightSelectionEditor);
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.className = "local-query-bridge-highlight-selection-add";
+    addButton.textContent = "Add";
+    addButton.addEventListener("click", () => {
+      void saveHighlightSelectionEditorLine();
+    });
+    actionRow.append(closeButton, addButton);
+
+    const status = document.createElement("div");
+    status.className = "local-query-bridge-highlight-selection-status";
+    status.dataset.highlightSelectionStatus = "true";
+
+    editor.append(inputRow, rules, modeRow, markerRow, actionRow, status);
+    document.body.append(editor);
+    renderHighlightSelectionEditorRuleButtons(editor);
+    return editor;
+  }
+
+  function positionHighlightSelectionEditor(editor, rect) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const editorRect = editor.getBoundingClientRect();
+    const gap = 8;
+    const left = Math.max(
+      gap,
+      Math.min(rect.left, viewportWidth - editorRect.width - gap),
+    );
+    let top = rect.bottom + gap;
+    if (top + editorRect.height > viewportHeight - gap) {
+      top = rect.top - editorRect.height - gap;
+    }
+    top = Math.max(gap, Math.min(top, viewportHeight - editorRect.height - gap));
+
+    editor.style.left = `${left}px`;
+    editor.style.top = `${top}px`;
+  }
+
+  function getElementFromSelectionNode(node) {
+    if (node instanceof Element) {
+      return node;
+    }
+
+    return node?.parentElement ?? null;
+  }
+
+  function getCurrentHighlightTextSelection() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return null;
+    }
+
+    const text = selection.toString().replace(/\s+/g, " ").trim();
+    if (!text) {
+      return null;
+    }
+
+    const range = selection.getRangeAt(0);
+    const container = getElementFromSelectionNode(range.commonAncestorContainer);
+    if (
+      !(container instanceof HTMLElement)
+      || container.closest(`#${HIGHLIGHT_SELECTION_EDITOR_ID}`)
+      || container.closest(`#${SERVER_CONTROL_MENU_ID}`)
+      || container.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`)
+      || isEditableTarget(container)
+    ) {
+      return null;
+    }
+
+    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const rect = rects[0] ?? range.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    return { text, rect };
+  }
+
+  function showHighlightSelectionEditor(selectionDetails) {
+    const editor = ensureHighlightSelectionEditor();
+    const input = getHighlightSelectionEditorInput();
+    if (!(editor instanceof HTMLElement) || !(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    highlightSelectionEditorState.selectionText = selectionDetails.text;
+    highlightSelectionEditorState.rangeRect = selectionDetails.rect;
+    input.value = selectionDetails.text;
+    editor.classList.add(HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS);
+    setHighlightSelectionEditorStatus(
+      getHighlightSelectionEditorRules().length === 0
+        ? "This task type has no highlight rules yet. Add or copy rules in the options page first."
+        : "Choose a color/rule and add as a matched string or adjacent term.",
+    );
+    syncHighlightSelectionEditorButtonStates();
+    window.requestAnimationFrame(() => {
+      positionHighlightSelectionEditor(editor, selectionDetails.rect);
+    });
+  }
+
+  function hideHighlightSelectionEditor() {
+    const editor = getHighlightSelectionEditor();
+    if (editor instanceof HTMLElement) {
+      editor.classList.remove(HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS);
+    }
+  }
+
+  function scheduleHighlightSelectionEditorUpdate() {
+    if (highlightSelectionEditorState.updateTimerId !== null) {
+      window.clearTimeout(highlightSelectionEditorState.updateTimerId);
+    }
+
+    highlightSelectionEditorState.updateTimerId = window.setTimeout(() => {
+      highlightSelectionEditorState.updateTimerId = null;
+      const editor = getHighlightSelectionEditor();
+      if (editor instanceof HTMLElement && editor.contains(document.activeElement)) {
+        return;
+      }
+
+      const selectionDetails = getCurrentHighlightTextSelection();
+      if (!selectionDetails) {
+        hideHighlightSelectionEditor();
+        return;
+      }
+
+      showHighlightSelectionEditor(selectionDetails);
+    }, 80);
+  }
+
+  function deleteHighlightSelectionEditorInputText() {
+    const input = getHighlightSelectionEditorInput();
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    if (start !== end) {
+      input.value = `${input.value.slice(0, start)}${input.value.slice(end)}`;
+      input.setSelectionRange(start, start);
+    } else if (start > 0) {
+      input.value = `${input.value.slice(0, start - 1)}${input.value.slice(start)}`;
+      input.setSelectionRange(start - 1, start - 1);
+    }
+
+    highlightSelectionEditorState.selectionText = input.value;
+    input.focus();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function applyHighlightSelectionEditorIndicator(command) {
+    const input = getHighlightSelectionEditorInput();
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const allowExclude = highlightSelectionEditorState.mode === "match";
+    const parsedLine = parseHighlightIndicatorLine(input.value, allowExclude);
+
+    if (command === "toggle-priority") {
+      parsedLine.priority = !parsedLine.priority;
+    } else if (command === "toggle-exclude") {
+      if (!allowExclude) {
+        setHighlightSelectionEditorStatus("Exclusion markers only apply to matched strings.");
+        return;
+      }
+      parsedLine.excluded = !parsedLine.excluded;
+    } else if (command === "toggle-regex") {
+      parsedLine.regex = !parsedLine.regex;
+      parsedLine.body = stripOuterEllipsisMarkers(parsedLine.body);
+      parsedLine.wildcardMode = "exact";
+    } else if (command.startsWith("wildcard-")) {
+      if (parsedLine.regex) {
+        setHighlightSelectionEditorStatus("Ellipsis markers apply to normal lines. Turn off r- before using them.");
+        input.focus();
+        return;
+      }
+      parsedLine.wildcardMode = command.replace("wildcard-", "");
+    } else {
+      return;
+    }
+
+    const nextValue = buildHighlightIndicatorLine(parsedLine, allowExclude);
+    input.value = nextValue;
+    const caretPosition = nextValue.length;
+    input.focus();
+    input.setSelectionRange(caretPosition, caretPosition);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    setHighlightSelectionEditorStatus("Marker changed.");
+  }
+
+  async function saveHighlightSelectionEditorLine() {
+    const input = getHighlightSelectionEditorInput();
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    let line = input.value.trim();
+    if (!line) {
+      setHighlightSelectionEditorStatus("Add text before saving.");
+      input.focus();
+      return;
+    }
+
+    if (highlightSelectionEditorState.mode !== "match") {
+      line = line.replace(/^--\s*/, "");
+    }
+
+    const taskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
+    const [localStored, syncStored] = await Promise.all([
+      chrome.storage.local.get({
+        [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+        [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+      }),
+      chrome.storage.sync.get({
+        [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
+        [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+      }),
+    ]);
+    const scopedRules = {
+      ...(isPlainObject(syncStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES])
+        ? syncStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]
+        : {}),
+      ...(isPlainObject(localStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES])
+        ? localStored[STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]
+        : {}),
+    };
+    const fallbackRules = Array.isArray(localStored[STORAGE_KEY_HIGHLIGHT_RULES])
+      ? localStored[STORAGE_KEY_HIGHLIGHT_RULES]
+      : (Array.isArray(syncStored[STORAGE_KEY_HIGHLIGHT_RULES])
+        ? syncStored[STORAGE_KEY_HIGHLIGHT_RULES]
+        : cloneDefaultHighlightRules());
+    const rules = sanitizeHighlightRulesForStorage(getTaskTypeScopedStorageValue(scopedRules, taskType, fallbackRules));
+    if (rules.length === 0) {
+      setHighlightSelectionEditorStatus("No highlight rules are available for this task type.");
+      return;
+    }
+
+    let ruleIndex = rules.findIndex((rule) => rule.id === highlightSelectionEditorState.selectedRuleId);
+    if (ruleIndex < 0) {
+      ruleIndex = 0;
+      highlightSelectionEditorState.selectedRuleId = rules[0].id;
+    }
+
+    const rule = rules[ruleIndex];
+    const listKey = highlightSelectionEditorState.mode === "match" ? "matchStrings" : "companionWords";
+    const beforeLength = rule[listKey].length;
+    const nextList = normalizeStringList([...rule[listKey], line]);
+    rules[ruleIndex] = {
+      ...rule,
+      [listKey]: nextList,
+    };
+
+    const nextScopedRules = {
+      ...scopedRules,
+      [taskType]: rules,
+    };
+
+    try {
+      await chrome.storage.local.set({
+        [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: nextScopedRules,
+        [STORAGE_KEY_HIGHLIGHT_RULES]: rules,
+      });
+      await chrome.storage.sync.remove([
+        STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+        STORAGE_KEY_HIGHLIGHT_RULES,
+      ]);
+      await loadHighlightRules();
+      renderHighlightSelectionEditorRuleButtons(ensureHighlightSelectionEditor());
+      setHighlightSelectionEditorStatus(
+        nextList.length === beforeLength
+          ? "That line is already saved for this rule."
+          : `Added to ${rule.label} as ${highlightSelectionEditorState.mode === "match" ? "a matched string" : "an adjacent term"}.`,
+      );
+      input.focus();
+      scheduleHighlightPass();
+    } catch (error) {
+      console.error("Local Query Bridge failed to save selected highlight text", error);
+      setHighlightSelectionEditorStatus("Saving failed. Try again or use the options page.");
+    }
+  }
+
+  function initializeHighlightSelectionEditor() {
+    const attach = () => {
+      ensureHighlightSelectionEditorStyles();
+      document.addEventListener("selectionchange", scheduleHighlightSelectionEditorUpdate);
+      document.addEventListener("mouseup", scheduleHighlightSelectionEditorUpdate, true);
+      document.addEventListener("keyup", scheduleHighlightSelectionEditorUpdate, true);
+      document.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.closest(`#${HIGHLIGHT_SELECTION_EDITOR_ID}`)) {
+          return;
+        }
+        window.setTimeout(scheduleHighlightSelectionEditorUpdate, 0);
+      }, true);
+      window.addEventListener("resize", scheduleHighlightSelectionEditorUpdate, { passive: true });
+      document.addEventListener("scroll", scheduleHighlightSelectionEditorUpdate, {
+        capture: true,
+        passive: true,
+      });
+    };
+
+    if (document.body) {
+      attach();
+    } else {
+      document.addEventListener("DOMContentLoaded", attach, { once: true });
+    }
   }
 
   function getHighlightRoots() {
@@ -3286,6 +4021,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return isEditableTarget(target)
       || Boolean(target.closest([
         `#${SERVER_CONTROL_MENU_ID}`,
+        `#${HIGHLIGHT_SELECTION_EDITOR_ID}`,
         `.${ANALYSIS_TOC_BUTTON_CLASS}`,
         `.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`,
       ].join(",")));
@@ -3296,31 +4032,51 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
+    const excluded = isServerControlZoneExcludedTarget(event.target);
+    const downInZone = !excluded && Boolean(getServerControlZoneActionForPoint(event.clientX, event.clientY));
     serverControlZonePointerState.button = event.button;
     serverControlZonePointerState.startX = event.clientX;
     serverControlZonePointerState.startY = event.clientY;
-    serverControlZonePointerState.moved = false;
+    serverControlZonePointerState.downInZone = downInZone;
+    serverControlZonePointerState.downExcluded = excluded;
+    serverControlZonePointerState.hadSelectionOnPointerDown = Boolean(getSelectedTextForServerControlZone());
+    serverControlZonePointerState.validStationaryClick = false;
+
+    if (downInZone && event.button !== 0) {
+      setServerControlZoneClickEnabled(false);
+    }
   }
 
-  function handleServerControlZonePointerMove(event) {
-    if (!(event instanceof MouseEvent) || serverControlZonePointerState.button !== 0) {
+  function handleServerControlZonePointerUp(event) {
+    if (!(event instanceof MouseEvent)) {
       return;
     }
 
-    const distanceX = Math.abs(event.clientX - serverControlZonePointerState.startX);
-    const distanceY = Math.abs(event.clientY - serverControlZonePointerState.startY);
-    if (
-      distanceX > SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX
-      || distanceY > SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX
-    ) {
-      serverControlZonePointerState.moved = true;
+    const excluded = isServerControlZoneExcludedTarget(event.target);
+    const upInZone = !excluded && Boolean(getServerControlZoneActionForPoint(event.clientX, event.clientY));
+    const interactionInZone = serverControlZonePointerState.downInZone || upInZone;
+    serverControlZonePointerState.validStationaryClick = false;
+    if (!interactionInZone) {
+      return;
     }
-  }
 
-  function handleServerControlZoneContextMenu() {
-    serverControlZonePointerState.lastContextMenuAt = Date.now();
-    serverControlZonePointerState.button = null;
-    serverControlZonePointerState.moved = false;
+    const isStationaryLeftClick = serverControlZonePointerState.button === 0
+      && event.button === 0
+      && serverControlZonePointerState.startX === event.clientX
+      && serverControlZonePointerState.startY === event.clientY
+      && serverControlZonePointerState.downInZone
+      && upInZone
+      && !serverControlZonePointerState.downExcluded
+      && !excluded
+      && !serverControlZonePointerState.hadSelectionOnPointerDown
+      && !getSelectedTextForServerControlZone();
+
+    if (isStationaryLeftClick) {
+      serverControlZonePointerState.validStationaryClick = true;
+      return;
+    }
+
+    setServerControlZoneClickEnabled(false);
   }
 
   function shouldIgnoreServerControlZoneClick(event) {
@@ -3328,22 +4084,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return true;
     }
 
-    if (Date.now() - serverControlZonePointerState.lastContextMenuAt < SERVER_CONTROL_ZONE_CONTEXT_MENU_SUPPRESS_MS) {
+    if (!serverControlMenuState.zoneClickEnabled) {
+      return true;
+    }
+
+    if (!serverControlZonePointerState.validStationaryClick) {
       return true;
     }
 
     if (
-      serverControlZonePointerState.button !== null
-      && serverControlZonePointerState.button !== 0
+      serverControlZonePointerState.startX !== event.clientX
+      || serverControlZonePointerState.startY !== event.clientY
     ) {
-      return true;
-    }
-
-    if (serverControlZonePointerState.moved) {
-      return true;
-    }
-
-    if (getSelectedTextForServerControlZone()) {
       return true;
     }
 
@@ -3357,6 +4109,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const actionEntry = getServerControlZoneActionForPoint(event.clientX, event.clientY);
     serverControlZonePointerState.button = null;
+    serverControlZonePointerState.validStationaryClick = false;
     if (!actionEntry) {
       return;
     }
@@ -4798,11 +5551,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       capture: true,
       passive: true,
     });
-    document.addEventListener("pointermove", handleServerControlZonePointerMove, {
-      capture: true,
-      passive: true,
-    });
-    document.addEventListener("contextmenu", handleServerControlZoneContextMenu, {
+    document.addEventListener("pointerup", handleServerControlZonePointerUp, {
       capture: true,
       passive: true,
     });
@@ -5597,6 +6346,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   initializeHighlighting();
+  initializeHighlightSelectionEditor();
   initializeAnalysisTocButtons();
   initializeServerControlMenu();
 
