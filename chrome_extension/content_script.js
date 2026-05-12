@@ -121,6 +121,8 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX = 50;
   const SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX = 0;
   const SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX = 500;
+  const SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX = 5;
+  const SERVER_CONTROL_ZONE_CONTEXT_MENU_SUPPRESS_MS = 800;
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE = "serverControlTaskType";
   const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
   const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
@@ -432,6 +434,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
+  };
+
+  const serverControlZonePointerState = {
+    button: null,
+    startX: 0,
+    startY: 0,
+    moved: false,
+    lastContextMenuAt: 0,
   };
 
   const MANUAL_SCROLL_KEYS = new Set([
@@ -3259,24 +3269,94 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return actionEntries[zoneIndex] ?? null;
   }
 
-  function handleServerControlZoneClick(event) {
-    if (!(event instanceof MouseEvent) || event.button !== 0) {
+  function getSelectedTextForServerControlZone() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      return "";
+    }
+
+    return selection.toString().trim();
+  }
+
+  function isServerControlZoneExcludedTarget(target) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    return isEditableTarget(target)
+      || Boolean(target.closest([
+        `#${SERVER_CONTROL_MENU_ID}`,
+        `.${ANALYSIS_TOC_BUTTON_CLASS}`,
+        `.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`,
+      ].join(",")));
+  }
+
+  function handleServerControlZonePointerDown(event) {
+    if (!(event instanceof MouseEvent)) {
       return;
     }
 
-    const target = event.target;
+    serverControlZonePointerState.button = event.button;
+    serverControlZonePointerState.startX = event.clientX;
+    serverControlZonePointerState.startY = event.clientY;
+    serverControlZonePointerState.moved = false;
+  }
+
+  function handleServerControlZonePointerMove(event) {
+    if (!(event instanceof MouseEvent) || serverControlZonePointerState.button !== 0) {
+      return;
+    }
+
+    const distanceX = Math.abs(event.clientX - serverControlZonePointerState.startX);
+    const distanceY = Math.abs(event.clientY - serverControlZonePointerState.startY);
     if (
-      target instanceof HTMLElement
-      && (
-        target.closest(`#${SERVER_CONTROL_MENU_ID}`)
-        || target.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}`)
-        || target.closest(`.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`)
-      )
+      distanceX > SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX
+      || distanceY > SERVER_CONTROL_ZONE_SELECTION_DRAG_THRESHOLD_PX
     ) {
+      serverControlZonePointerState.moved = true;
+    }
+  }
+
+  function handleServerControlZoneContextMenu() {
+    serverControlZonePointerState.lastContextMenuAt = Date.now();
+    serverControlZonePointerState.button = null;
+    serverControlZonePointerState.moved = false;
+  }
+
+  function shouldIgnoreServerControlZoneClick(event) {
+    if (!(event instanceof MouseEvent) || event.button !== 0) {
+      return true;
+    }
+
+    if (Date.now() - serverControlZonePointerState.lastContextMenuAt < SERVER_CONTROL_ZONE_CONTEXT_MENU_SUPPRESS_MS) {
+      return true;
+    }
+
+    if (
+      serverControlZonePointerState.button !== null
+      && serverControlZonePointerState.button !== 0
+    ) {
+      return true;
+    }
+
+    if (serverControlZonePointerState.moved) {
+      return true;
+    }
+
+    if (getSelectedTextForServerControlZone()) {
+      return true;
+    }
+
+    return isServerControlZoneExcludedTarget(event.target);
+  }
+
+  function handleServerControlZoneClick(event) {
+    if (shouldIgnoreServerControlZoneClick(event)) {
       return;
     }
 
     const actionEntry = getServerControlZoneActionForPoint(event.clientX, event.clientY);
+    serverControlZonePointerState.button = null;
     if (!actionEntry) {
       return;
     }
@@ -4714,6 +4794,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     chrome.storage.onChanged.addListener(handleServerControlProjectStorageChange);
     document.addEventListener("mouseout", handleServerControlMenuTopExit, true);
+    document.addEventListener("pointerdown", handleServerControlZonePointerDown, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("pointermove", handleServerControlZonePointerMove, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("contextmenu", handleServerControlZoneContextMenu, {
+      capture: true,
+      passive: true,
+    });
     document.addEventListener("click", handleServerControlZoneClick, true);
     document.addEventListener("pointermove", handleServerControlMenuPointerMove, {
       capture: true,

@@ -107,7 +107,7 @@ The ChatGPT content script creates a half-viewport control menu when the pointer
 - large processing zone legend filling the remaining space
 - task type column
 
-The processing legend is a toggle. When enabled, the ChatGPT main area is divided into one horizontal zone per processing action, with translucent vertical divider lines; clicking a zone sends the corresponding processing command. When disabled, those zones do not capture clicks.
+The processing legend is a toggle. When enabled, the ChatGPT main area is divided into one horizontal zone per processing action, with translucent vertical divider lines; clicking a zone sends the corresponding processing command. Text selection gestures, active text selections, right-click context menus, and editable ChatGPT fields are ignored so they do not accidentally trigger processing. When disabled, those zones do not capture clicks.
 
 Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
