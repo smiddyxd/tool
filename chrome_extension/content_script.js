@@ -447,6 +447,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     lastCommand: "",
   };
 
+  const serverControlZoneContextMenuState = {
+    suppressNext: false,
+  };
+
   const MANUAL_SCROLL_KEYS = new Set([
     "ArrowUp",
     "ArrowDown",
@@ -4022,8 +4026,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       && !isServerControlZoneExcludedTarget(event.target)
       && getServerControlZoneActionForPoint(event.clientX, event.clientY)
     ) {
+      serverControlZoneContextMenuState.suppressNext = true;
       setServerControlZoneClickEnabled(false);
     }
+  }
+
+  function handleServerControlZoneContextMenu(event) {
+    if (!serverControlZoneContextMenuState.suppressNext) {
+      return;
+    }
+
+    serverControlZoneContextMenuState.suppressNext = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }
 
   function shouldIgnoreServerControlZoneClick(event) {
@@ -5485,6 +5500,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       capture: true,
       passive: true,
     });
+    document.addEventListener("contextmenu", handleServerControlZoneContextMenu, true);
     document.addEventListener("click", handleServerControlZoneClick, true);
     document.addEventListener("pointermove", handleServerControlMenuPointerMove, {
       capture: true,
