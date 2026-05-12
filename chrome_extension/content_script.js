@@ -114,7 +114,6 @@ Base everything strictly on the screenshot attachment.`;
   const HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS = "local-query-bridge-highlight-selection-editor-open";
   const HIGHLIGHT_SELECTION_EDITOR_RULE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-rule-active";
   const HIGHLIGHT_SELECTION_EDITOR_MODE_ACTIVE_CLASS = "local-query-bridge-highlight-selection-mode-active";
-  const HIGHLIGHT_SELECTION_MAX_LEADING_WORD_PREFIX_CHARS = 2;
   const SERVER_CONTROL_MENU_ID = "local-query-bridge-server-control-menu";
   const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
@@ -1676,10 +1675,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const text = startNode.nodeValue ?? "";
     const prefixLength = getLeadingPartialWordPrefixLength(text, range.startOffset);
-    if (
-      prefixLength <= 0
-      || prefixLength > HIGHLIGHT_SELECTION_MAX_LEADING_WORD_PREFIX_CHARS
-    ) {
+    if (prefixLength <= 0) {
       return { range, expanded: false };
     }
 
