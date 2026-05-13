@@ -9,8 +9,8 @@
   const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea";
   const SEND_BUTTON_SELECTOR = '[data-testid="send-button"]';
   const ATTACHMENT_INPUT_SELECTOR = 'input[type="file"]';
-  const STOP_STREAMING_BUTTON_SELECTOR = '[data-testid="stop-button"], #composer-submit-button[aria-label="Stop streaming"]';
-  const START_VOICE_BUTTON_SELECTOR = '[data-testid="composer-speech-button"][aria-label="Start Voice"]';
+  const STOP_STREAMING_BUTTON_SELECTOR = '#composer-submit-button[aria-label="Stop streaming"]';
+  const START_VOICE_BUTTON_SELECTOR = '[aria-label="Start Voice"]';
   const WEB_SEARCH_CHIP_SELECTOR = "button.__composer-pill";
   const WEB_SEARCH_MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitemcheckbox"], [role="menuitem"]';
   const WEB_SEARCH_PILL_LABEL = "Search";
