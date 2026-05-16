@@ -37,6 +37,7 @@ COUNTER_OCR_LANGUAGE = "eng"
 XOR_KEY = 0x5A
 TEXT_TASK_EVENT_TYPE = "text_task"
 ALERT_TASK_EVENT_TYPE = "alert_task"
+CONTROL_STATUS_EVENT_TYPE = "control_status"
 TEXT_TASK_QUERY_PREFIX = "query:"
 TEXT_TASK_INPUT_HEADER = "Task input below is provided as labeled OCR text instead of a screenshot."
 TEXT_TASK_QUERY_LABEL = "Query:"
@@ -44,6 +45,8 @@ TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
 TEXT_TASK_ABORT_HEADER = "OCR abort:"
 MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
+CONTROL_CANCEL_COMMAND = "cancel_control_processing"
+ASYNC_CONTROL_PROCESSING_COMMANDS = {"start_task_screenshot", "start_task_ocr"}
 
 
 @dataclass(frozen=True)
@@ -275,6 +278,7 @@ def warmup_paddleocr() -> None:
 class SharedState:
     last_seen_task_count: int | None = None
     pending_events: deque[dict[str, Any]] = field(default_factory=deque)
+    cancelled_control_run_ids: set[str] = field(default_factory=set)
     armed_task: ArmedTask | None = None
     repeatable_task: RepeatableTask | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -338,12 +342,62 @@ class SharedState:
         with self.lock:
             return self.repeatable_task
 
+    def cancel_control_run(self, run_id: str) -> None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return
+        with self.lock:
+            self.cancelled_control_run_ids.add(normalized_run_id)
+
+    def clear_control_run_cancel(self, run_id: str) -> None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return
+        with self.lock:
+            self.cancelled_control_run_ids.discard(normalized_run_id)
+
+    def is_control_run_cancelled(self, run_id: str) -> bool:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return False
+        with self.lock:
+            return normalized_run_id in self.cancelled_control_run_ids
+
+    def publish_control_status(
+        self,
+        run_id: str,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        tab_id: str = "",
+        task_type: str = "",
+    ) -> None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return
+
+        with self.lock:
+            self.pending_events.append(
+                {
+                    "type": CONTROL_STATUS_EVENT_TYPE,
+                    "run_id": normalized_run_id,
+                    "status_type": sanitize_control_command_field(status_type, 80),
+                    "message": sanitize_control_command_field(message, 300),
+                    "details": details if isinstance(details, dict) else {},
+                    "tab_id": sanitize_control_command_field(tab_id, 40),
+                    "task_type": str(task_type or ""),
+                    "timestamp": timestamp_now(),
+                }
+            )
+
     def publish_payload(
         self,
         task_count: int,
         screenshots_png: list[bytes] | tuple[bytes, ...],
         prompts: list[str] | tuple[str, ...],
         task_type: str = "",
+        control_run_id: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -353,6 +407,7 @@ class SharedState:
                     "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
                     "prompts": list(prompts),
                     "task_type": str(task_type or ""),
+                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
                 }
             )
 
@@ -361,6 +416,7 @@ class SharedState:
         task_count: int,
         prompts: list[str] | tuple[str, ...],
         task_type: str = "",
+        control_run_id: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -369,6 +425,7 @@ class SharedState:
                     "task_count": task_count,
                     "prompts": list(prompts),
                     "task_type": str(task_type or ""),
+                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
                 }
             )
 
@@ -377,6 +434,7 @@ class SharedState:
         task_count: int,
         alerts: list[str] | tuple[str, ...],
         task_type: str = "",
+        control_run_id: str = "",
     ) -> None:
         with self.lock:
             self.pending_events.append(
@@ -385,6 +443,7 @@ class SharedState:
                     "task_count": task_count,
                     "alerts": list(alerts),
                     "task_type": str(task_type or ""),
+                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
                 }
             )
 
@@ -411,10 +470,11 @@ class SharedState:
             screenshot_pngs = [bytes(screenshot_png) for screenshot_png in event.get("screenshots_png", [])]
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
             task_type = str(event.get("task_type", ""))
+            control_run_id = str(event.get("control_run_id", ""))
             encoded_screenshots = [base64.b64encode(screenshot_png).decode("ascii") for screenshot_png in screenshot_pngs]
             total_bytes = sum(len(screenshot_png) for screenshot_png in screenshot_pngs)
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes} type={task_type or '-'}",
+                f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
             return {
@@ -423,14 +483,16 @@ class SharedState:
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
                 "e": xor_encrypt_to_hex(task_type, XOR_KEY),
+                "f": xor_encrypt_to_hex(control_run_id, XOR_KEY),
             }
 
         if event_type == TEXT_TASK_EVENT_TYPE:
             task_count = int(event["task_count"])
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
             task_type = str(event.get("task_type", ""))
+            control_run_id = str(event.get("control_run_id", ""))
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)} type={task_type or '-'}",
+                f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
             return {
@@ -439,14 +501,16 @@ class SharedState:
                 "c": xor_encrypt_string_to_base64(json.dumps(prompts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex(TEXT_TASK_EVENT_TYPE, XOR_KEY),
                 "e": xor_encrypt_to_hex(task_type, XOR_KEY),
+                "f": xor_encrypt_to_hex(control_run_id, XOR_KEY),
             }
 
         if event_type == ALERT_TASK_EVENT_TYPE:
             task_count = int(event["task_count"])
             alerts = [str(alert_text) for alert_text in event.get("alerts", [])]
             task_type = str(event.get("task_type", ""))
+            control_run_id = str(event.get("control_run_id", ""))
             print(
-                f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)} type={task_type or '-'}",
+                f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
             return {
@@ -454,6 +518,32 @@ class SharedState:
                 "b": "",
                 "c": xor_encrypt_string_to_base64(json.dumps(alerts, ensure_ascii=False), XOR_KEY),
                 "d": xor_encrypt_to_hex(ALERT_TASK_EVENT_TYPE, XOR_KEY),
+                "e": xor_encrypt_to_hex(task_type, XOR_KEY),
+                "f": xor_encrypt_to_hex(control_run_id, XOR_KEY),
+            }
+
+        if event_type == CONTROL_STATUS_EVENT_TYPE:
+            run_id = str(event.get("run_id", ""))
+            status_type = str(event.get("status_type", ""))
+            task_type = str(event.get("task_type", ""))
+            details = {
+                "runId": run_id,
+                "type": status_type,
+                "message": str(event.get("message", "")),
+                "details": event.get("details", {}) if isinstance(event.get("details"), dict) else {},
+                "tabId": str(event.get("tab_id", "")),
+                "taskType": task_type,
+                "timestamp": str(event.get("timestamp", "")),
+            }
+            print(
+                f"[bridge {timestamp_now()}] served control-status run={run_id or '-'} type={status_type or '-'} task={task_type or '-'}",
+                flush=True,
+            )
+            return {
+                "a": xor_encrypt_to_hex(run_id, XOR_KEY),
+                "b": xor_encrypt_to_hex(status_type, XOR_KEY),
+                "c": xor_encrypt_string_to_base64(json.dumps(details, ensure_ascii=False), XOR_KEY),
+                "d": xor_encrypt_to_hex(CONTROL_STATUS_EVENT_TYPE, XOR_KEY),
                 "e": xor_encrypt_to_hex(task_type, XOR_KEY),
             }
 
@@ -547,6 +637,7 @@ def receive_control_command() -> Any:
         MAX_CONTROL_COMMAND_FIELD_LENGTH,
     )
     tab_id = sanitize_control_command_field(payload.get("tabId"), 40)
+    control_run_id = get_control_run_id(payload)
 
     print(
         "[control "
@@ -557,12 +648,49 @@ def receive_control_command() -> Any:
         f"selected_region={selected_region or '-'} selected_region_label={selected_region_label or '-'} "
         f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
         f"project={active_project_id or '-'} project_url={project_url or '-'} prompt_chars={boilerplate_prompt_length} "
-        f"tab={tab_id or '-'} source={source or '-'} page={page_url or '-'}",
+        f"tab={tab_id or '-'} run={control_run_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
 
+    if command == CONTROL_CANCEL_COMMAND:
+        STATE.cancel_control_run(control_run_id)
+        publish_control_status(
+            payload,
+            "cancel",
+            "Cancel requested.",
+            task_type=current_task_type,
+        )
+        return jsonify({"ok": True, "queued": False, "cancelled": True})
+
+    if control_run_id:
+        STATE.clear_control_run_cancel(control_run_id)
+        publish_control_status(
+            payload,
+            "server-received",
+            "Bridge received the processing request.",
+            details={
+                "command": command,
+                "label": label,
+                "selectedRegion": selected_region,
+                "selectedRegionLabel": selected_region_label,
+                "processingMode": processing_mode,
+            },
+            task_type=current_task_type,
+        )
+
+    if command in ASYNC_CONTROL_PROCESSING_COMMANDS:
+        processing_payload = dict(payload)
+        thread = threading.Thread(
+            target=run_control_processing_command,
+            args=(command, processing_payload),
+            name=f"control-{command}",
+            daemon=True,
+        )
+        thread.start()
+        return jsonify({"ok": True, "queued": True, "runId": control_run_id})
+
     queued = handle_control_processing_command(command, payload)
-    return jsonify({"ok": True, "queued": queued})
+    return jsonify({"ok": True, "queued": queued, "runId": control_run_id})
 
 
 def timestamp_now() -> str:
@@ -582,6 +710,36 @@ def sanitize_control_json_field(value: Any, max_length: int = MAX_CONTROL_COMMAN
     except (TypeError, ValueError):
         text = str(value)
     return sanitize_control_command_field(text, max_length)
+
+
+def get_control_run_id(payload: dict[str, Any]) -> str:
+    return sanitize_control_command_field(payload.get("controlRunId") or payload.get("runId"), 120)
+
+
+def get_control_payload_tab_id(payload: dict[str, Any]) -> str:
+    return sanitize_control_command_field(payload.get("tabId"), 40)
+
+
+def publish_control_status(
+    payload: dict[str, Any],
+    status_type: str,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+    task_type: str = "",
+) -> None:
+    run_id = get_control_run_id(payload)
+    if not run_id:
+        return
+
+    STATE.publish_control_status(
+        run_id,
+        status_type,
+        message,
+        details=details,
+        tab_id=get_control_payload_tab_id(payload),
+        task_type=task_type or get_control_payload_task_type_key(payload),
+    )
 
 
 def get_control_payload_task_type(payload: dict[str, Any]) -> str:
@@ -648,8 +806,14 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
     settings = resolve_control_task_settings(payload)
     if settings is None:
         print(f"[control {timestamp_now()}] screenshot no-task-settings", flush=True)
+        publish_control_status(payload, "error", "No task settings found for screenshot request.")
         return False
 
+    if STATE.is_control_run_cancelled(get_control_run_id(payload)):
+        publish_control_status(payload, "cancel", "Screenshot request cancelled before capture.", task_type=settings.task_type)
+        return False
+
+    publish_control_status(payload, "capture", "Capturing task screenshot.", task_type=settings.task_type)
     frame_bgr, task_count = capture_control_frame()
     effective_task_count = task_count if task_count is not None else 0
     screenshot_png = build_screenshot_payload(frame_bgr)
@@ -661,11 +825,19 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
         settings.repeat_prefix,
         screenshot_png,
     )
+    publish_control_status(
+        payload,
+        "queued",
+        "Screenshot event queued for ChatGPT.",
+        details={"taskCount": effective_task_count, "promptCount": len(prompts), "screenshotCount": 1},
+        task_type=settings.task_type,
+    )
     STATE.publish_payload(
         effective_task_count,
         [screenshot_png],
         prompts,
         task_type=get_control_payload_task_type_key(payload, settings.task_type),
+        control_run_id=get_control_run_id(payload),
     )
     print(
         f"[control {timestamp_now()}] queued-screenshot counter={effective_task_count} type={settings.task_type}",
@@ -678,15 +850,45 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
     settings = resolve_control_task_settings(payload)
     if settings is None:
         print(f"[control {timestamp_now()}] ocr no-task-settings", flush=True)
+        publish_control_status(payload, "error", "No task settings found for OCR request.")
         return False
 
+    run_id = get_control_run_id(payload)
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "OCR request cancelled before capture.", task_type=settings.task_type)
+        return False
+
+    publish_control_status(payload, "capture", "Capturing screenshot for OCR.", task_type=settings.task_type)
     frame_bgr, task_count = capture_control_frame()
     effective_task_count = task_count if task_count is not None else 0
     screenshot_bgr = build_screenshot_image(frame_bgr)
+
+    def ocr_status_callback(status_type: str, message: str, details: dict[str, Any] | None = None) -> None:
+        publish_control_status(payload, status_type, message, details=details, task_type=settings.task_type)
+
+    def should_cancel_ocr() -> bool:
+        return STATE.is_control_run_cancelled(run_id)
+
     try:
-        result = paddleocr_manual_test.capture_and_process_image(screenshot_bgr, prefix="control_ocr")
+        result = paddleocr_manual_test.capture_and_process_image(
+            screenshot_bgr,
+            prefix="control_ocr",
+            status_callback=ocr_status_callback,
+            should_cancel=should_cancel_ocr,
+        )
+    except paddleocr_manual_test.OcrProcessingCancelled:
+        print(f"[control {timestamp_now()}] ocr cancelled run={run_id or '-'}", flush=True)
+        publish_control_status(payload, "cancel", "OCR processing cancelled.", task_type=settings.task_type)
+        return False
     except Exception as exc:
         print(f"[control {timestamp_now()}] ocr error: {exc}", flush=True)
+        publish_control_status(
+            payload,
+            "error",
+            "OCR failed.",
+            details={"error": str(exc)},
+            task_type=settings.task_type,
+        )
         return False
 
     image_path = result["image_path"]
@@ -701,6 +903,19 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
     )
 
     query_text, product_text = extract_text_task_parts(entry)
+    publish_control_status(
+        payload,
+        "ocr-selected",
+        "Selected OCR text.",
+        details={
+            "queryText": query_text,
+            "productText": product_text,
+            "variant": str(entry.get("ocr_variant", "")),
+            "selectedLineCount": selected_line_count,
+            "debug": debug_name,
+        },
+        task_type=settings.task_type,
+    )
     ocr_warning = build_text_task_ocr_warning(entry)
     abort_reasons = get_text_task_abort_reasons(entry, query_text, product_text)
     if abort_reasons:
@@ -711,10 +926,18 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
             ocr_warning=ocr_warning,
         )
         if abort_alerts:
+            publish_control_status(
+                payload,
+                "queued",
+                "OCR alert queued for ChatGPT.",
+                details={"taskCount": effective_task_count, "abortReasons": abort_reasons},
+                task_type=settings.task_type,
+            )
             STATE.publish_alert_payload(
                 effective_task_count,
                 abort_alerts,
                 task_type=get_control_payload_task_type_key(payload, settings.task_type),
+                control_run_id=run_id,
             )
             print(
                 f"[control {timestamp_now()}] queued-ocr-alert counter={effective_task_count} type={settings.task_type}",
@@ -730,12 +953,25 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
     )
     if not text_prompts:
         print(f"[control {timestamp_now()}] ocr no-text-prompts type={settings.task_type}", flush=True)
+        publish_control_status(payload, "error", "OCR produced no text prompts.", task_type=settings.task_type)
         return False
 
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "OCR request cancelled before queueing prompt.", task_type=settings.task_type)
+        return False
+
+    publish_control_status(
+        payload,
+        "queued",
+        "OCR prompt queued for ChatGPT.",
+        details={"taskCount": effective_task_count, "promptCount": len(text_prompts)},
+        task_type=settings.task_type,
+    )
     STATE.publish_text_payload(
         effective_task_count,
         text_prompts,
         task_type=get_control_payload_task_type_key(payload, settings.task_type),
+        control_run_id=run_id,
     )
     print(
         f"[control {timestamp_now()}] queued-ocr-text counter={effective_task_count} type={settings.task_type}",
@@ -749,7 +985,32 @@ def handle_control_processing_command(command: str, payload: dict[str, Any]) -> 
         return queue_control_screenshot(payload)
     if command == "start_task_ocr":
         return queue_control_ocr(payload)
+    if get_control_run_id(payload):
+        publish_control_status(
+            payload,
+            "error",
+            f"Unsupported processing command: {command or 'unknown'}.",
+        )
     return False
+
+
+def run_control_processing_command(command: str, payload: dict[str, Any]) -> None:
+    try:
+        queued = handle_control_processing_command(command, payload)
+        if not queued and get_control_run_id(payload) and not STATE.is_control_run_cancelled(get_control_run_id(payload)):
+            publish_control_status(
+                payload,
+                "error",
+                "Processing finished without queueing a ChatGPT event.",
+            )
+    except Exception as exc:
+        print(f"[control {timestamp_now()}] async-processing-error command={command or '-'} error={exc}", flush=True)
+        publish_control_status(
+            payload,
+            "error",
+            "Processing failed.",
+            details={"error": str(exc)},
+        )
 
 
 def maybe_log_handshake() -> None:
@@ -1631,7 +1892,7 @@ def main() -> None:
         f"[bridge {timestamp_now()}] started host={HTTP_HOST} port={HTTP_PORT}",
         flush=True,
     )
-    app.run(host=HTTP_HOST, port=HTTP_PORT, debug=False, use_reloader=False)
+    app.run(host=HTTP_HOST, port=HTTP_PORT, debug=False, use_reloader=False, threaded=True)
 
 
 if __name__ == "__main__":

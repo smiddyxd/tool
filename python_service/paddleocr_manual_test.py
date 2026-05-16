@@ -52,6 +52,10 @@ DEFAULT_CAPTURE_PREFIX = "manual"
 _PADDLE_OCR_INSTANCE: Any | None = None
 
 
+class OcrProcessingCancelled(RuntimeError):
+    pass
+
+
 NOISE_ONLY_PATTERN = re.compile(r"^[.\-+\u2022\u00b7_=~:;,'`^\|/\\]+$")
 MOJIBAKE_MARKERS = ("\u00c3", "\u00e2", "\u20ac", "\u0153", "\u017e", "\ufffd")
 TARGET_NON_ASCII = "\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df"
@@ -1157,6 +1161,81 @@ def should_retry_capture_attempt(best_attempt: dict[str, Any]) -> bool:
     return not bool(product_signature.get("is_complete_like", False))
 
 
+def get_capture_retry_reasons(best_attempt: dict[str, Any]) -> list[str]:
+    selected_transcript = best_attempt.get("selected_transcript", {})
+    product_signature = selected_transcript.get("product_signature", {}) if isinstance(selected_transcript, dict) else {}
+    reasons: list[str] = []
+    if not isinstance(product_signature, dict):
+        reasons.append("missing product signature")
+        return reasons
+    if not selected_transcript.get("query_line"):
+        reasons.append("missing query")
+    if not str(selected_transcript.get("bottom_block_text", "")).strip():
+        reasons.append("missing product text")
+    if not bool(product_signature.get("is_complete_like", False)):
+        signature_reasons = [
+            str(reason).strip()
+            for reason in product_signature.get("reasons", [])
+            if str(reason).strip()
+        ]
+        reasons.extend(signature_reasons or ["incomplete product signature"])
+    return reasons
+
+
+def emit_ocr_status(
+    status_callback: Any | None,
+    status_type: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    if not callable(status_callback):
+        return
+    status_callback(status_type, message, details or {})
+
+
+def raise_if_ocr_cancelled(should_cancel: Any | None) -> None:
+    if callable(should_cancel) and bool(should_cancel()):
+        raise OcrProcessingCancelled("OCR processing cancelled")
+
+
+def clean_status_text(value: Any) -> str:
+    lines = []
+    for line in str(value or "").replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line_text = " ".join(line.split()).strip(" |")
+        if line_text:
+            lines.append(line_text)
+    return "\n".join(lines)
+
+
+def summarize_selected_transcript_for_status(
+    selected_transcript: dict[str, Any],
+    variant_run: dict[str, Any],
+    *,
+    selection_score: Any = (),
+) -> dict[str, Any]:
+    query_line = selected_transcript.get("query_line") if isinstance(selected_transcript, dict) else None
+    query_text = clean_status_text(query_line.get("text", "") if isinstance(query_line, dict) else "")
+    if query_text.casefold().startswith(QUERY_LINE_PREFIX):
+        query_text = query_text.split(":", 1)[1].strip()
+
+    product_text = clean_status_text(
+        selected_transcript.get("bottom_block_text", "") if isinstance(selected_transcript, dict) else "",
+    )
+    product_signature = selected_transcript.get("product_signature", {}) if isinstance(selected_transcript, dict) else {}
+    return {
+        "variant": str(variant_run.get("label", "")),
+        "phase": str(variant_run.get("retry_phase", BASE_VARIANT_PHASE)),
+        "rawLineCount": int(variant_run.get("raw_line_count", 0) or 0),
+        "totalTextLength": int(variant_run.get("total_text_length", 0) or 0),
+        "averageConfidence": float(variant_run.get("average_confidence", 0.0) or 0.0),
+        "queryText": query_text,
+        "productText": product_text,
+        "productLineCount": int(product_signature.get("line_count", 0) or 0) if isinstance(product_signature, dict) else 0,
+        "productSignatureComplete": bool(product_signature.get("is_complete_like", False)) if isinstance(product_signature, dict) else False,
+        "selectionScore": [float(value) for value in selection_score] if isinstance(selection_score, (list, tuple)) else [],
+    }
+
+
 def build_entry(
     image_path: Path,
     full_image_bgr: Any,
@@ -1244,6 +1323,8 @@ def process_image_path(
     ocr: Any | None = None,
     results: dict[str, Any] | None = None,
     pre_cropped_focus_region: dict[str, Any] | None = None,
+    status_callback: Any | None = None,
+    should_cancel: Any | None = None,
 ) -> dict[str, Any]:
     ocr_instance = ocr if ocr is not None else load_paddleocr()
     result_store = results if results is not None else load_results(OUTPUT_PATH)
@@ -1260,9 +1341,31 @@ def process_image_path(
         focus_region = pre_cropped_focus_region
         source_image_bgr = image_bgr
 
-    variant_runs = [run_ocr_variant(ocr_instance, variant) for variant in build_ocr_variants(focus_image_bgr)]
-    variant_analyses = [
-        evaluate_capture_variant(
+    variant_runs: list[dict[str, Any]] = []
+    variant_analyses: list[dict[str, Any]] = []
+    base_variants = build_ocr_variants(focus_image_bgr)
+    emit_ocr_status(
+        status_callback,
+        "ocr-start",
+        "Starting OCR variants.",
+        {"baseAttemptCount": len(base_variants), "focusRegion": focus_region},
+    )
+    for attempt_index, variant in enumerate(base_variants, start=1):
+        raise_if_ocr_cancelled(should_cancel)
+        emit_ocr_status(
+            status_callback,
+            "ocr-attempt",
+            f"Running OCR attempt {attempt_index}/{len(base_variants)}: {variant['label']}.",
+            {
+                "attempt": attempt_index,
+                "attemptTotal": len(base_variants),
+                "variant": str(variant["label"]),
+                "phase": BASE_VARIANT_PHASE,
+            },
+        )
+        variant_run = run_ocr_variant(ocr_instance, variant)
+        variant_runs.append(variant_run)
+        analysis = evaluate_capture_variant(
             variant_run,
             analysis_width=focus_region["width"],
             analysis_height=focus_region["height"],
@@ -1270,22 +1373,57 @@ def process_image_path(
             y_offset=focus_region["top"],
             source_image_bgr=source_image_bgr,
         )
-        for variant_run in variant_runs
-    ]
+        variant_analyses.append(analysis)
+        emit_ocr_status(
+            status_callback,
+            "ocr-result",
+            f"OCR attempt {attempt_index} read {variant_run['raw_line_count']} line(s).",
+            {
+                "attempt": attempt_index,
+                "attemptTotal": len(base_variants),
+                **summarize_selected_transcript_for_status(
+                    analysis["selected_transcript"],
+                    variant_run,
+                    selection_score=analysis.get("selection_score", ()),
+                ),
+            },
+        )
+
     best_attempt = choose_best_capture_attempt(variant_analyses)
     retry_attempted = False
     if should_retry_capture_attempt(best_attempt):
         retry_attempted = True
+        retry_reasons = get_capture_retry_reasons(best_attempt)
+        emit_ocr_status(
+            status_callback,
+            "ocr-retry",
+            "Retrying OCR with enhanced variants.",
+            {"reasons": retry_reasons},
+        )
         existing_labels = {str(variant_run["label"]) for variant_run in variant_runs}
         retry_variants = [
             variant
             for variant in build_ocr_variants(focus_image_bgr, include_retry_variants=True)
             if str(variant["label"]) not in existing_labels
         ]
-        retry_runs = [run_ocr_variant(ocr_instance, variant) for variant in retry_variants]
-        variant_runs.extend(retry_runs)
-        variant_analyses.extend(
-            evaluate_capture_variant(
+        for retry_index, variant in enumerate(retry_variants, start=1):
+            raise_if_ocr_cancelled(should_cancel)
+            absolute_attempt_index = len(variant_runs) + 1
+            emit_ocr_status(
+                status_callback,
+                "ocr-attempt",
+                f"Running retry OCR attempt {retry_index}/{len(retry_variants)}: {variant['label']}.",
+                {
+                    "attempt": retry_index,
+                    "attemptTotal": len(retry_variants),
+                    "absoluteAttempt": absolute_attempt_index,
+                    "variant": str(variant["label"]),
+                    "phase": RETRY_VARIANT_PHASE,
+                },
+            )
+            variant_run = run_ocr_variant(ocr_instance, variant)
+            variant_runs.append(variant_run)
+            analysis = evaluate_capture_variant(
                 variant_run,
                 analysis_width=focus_region["width"],
                 analysis_height=focus_region["height"],
@@ -1293,14 +1431,39 @@ def process_image_path(
                 y_offset=focus_region["top"],
                 source_image_bgr=source_image_bgr,
             )
-            for variant_run in retry_runs
-        )
+            variant_analyses.append(analysis)
+            emit_ocr_status(
+                status_callback,
+                "ocr-result",
+                f"Retry OCR attempt {retry_index} read {variant_run['raw_line_count']} line(s).",
+                {
+                    "attempt": retry_index,
+                    "attemptTotal": len(retry_variants),
+                    "absoluteAttempt": absolute_attempt_index,
+                    **summarize_selected_transcript_for_status(
+                        analysis["selected_transcript"],
+                        variant_run,
+                        selection_score=analysis.get("selection_score", ()),
+                    ),
+                },
+            )
         best_attempt = choose_best_capture_attempt(variant_analyses)
 
+    raise_if_ocr_cancelled(should_cancel)
     best_variant = best_attempt["variant_run"]
     selected_transcript = dict(best_attempt["selected_transcript"])
     selected_transcript["retry_attempted"] = retry_attempted
     selected_transcript["selected_variant_retry_phase"] = str(best_variant.get("retry_phase", BASE_VARIANT_PHASE))
+    emit_ocr_status(
+        status_callback,
+        "ocr-selected",
+        f"Selected OCR variant: {best_variant['label']}.",
+        summarize_selected_transcript_for_status(
+            selected_transcript,
+            best_variant,
+            selection_score=best_attempt.get("selection_score", ()),
+        ),
+    )
     debug_json_path = save_debug_artifacts(
         image_path,
         focus_region,
@@ -1334,7 +1497,13 @@ def save_manual_capture_image(image_bgr: Any, *, prefix: str = DEFAULT_CAPTURE_P
     return image_path
 
 
-def capture_and_process_image(image_bgr: Any, *, prefix: str = DEFAULT_CAPTURE_PREFIX) -> dict[str, Any]:
+def capture_and_process_image(
+    image_bgr: Any,
+    *,
+    prefix: str = DEFAULT_CAPTURE_PREFIX,
+    status_callback: Any | None = None,
+    should_cancel: Any | None = None,
+) -> dict[str, Any]:
     focus_image_bgr, screen_focus_region = crop_to_focus_region(image_bgr)
     image_path = save_manual_capture_image(focus_image_bgr, prefix=prefix)
     results = load_results(OUTPUT_PATH)
@@ -1350,6 +1519,8 @@ def capture_and_process_image(image_bgr: Any, *, prefix: str = DEFAULT_CAPTURE_P
             "bottom": int(focus_image_bgr.shape[0]),
             "source_screen_region": screen_focus_region,
         },
+        status_callback=status_callback,
+        should_cancel=should_cancel,
     )
     save_results(OUTPUT_PATH, results)
     return {"image_path": image_path, "entry": entry}

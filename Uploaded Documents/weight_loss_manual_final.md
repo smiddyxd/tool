@@ -342,6 +342,12 @@ For each task, list only indicators that actually apply to the visible content. 
 - Added = directly present in added guidance sections of this manual.
 - Non-manual = useful practical indicators not explicitly present anywhere in this manual.
 
+When listing indicators in the output table, prefix a non-official indicator with `~` if it is at least partly redundant with an Official indicator already listed for that same task.
+
+- This applies to indicators in the **Added** and **Non-manual** rows.
+- The `~` means: this indicator is still useful to surface, but it overlaps with an Official indicator already present and should not be read as fully independent extra evidence.
+- Do not use `~` merely because an indicator is generally related to official guidance in the manual; use it only when the overlap is visible in the specific task’s extracted indicator set.
+
 Use “None” in any indicator-table cell or Unrateable-indicator line where no matching indicator applies.
 
 ## Before-finalizing check

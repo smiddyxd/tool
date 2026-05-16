@@ -20,6 +20,7 @@ const EVENT_TYPE_TEXT_TASK = "text_task";
 const EVENT_TYPE_ALERT_TASK = "alert_task";
 const EVENT_TYPE_SCROLL = "scroll";
 const EVENT_TYPE_REPEAT = "repeat";
+const EVENT_TYPE_CONTROL_STATUS = "control_status";
 
 // Extension settings persisted through the options page.
 const CHATGPT_PROJECT_URL_PREFIX = "https://chatgpt.com/g/g-p-";
@@ -90,6 +91,7 @@ const CONTENT_SCRIPT_QUEUE_REPEAT_TYPE = "queueRepeatScreenshot";
 const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE = "activateCurrentChat";
 const CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE = "serverControlMenuCommand";
+const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -100,6 +102,7 @@ const state = {
   isPolling: false,
   pendingSubmission: null,
   pendingRepeatDraft: null,
+  cancelledControlRunIds: new Set(),
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
 };
@@ -842,7 +845,7 @@ async function ensureContentScript(tabId) {
   });
 }
 
-async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskType) {
+async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskType, controlRunId = "") {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -851,12 +854,13 @@ async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskTy
     taskCount,
     promptText,
     taskType,
+    controlRunId,
   });
 
   return response?.ok === true;
 }
 
-async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType) {
+async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType, controlRunId = "") {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -864,6 +868,7 @@ async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType) {
     taskCount,
     promptText,
     taskType,
+    controlRunId,
   });
 
   return response?.ok === true;
@@ -886,7 +891,7 @@ async function focusChatGptTab(tabId) {
   }
 }
 
-async function showAlertInChatGpt(tabId, taskCount, alertText) {
+async function showAlertInChatGpt(tabId, taskCount, alertText, controlRunId = "") {
   await ensureContentScript(tabId);
   await focusChatGptTab(tabId);
 
@@ -894,6 +899,7 @@ async function showAlertInChatGpt(tabId, taskCount, alertText) {
     type: CONTENT_SCRIPT_SHOW_ALERT_TYPE,
     taskCount,
     alertText,
+    controlRunId,
   });
 
   return response?.ok === true;
@@ -1206,7 +1212,12 @@ async function deliverPendingSubmission() {
     return;
   }
 
-  const { imageDataUrls, taskCount, submissionMode } = state.pendingSubmission;
+  const { imageDataUrls, taskCount, submissionMode, controlRunId } = state.pendingSubmission;
+  if (controlRunId && state.cancelledControlRunIds.has(controlRunId)) {
+    console.log("Local Query Bridge skipped cancelled control-run delivery", { controlRunId, taskCount });
+    state.pendingSubmission = null;
+    return;
+  }
   const isAlertSubmission = submissionMode === EVENT_TYPE_ALERT_TASK;
   const isTextSubmission = submissionMode === EVENT_TYPE_TEXT_TASK;
   const deliveryLabel = isAlertSubmission ? "alert" : (isTextSubmission ? "text prompt" : "screenshot");
@@ -1218,10 +1229,10 @@ async function deliverPendingSubmission() {
   const results = await Promise.allSettled(
     targets.map((target) => (
       isAlertSubmission
-        ? showAlertInChatGpt(target.tabId, taskCount, target.promptText)
+        ? showAlertInChatGpt(target.tabId, taskCount, target.promptText, controlRunId)
         : isTextSubmission
-        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText, target.taskType)
-        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText, target.taskType)
+        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText, target.taskType, controlRunId)
+        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText, target.taskType, controlRunId)
     )),
   );
 
@@ -1245,6 +1256,9 @@ async function deliverPendingSubmission() {
 
   if (failedTargets.length === 0) {
     console.log(`Local Query Bridge completed ${deliveryLabel} in ${successfulCount} tab(s)`);
+    if (controlRunId) {
+      state.cancelledControlRunIds.delete(controlRunId);
+    }
     state.pendingSubmission = null;
     return;
   }
@@ -1327,6 +1341,60 @@ async function fetchRepeatCapturePayload() {
 function decodeOptionalEventTaskType(payload, field = "e") {
   const taskType = xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
   return taskType ? sanitizeBridgeTaskType(taskType) : "";
+}
+
+function decodeOptionalControlRunId(payload, field = "f") {
+  return xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
+}
+
+async function sendControlStatusToChatGpt(status) {
+  const rawTabId = Number.parseInt(`${status?.tabId ?? ""}`, 10);
+  const candidateTabIds = [];
+  if (Number.isInteger(rawTabId)) {
+    candidateTabIds.push(rawTabId);
+  }
+  if (Number.isInteger(state.lastChatGptTabId) && !candidateTabIds.includes(state.lastChatGptTabId)) {
+    candidateTabIds.push(state.lastChatGptTabId);
+  }
+
+  for (const tabId of candidateTabIds) {
+    try {
+      await ensureContentScript(tabId);
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: CONTENT_SCRIPT_CONTROL_STATUS_TYPE,
+        status,
+      });
+      if (response?.ok === true) {
+        state.lastChatGptTabId = tabId;
+        return true;
+      }
+    } catch (_error) {
+      // Try the next likely tab.
+    }
+  }
+
+  const tabs = await chrome.tabs.query({ url: CHATGPT_URL_PATTERNS });
+  for (const tab of tabs) {
+    if (!tab?.id || candidateTabIds.includes(tab.id) || !isChatGptUrl(tab.url)) {
+      continue;
+    }
+
+    try {
+      await ensureContentScript(tab.id);
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: CONTENT_SCRIPT_CONTROL_STATUS_TYPE,
+        status,
+      });
+      if (response?.ok === true) {
+        state.lastChatGptTabId = tab.id;
+        return true;
+      }
+    } catch (_error) {
+      // Keep looking; status log updates are best-effort.
+    }
+  }
+
+  return false;
 }
 
 async function switchBridgeTaskType(taskType, sender) {
@@ -1454,6 +1522,14 @@ async function navigateServerControlProject(sideEffects) {
 async function sendServerControlCommand(command, sender) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const controlRunId = typeof command?.controlRunId === "string" ? command.controlRunId.trim() : "";
+  const isCancelCommand = command?.command === "cancel_control_processing";
+  if (isCancelCommand && controlRunId) {
+    state.cancelledControlRunIds.add(controlRunId);
+    if (state.pendingSubmission?.controlRunId === controlRunId) {
+      state.pendingSubmission = null;
+    }
+  }
   const sideEffects = await applyServerControlCommandSideEffects(command, sender);
   const navigationPromise = navigateServerControlProject(sideEffects)
     .catch((error) => {
@@ -1488,6 +1564,7 @@ async function sendServerControlCommand(command, sender) {
       value: payload.value,
       group: payload.group,
       tabId: payload.tabId,
+      controlRunId,
     });
     const navigationOk = await navigationPromise;
     return isProjectSwitchCommand(command) ? navigationOk : true;
@@ -1660,6 +1737,32 @@ async function pollLocalBridge() {
       }
 
       const eventType = xorDecryptHex(payload?.d ?? "", XOR_KEY).trim();
+      if (eventType === EVENT_TYPE_CONTROL_STATUS) {
+        const statusPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
+        if (!statusPayload) {
+          continue;
+        }
+
+        let status = null;
+        try {
+          status = JSON.parse(statusPayload);
+        } catch (_error) {
+          status = null;
+        }
+
+        if (status && typeof status === "object") {
+          if (status.type === "cancel" && status.runId) {
+            state.cancelledControlRunIds.add(status.runId);
+          }
+          if (status.type === "prompt-sent" && status.runId) {
+            state.cancelledControlRunIds.delete(status.runId);
+          }
+          await sendControlStatusToChatGpt(status);
+          continue;
+        }
+        return;
+      }
+
       if (eventType === EVENT_TYPE_SCROLL) {
         if (!ENABLE_SCROLL_BRIDGE) {
           continue;
@@ -1677,6 +1780,7 @@ async function pollLocalBridge() {
       }
 
       const eventTaskType = decodeOptionalEventTaskType(payload);
+      const controlRunId = decodeOptionalControlRunId(payload);
 
       if (eventType === EVENT_TYPE_TEXT_TASK) {
         if (!payload?.a) {
@@ -1702,6 +1806,7 @@ async function pollLocalBridge() {
           taskCount,
           promptCount: promptTexts.length,
           taskType: eventTaskType || "(active)",
+          controlRunId: controlRunId || "",
         });
         state.pendingRepeatDraft = null;
         state.pendingSubmission = {
@@ -1710,6 +1815,7 @@ async function pollLocalBridge() {
           targets: null,
           submissionMode: EVENT_TYPE_TEXT_TASK,
           taskType: eventTaskType,
+          controlRunId,
         };
 
         await deliverPendingSubmission();
@@ -1740,6 +1846,7 @@ async function pollLocalBridge() {
           taskCount,
           alertCount: alertTexts.length,
           taskType: eventTaskType || "(active)",
+          controlRunId: controlRunId || "",
         });
         state.pendingRepeatDraft = null;
         state.pendingSubmission = {
@@ -1748,6 +1855,7 @@ async function pollLocalBridge() {
           targets: null,
           submissionMode: EVENT_TYPE_ALERT_TASK,
           taskType: eventTaskType,
+          controlRunId,
         };
 
         await deliverPendingSubmission();
@@ -1787,6 +1895,7 @@ async function pollLocalBridge() {
         taskCount,
         screenshotCount: imageDataUrls.length,
         taskType: eventTaskType || "(active)",
+        controlRunId: controlRunId || "",
       });
       state.pendingRepeatDraft = null;
       state.pendingSubmission = {
@@ -1796,6 +1905,7 @@ async function pollLocalBridge() {
         targets: null,
         submissionMode: EVENT_TYPE_TASK,
         taskType: eventTaskType,
+        controlRunId,
       };
 
       await deliverPendingSubmission();

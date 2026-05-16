@@ -110,7 +110,8 @@ This includes software for download which is designed to enhance the functionali
 
 ### Added guidance — practical positive signals for visible-evidence rating
 
-• security tools more broadly, including antivirus, malware protection, privacy/security shields, and other protective utilities
+• downloadable security/privacy utilities, including antivirus, malware protection, protective shields, and software VPNs when visibly offered as downloadable software
+• downloadable software VPNs or VPN apps when the visible offer presents them as software installed or downloaded to provide device, connection, privacy, or security functionality
 • speed boosters, RAM optimizers, battery savers, storage cleaners, cache cleaners, and performance-tuning tools
 • themes, icon packs, wallpapers, screensavers, and mobile launchers when tied to downloadable customization software
 • archive/unzip tools, duplicate-file finders, password-recovery tools, PDF/file compressors, and similar device/file-management utilities
@@ -138,7 +139,14 @@ This includes software for download which is designed to enhance the functionali
 • “download” refers only to an ordinary document, form, coupon, ticket, brochure, PDF, media file, or other non-software item
 • the offer is a general game, media app, browser, productivity app, shopping app, messaging app, streaming service, or casting app already excluded by official guidance
 • the product is a web-only or SaaS-style tool with no downloadable software and no device-enhancement function
+• hardware VPN devices, VPN routers, or physical network appliances are not in scope merely because they relate to VPNs; this category requires downloadable utility software unless another manual subsection applies
 • the visible content points to lead generation, surveys, sweepstakes, insurance, finance, physical goods, or other non-software/content offers
+
+### Added guidance — VPN software vs. hardware disambiguation
+
+For VPN cases, do not assume the offer is downloadable utility software merely from the word “VPN.” Use visible evidence such as “download,” “install,” app-store presentation, desktop/mobile software framing, or similar software cues. If the visible offer instead points to hardware, a VPN router, a physical network appliance, or a non-downloadable service presentation, do not treat it as positive on VPN wording alone.
+
+When the visible evidence does not clearly establish whether the VPN offer is downloadable software or hardware/service-oriented, limited research may be needed to disambiguate what is being offered before rating.
 
 ---
 
@@ -241,6 +249,12 @@ For each task, list only indicators that actually apply to the visible content. 
 - Official = directly present in official guidance.
 - Added = present in the added guidance sections of this manual.
 - Non-manual = useful practical indicators not explicitly present in the manual; these may support reasoning but must not override the manual.
+
+When listing indicators in the output table, prefix a non-official indicator with `~` if it is at least partly redundant with an Official indicator already listed for that same task.
+
+- This applies to indicators in the **Added** and **Non-manual** rows.
+- The `~` means: this indicator is still useful to surface, but it overlaps with an Official indicator already present and should not be read as fully independent extra evidence.
+- Do not use `~` merely because an indicator is generally related to official guidance in the manual; use it only when the overlap is visible in the specific task’s extracted indicator set.
 
 Use “None” in any indicator-table cell or Unrateable-indicator line where no matching indicator applies.
 

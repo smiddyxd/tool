@@ -108,6 +108,23 @@ Official concept labels from the task guidelines. The position calibration below
 
 ---
 
+## Query Ambiguity — Bounded vs. Unbounded
+
+Query ambiguity is separate from query coherence. A query can be coherent as written while still failing to provide a sufficiently bounded intent space for confident usefulness analysis.
+
+After research, a query should fall into one of three interpretive states:
+
+- **None / research-resolved** — the query has a stable enough operating meaning to support ordinary downstream analysis, whether that meaning was obvious from the surface or clarified through research.
+  - Examples: `[bloop]`, `[grrm]`, `[9780553211764]`, `[8675309]`.
+
+- **Ambiguous (bounded)** — the query has several reasonable, identifiable interpretations, but they form a small and coherent enough set that the task remains rateable.
+  - Example: `[java]` could plausibly refer to coffee, the programming language, or the island.
+  - A product that fits one genuinely reasonable branch may be evaluated against that branch. Ambiguity itself is not a defect.
+
+- **Ambiguous (unbounded)** — even after research, no stable likely intent or bounded set of plausible interpretations emerges.
+  - This includes queries whose possible meanings remain too scattered to anchor a rating, such as `[clip]` or `[mrrg]`, and apparent strings whose meaning remains unsupported after research, such as `[kwortle]`, `[k9787738]`, or `[7586930]`.
+  - Do not invent a product-friendly interpretation merely to make the result seem more useful. A product that only fits a speculative or unsupported reading receives little or no interpretive credit for that fit.
+
 ## Heuristic Overview
 
 The framework's standard machinery runs to completion before any categorical-miss evaluation. Categorical-miss subtypes (defined in **Categorical Miss Subtype Assessment** at the end of Part 2) operate as overrides on top of the standard-machinery rating, evaluated at the end of the analysis — not as a gating diagnosis at the start. This prevents premature regime commitment from contaminating the standard analysis.
@@ -115,6 +132,25 @@ The framework's standard machinery runs to completion before any categorical-mis
 The standard machinery runs on a small set of recurring principles:
 
 Addressing user intent pushes a rating up significantly. Mere relatedness pushes it up only somewhat. This single gradient operates at every tier of the scale — at the bottom it distinguishes commercial domain overlap from topical overlap, in the middle it distinguishes functional substitutes from thematically adjacent products, at the top it distinguishes products that serve the user's actual need from products that are just in the right category.
+
+**Purpose-structure polarity.** Product domains differ in what kind of similarity most naturally preserves user intent during substitute evaluation.
+
+- **Purpose-convergent domains** are organized around a bounded outcome, task, or problem to solve. In these domains, substitute quality is often driven primarily by **purpose convergence**: does the shown product plausibly reach the same end-state, even if the mechanism, implementation, or form differs?
+- **Mechanism-divergent domains** are organized around a broad umbrella purpose that contains many internally distinct modes of satisfaction. Entertainment, self-expression, sensory pleasure, aesthetic identity, and hobby experience often behave this way. In these domains, broad-purpose overlap is weak by itself; substitute quality depends more heavily on **mechanism / mode / form-of-satisfaction preservation**.
+- **Mixed domains** contain both structures. Watches, shoes, furniture, tools with aesthetic identity, and many consumer electronics can have a practical-purpose axis and a mechanism/style/experience axis at the same time.
+
+**Default polarity and query shift.** Treat purpose structure as a two-step composition:
+
+1. **Domain-default polarity** — the category carries a weak prior toward purpose-convergent, mechanism-divergent, or mixed substitute evaluation.
+2. **Query-induced polarity shift** — the query may reinforce, weaken, or reverse that default through modifiers that foreground an outcome, a mechanism, a form, a genre, an experiential mode, a style, or another load-bearing axis.
+
+The final **operative substitute axis** is whatever survives after combining the domain default with the query wording.
+
+- In a normally purpose-convergent domain, `[manual hand-crank coffee grinder]` shifts the substitute axis toward mechanism/form; an electric grinder preserves the broad purpose but misses the foregrounded mode.
+- In a normally mechanism-divergent domain, `[games to relax after work]` shifts the substitute axis toward purpose/outcome; different game genres may become more substitutable if they plausibly converge on the requested relaxed-use goal.
+- In a mechanism-divergent case like `[puzzle game] → military shooter game`, preserving only the umbrella purpose of “entertainment” is usually not enough; the query’s meaningful internal slice of the domain has changed.
+
+**Guardrail:** Domain-default polarity is not an unstated query requirement. It is a substitute-evaluation prior used to decide what kind of overlap is most meaningful when the query/product relationship turns on purpose versus mechanism. Broad generic queries remain broad unless the query itself narrows them.
 
 Query specificity determines the range width available. Generic queries compress toward the center of the scale because they're less discriminatory — there's less to get wrong. Specific queries produce a wider, more decentral range because each requirement either hits or misses, and the cumulative effect is more pronounced.
 
@@ -140,9 +176,16 @@ Use these heuristics as a starting point before assigning **Filter Strength**, t
 
 **Use-case / application.** Medium by default, strong when the product would fail the job. "For hiking" on a jacket is medium-to-strong depending on weather/terrain demands; "for paper crafts" on glue is strong because construction adhesive changes the use case completely.
 
-**Material / ingredient / style / aesthetic.** Weak to medium by default. Strong only when the material or style is the point of the product, changes performance, signals authenticity/tier, or carries safety/ethical meaning. Color is usually weak unless it is safety-coded, uniform-coded, brand/signature-coded, or the main decorative point.
+**Material / ingredient / style / aesthetic.** Weak to medium by default in ordinary functional goods. Strong when the material or style is the point of the product, changes performance, signals authenticity/tier, carries safety or ethical meaning, **or serves as the main mode-bearing feature in a mechanism-divergent or query-shifted case**. Color is usually weak unless it is safety-coded, uniform-coded, brand/signature-coded, or the main decorative point.
+
+**Mode / mechanism / experiential structure.** Medium by default, but strong when the domain is mechanism-divergent by default or when the query shifts evaluation toward mechanism/form. This includes genre, gameplay loop, interaction mode, sensory profile, experiential format, aesthetic grammar, or product mechanism when those features define the user's intended way of being satisfied. Missing this axis can exclude a large share of users even when the broad parent category or umbrella purpose is preserved.
 
 **Price tier / market tier.** Medium by default, strong when the query clearly targets a prestige, budget, professional, vintage, luxury, or collectible tier. A large tier gap can make an otherwise functional substitute unacceptable.
+
+**Freshness / recency / currentness.**
+Treat recency as rating-relevant when the query explicitly asks for the latest, newest, current, this-year, or otherwise time-sensitive version of a product or product information.
+
+For generic queries with no temporal signal, do not assume only the most recent version can satisfy the user; however, a clearly outdated result may still lower confidence or position within a band when currentness is reasonably implied by the product context.
 
 **Brand / manufacturer / product line.** Usually weak-to-medium as a filter when the product category and function are preserved. Treat it as strong only when the brand/product line is itself the thing being sought, encodes compatibility/ecosystem lock-in, authenticity, collectibility, official/licensed status, safety/trust, prestige/tier, or a uniquely recognizable design/function. Do not mark a positive brand term strong merely because it is explicit.
 
@@ -151,6 +194,34 @@ Use these heuristics as a starting point before assigning **Filter Strength**, t
 **Multiple soft commercial constraints.** Do not multiply brand, manufacturer, and retailer as if each independently excludes most users unless each one encodes a different real constraint. When they point to the same commercial idea — e.g., a licensed product line sold at a known retailer — use high acceptance rates for interchangeable axes or merge them conceptually in the explanation while keeping separate factors if the template requires separate factors.
 
 A quick binary for borderline Okay/Poor calls: would most users with this query be satisfied — or redirect their intent — after seeing this product? Scope "most users" against the full query population, not a sub-segment matching the product profile (see Substitute acceptability test > Population framing). If no → Poor. If yes, even imperfectly → Okay.
+
+### Query-type framing guardrails
+
+**Core principle — query type is a matter of framing.** Classify the query by what it is, as a whole, framed as the user trying to obtain, access, or have fulfilled — not by whichever isolated noun sounds most product-like or service-like.
+
+- **Product** — the query is framed around finding or acquiring a physical or digital item. This includes apps when the query is explicitly about the app itself, even if the app later facilitates shopping, delivery, or some other service.
+  - `[sephora lipstick]`
+  - `[Taylor Swift tickets]`
+  - `[ubereats app]`
+
+- **Service** — the query is framed around booking, delivery, a transaction process, or human/business fulfillment. A product may be involved, but the service route is what defines the query.
+  - `[hilton hotel rooms]`
+  - `[pizza delivery]`
+  - `[realtor]`
+  - `[renting in Bergenfield]`
+  - `[ticketmaster]`
+
+- **Retailer-Brand** — the query names a brand, retailer, or organization without itself explicitly framing a product or service. Do not classify a bare commercial entity as Product merely because it sells products, or as Service merely because it provides customer-facing services.
+  - `[Sephora]`
+
+- **Information** — the query is framed around learning, checking, comparing, ranking, or finding out. It remains informational even when the subject matter is commercial or shopping-adjacent.
+  - `[best food processors]`
+  - `[cost of X]`
+  - `[X reviews]`
+
+- **Other** — use only when the query is not naturally captured by the above frames.
+
+**Borderline guardrail.** Some queries require case-by-case judgment rather than a blanket category rule. Tickets are the clearest example: `[Taylor Swift tickets]` is most plausibly product-like, because the ticket is the immediate object of acquisition; `[ticketmaster]` is more service-like, because the platform is primarily a route for ticket purchasing and fulfillment. The same principle applies elsewhere: identify the query’s framed object, not just the domain it touches.
 
 Info queries (and likely service queries) are compressed at the top, maxing out at okay. The evaluation question shifts from requirement matching to: does the product help them with their info/service intent, or is it just related? Addressing intent pushes up significantly within the compressed range; relatedness pushes up only somewhat. Service is a hybrid — it has the commercial frame of product queries but the conceptual fuzziness of info queries, so it gets the info ceiling but can be evaluated with product-query logic where requirements are identifiable.
 
@@ -281,7 +352,7 @@ This is a Search Experience to Product Usefulness task. The task input may be ei
 
 **Reference primacy:** ⬥ Every description, test, definition, and threshold in this template is a compressed summary of content that exists in fuller form in Part 1 above. Treat Part 1 as the authoritative source and this template as a structural scaffold for the analysis. When this template's phrasing of a concept differs from Part 1, defer to Part 1. When a category, tier, or boundary mentioned here is ambiguous, resolve the ambiguity by reading the referenced Part 1 section — not by extrapolating from the summary. Cross-references throughout this template point to specific Part 1 sections; consult them when the named concept is load-bearing for the rating. ⬥
 
-**Query research:** Before analyzing the query, web-search any terms that are not self-evidently common English in the meaning the query intends. The test is not "do I recognize this word" — it is "is the most common everyday-English interpretation of this term the same as its meaning here?" If there's any chance the term is a brand, product line, model number, program name, regional usage, jargon, acronym with multiple expansions, multi-word proper noun, or recent release the model wouldn't reliably know, verify it. Brand-as-common-word ("Apple," "Coach," "Polo," "Subway," "Dove," "Shell") is a particularly common failure mode — the surface reading produces a coherent-but-wrong subject and contaminates everything downstream.
+**Query research:** Before analyzing the query, web-search any terms that are not self-evidently common English in the meaning the query intends. The test is not "do I recognize this word" — it is "is the most common everyday-English interpretation of this term the same as its meaning here?" If there's any chance the term is a brand, product line, model number, program name, regional usage, jargon, acronym with multiple expansions, multi-word proper noun, or recent release the model wouldn't reliably know, verify it. When the task locale or query language may affect interpretation, do not default to a generic dictionary or broad English-language reading: locale-specific usage can change what real-world thing, product/service class, or practical intent the query is pointing to. Brand-as-common-word ("Apple," "Coach," "Polo," "Subway," "Dove," "Shell") is a particularly common failure mode — the surface reading produces a coherent-but-wrong subject and contaminates everything downstream.
 
 **Screenshot evidence discipline:** Use only evidence visible in the screenshot plus Part 1. If a title, model, retailer, price, spec, or visual detail is unclear, mark it unclear rather than infer it. Do not hallucinate hidden compatibility, material, size, or variant information from blurry text.
 
@@ -350,7 +421,26 @@ Query Coherence Check sits at the top for the symmetric reason: its function is 
 
 Before running any detailed assessment, resolve these structural constraints — they determine the available rating range before the framework even engages with requirement-matching:
 - **Query coherence**: literal reading viable / internally inconsistent / impossible.
-- **Query type:** Product / Information / Service / Retailer-Brand / other. Info queries retain their informational classification even when shopping intent is clear — do not reclassify as Product. Compression tiers (see **Info Query Compression Tiers** in Part 1 for the full treatment):
+- **Query ambiguity:** none / research-resolved / ambiguous (bounded) / ambiguous (unbounded).
+  - **None / research-resolved:** the query has a stable enough meaning to support ordinary downstream analysis, either from the surface wording or after research.
+  - **Ambiguous (bounded):** several reasonable interpretations remain, but they form a small, coherent, rateable set. The product may be assessed against a genuinely reasonable product-relatable branch; ambiguity itself is not a defect.
+  - **Ambiguous (unbounded):** research does not establish a stable likely intent or bounded rateable interpretation set. Do not let the product invent the operating reading. A product-relatable guess may be documented, but it remains speculative and should receive little or no credit merely for matching that guess.
+- **Query type:** Surface one of `Product / Information / Service / Retailer-Brand / other`, followed by a brief inline framing explanation answering: **what is the query, as a whole, framed as the user trying to obtain, access, or have fulfilled?**
+  - **Product** — framed as finding or acquiring a physical or digital item. Apps explicitly named as apps count here, even when they facilitate a downstream service.
+  - **Information** — framed as learning, checking, comparing, ranking, or finding out. Info queries retain their informational classification even when shopping intent is clear — do not reclassify as Product.
+  - **Service** — framed as booking, delivery, a transaction process, or human/business fulfillment. A product may be involved, but the service route defines the query.
+  - **Retailer-Brand** — framed around a bare brand, retailer, or organization without an explicit product or service object.
+  - **other** — state the framing briefly.
+
+  **Surfaced field format:**  
+  `Query type: [label] — [one-sentence framing explanation].`
+
+  **Examples:**  
+  `Query type: Service — the query is framed around obtaining delivery fulfillment, not merely acquiring pizza as a product.`  
+  `Query type: Retailer-Brand — the query names Sephora as a commercial entity without specifying a product or service.`  
+  `Query type: Product — the query is framed around acquiring the Uber Eats app itself, which is a digital product even though it facilitates a downstream delivery service.`
+
+- **Information-query ceiling subtype** *(only when Query type = Information)*:
   - Normal info query (how does X work, why does Y happen) → cap around mid okay.
   - Commercial-in-spirit info query (best X, X reviews, X comparison) → cap around high okay.
   - Transaction-framed info query ([price of X at Y], [cost of X], [X in stock at Y], [when is X on sale]) → cap remains at Okay (not Good — still an info query) but can reach high okay cleanly. Retailer, brand, and price-tier misses on these queries are diagnosed via the product-query machinery (a missed retailer is a Poor-direction miss, not a Necessary-missed Egregious floor), with the info ceiling still compressing the final position.
@@ -362,8 +452,15 @@ Before running any detailed assessment, resolve these structural constraints —
   - Commercial-in-spirit info queries (gift ideas, "best X for Y," recommendation requests) → intent satisfaction is operative; substitute acceptability is N/A — the oduct isn't trying to be a substitute for information, it's a candidate answer.
   - Instructional info queries (how-to, why-does, what-is) → intent satisfaction is operative. The activity-enabling reading is specifically available here when the oduct is a tool the activity requires (not when the product is just topically related).
   - Service queries → substitute acceptability is operative (service substitution is the natural frame).
+  - Retailer-Brand queries → substitute acceptability is operative, interpreted through **Brand / Retailer / Platform Logic**; intent satisfaction is N/A.
 
   The non-operative row in Rating Synthesis is filled "N/A — non-operative for this query type." Substitute & Compatibility Tests and Rating Synthesis row guardrails reference this commitment.
+
+- **Purpose-structure polarity:** lock the substitute-similarity axis for this query after combining domain structure with the query wording.
+  - **Domain-default polarity:** purpose-convergent / mechanism-divergent / mixed / N/A — no purpose-structure issue materially affects this case.
+  - **Query-induced polarity shift:** none / toward purpose / toward mechanism / mixed / N/A.
+  - **Operative substitute axis:** purpose convergence / mechanism-mode preservation / mixed / N/A.
+  - **Guardrail:** the domain default is a prior, not a hidden requirement. It affects how substitute quality is evaluated when purpose-vs-mechanism tension is relevant; it does not add unspoken constraints to broad generic queries.
 
 ## Interpretations Table
 
@@ -374,6 +471,10 @@ One line per row describing what the user is probably trying to find.
 **When Query Coherence Check declared the literal reading viable**: identify the interpretation most relatable to the product and treat it as the working interpretation for all subsequent assessments. If the product-relatable interpretation is significantly less likely than the leading one, flag the tension — a product that only serves an unlikely interpretation is penalized by the implausibility of that interpretation, not rewarded by the fit.
 
 **When Query Coherence Check declared an operating reading other than the literal**: the Interpretations Table enumerates plausible reconstructions only. The literal reading does not appear as a row. Ranking reflects the reconstruction confidence stated in the coherence check — low-medium confidence means rows should be roughly equal rather than sharply ordered. The working interpretation is the operating reading set in the coherence check, not a single row promoted from this table; the table's purpose here is to make the reconstruction space visible, not to re-rank against the literal.
+
+**Ambiguity-state note:** The Query ambiguity field in Decision Gates should inform how confidently interpretations are framed here, but it does not replace the Interpretations Table's job of surfacing the most relevant reasonable readings. For bounded ambiguity, list the reasonable branches normally and identify the branch most relatable to the product. For unbounded ambiguity, still surface any candidate readings that research or the result context suggests may be relevant, but clearly mark them as weak, scattered, speculative, or unsupported where appropriate rather than presenting them as stable interpretations.
+
+**Respect the user’s wording.** Do not silently normalize away wording choices that may shift intent, such as singular vs. plural, action wording, format terms, delivery/service terms, or small modifiers that change what kind of result the user likely expects. These may turn out to be weak or strong signals depending on context, but they should first be noticed and reflected in the interpretation space rather than erased during paraphrase.
 
 ## Query Components
 
@@ -423,6 +524,17 @@ Rows: product type, brand, color, all other direct product attributes.
 
 Rows covering applicable indirect/contextual factors: Intent, Purpose, Function, Context of use, Market segment, Price tier of Product/Brand, Target Demographic, Substitutability, Compatibility, Closest link, Product Target Customer, Brand Target Customer. Add or omit rows as applicable.
 
+Use **Purpose** and **Function / mechanism / mode** distinctly:
+
+- **Purpose** = the end-state, problem solved, or user outcome the product is meant to serve.
+- **Function / mechanism / mode** = the operative way the product delivers that value: its method, form of use, interaction loop, experience structure, or satisfaction mechanism.
+
+When the Decision Gates identify a non-N/A **Purpose-structure polarity**, make the distinction visible in Product Assessment rather than collapsing Purpose and Function into the same sentence. Add rows as applicable for:
+- Purpose structure
+- Query-induced polarity shift
+- Operative substitute axis
+- Axis preservation by the product
+
 ## Requirement Analysis
 
 | Requirement | Explicit/Implicit | Met/Partly/Missed | Filter Strength | Tier | What it's doing |
@@ -442,7 +554,8 @@ For each rating-relevant requirement:
   | Explicit exclusions / safety / compliance | Strong | "No X," "without X," gluten-free, vegan, non-toxic, child safety, pet/medical constraints, high-visibility workwear, legal/safety specs | Violating an active exclusion or safety constraint usually excludes most users |
   | Demographic / recipient | Weak to medium | Product form, sizing, safety, accessibility, or usability depends on the demographic | "For kids" can be strong for sizing/safety; "for dad" is usually a gift-audience cue |
   | Use-case / application | Medium | Product would fail the job or create a meaningfully different task | Hiking/weather, craft vs construction, professional vs casual, indoor vs outdoor can become strong when the job changes |
-  | Material / ingredient / style / aesthetic | Weak to medium | Material/style is the point, changes performance, signals authenticity/tier, or carries safety/ethical meaning | Color is usually weak unless safety-coded, uniform-coded, brand/signature-coded, or the main decorative point |
+  | Mode / mechanism / experiential structure | Medium | The domain is mechanism-divergent by default, or the query shifts the operative axis toward genre, interaction loop, sensory profile, aesthetic grammar, experiential format, or mechanism/form as the way the product satisfies intent | Missing this axis can exclude a large share of users even when the broad category or umbrella purpose is preserved |
+  | Material / ingredient / style / aesthetic | Weak to medium | Material/style is the point, changes performance, signals authenticity/tier, carries safety/ethical meaning, or functions as the main mode-bearing feature in a mechanism-divergent or query-shifted case | Ordinary color/style cues often have moderate-to-high acceptance; mode-bearing aesthetic/style misses can exclude far more users when the query depends on that axis |
   | Price / market tier | Medium | Query clearly targets budget, luxury, professional, vintage, collectible, or prestige tier; gap is large | Large tier gaps can make an otherwise functional substitute unacceptable |
   | Brand / manufacturer / product line | Weak to medium | Brand/line is the named object, official/authentic/collectible, compatibility-linked, safety/trust-linked, prestige/tier-defining, or has unique design/function | Do not mark positive brand terms strong merely because they are explicit; use low acceptance only when there is a real rejection mechanism |
   | Retailer / platform | Weak to medium | Retailer/platform is the actual need: in-stock, pickup, returns, membership pricing, gift card, exclusive item, regional access, official storefront, marketplace trust, or retailer-specific assortment | Reputable alternate retailers often get high acceptance; low acceptance needs an access/exclusivity/trust reason |
@@ -518,6 +631,14 @@ Do not blur these levels (see **Heuristic Overview** "Addressing user intent pus
 
 Topical overlap or shared commercial domain is not equivalent to serving intent.
 
+**Purpose-structure guardrail.** Before treating broad-purpose overlap as enough to reach “Plausible substitute / goal-advancing product,” check the operative substitute axis from Decision Gates.
+
+- In a **purpose-convergent** case, a product may climb into substitute territory by reaching the same practical end-state through a different but user-plausible route.
+- In a **mechanism-divergent** case, preserving only the umbrella purpose is usually not enough. The product should also preserve the relevant mechanism, genre, interaction loop, sensory profile, aesthetic grammar, experiential format, or other mode-bearing structure that gives the query its meaningful internal specificity.
+- In a **mixed** case, or when the query shifts the default polarity, weight the axis the query actually foregrounds after domain default and modifiers are combined.
+
+Shared broad purpose can establish relatedness. It does not automatically establish substitute acceptability.
+
 ## Substitute & Compatibility Tests
 
 **Substitute acceptability test** (see **Key Definitions > Important requirement** in Part 1 for the underlying Poor-vs-Okay logic): For every missed important requirement, explicitly answer: does the product still work as a plausible substitute for most users with this query? If yes, lean Okay. If no, lean Poor.
@@ -529,6 +650,22 @@ Pair the query population statement with an explicit product target population s
 Ex: [how to set up a home office] → standing desk treadmill. Query population spans desk/chair basics, monitor and lighting setups, organization systems, ergonomic upgrades, across budget tiers and work styles. A standing desk treadmill fits one slice (active-work advocates with space and budget for premium ergonomic equipment). Acceptable for a sub-segment, not most → Poor direction.
 
 **Operative-lens rule.** The operative lens for this query is locked in Decision Gates per the Operative lens bullet — see there for the query-type-to-lens mapping. The rule below references that commitment: when this section's tests are evaluated, only the operative lens fires; the non-operative test is skipped and its Rating Synthesis row reads "N/A — non-operative for this query type."
+
+**Purpose-structure test:** Run this when the query and product share a broad category or umbrella purpose, but differ in mechanism, mode, genre, form, sensory profile, aesthetic structure, or experiential format.
+
+| Field | Assessment |
+|---|---|
+| Domain-default polarity | purpose-convergent / mechanism-divergent / mixed |
+| Query-induced polarity shift | none / toward purpose / toward mechanism / mixed |
+| Operative substitute axis | purpose convergence / mechanism-mode preservation / mixed |
+| What the product preserves | purpose / mechanism-mode / both / neither |
+| What the product misses | brief description of the load-bearing divergence |
+| Substitute implication | explain whether the preserved overlap is enough for the operative substitute axis |
+
+Decision rule:
+- **Purpose-convergent:** same-end-state alignment can support substitute acceptability despite mechanism differences, unless the query shifted the axis toward mechanism/form.
+- **Mechanism-divergent:** shared umbrella purpose alone rarely supports a strong substitute reading; the product should preserve the relevant mode/mechanism unless the query shifted the axis toward purpose/outcome.
+- **Mixed:** use the query’s foregrounding to decide which axis is more load-bearing.
 
 **Broadened-intent check:** Before rejecting a product as an unacceptable substitute, construct the most plausible broadened reading of the query that the product WOULD satisfy. Then ask: would a non-trivial subset of users with this query accept the product under that broadened reading? A product that serves a broadened reading of the query is typically Poor (acceptable alternative for some users, not most) rather than Egregious, regardless of how far the product is from the narrow reading. Egregious is reserved for products where no plausible broadened reading of the query accommodates them.
 - *Ex: [original The Beatles concert poster] → original Nick Drake concert poster. Broadened reading: "original concert posters (any artist)." Some collectors of original concert posters more broadly would accept this despite the massive artist-profile gap (world-famous pop institution vs. cult critically-revered niche artist). Poor, not Egregious.*
@@ -566,6 +703,8 @@ Compress the preceding analysis into a case profile along the dimensions that dr
 | Indicator | Reading |
 |---|---|
 | Requirement coverage | necessary ✅/❌; important: M met / P partly / X missed; preferential: M met / X missed — see **Key Definitions** |
+| Purpose-structure polarity | domain default = purpose-convergent / mechanism-divergent / mixed / N/A; query shift = none / toward purpose / toward mechanism / mixed / N/A; operative substitute axis = purpose convergence / mechanism-mode preservation / mixed / N/A |
+| Operative-axis preservation | full / strong / partial / weak / none / N/A — state whether the product preserves the axis identified above, not merely whether it shares the broad parent category |
 | Query population scope | broad/heterogeneous (multiple recipient profiles, budgets, styles, or sub-intents plausible — name the segments) / moderate / narrow (query pins most attributes to a single segment) — denominator for Substitute acceptability and Intent satisfaction below |
 | Product target population | who the product is designed, priced, marketed, and sized for — segments named explicitly (demographic, budget tier, use-case, style orientation, product-form fit, occasion specificity). For [how to set up a home office] → standing desk treadmill: active-work advocates with space and budget for premium ergonomic equipment. **Each named dimension that narrows the query population becomes a factor in Population overlap estimate below.** |
 | Population overlap estimate | rough fraction of Query population scope falling within Product target population — the starting denominator for Substitute acceptability and Intent satisfaction below, not the final answer for either. List each narrowing dimension named in Product target population and estimate its filter rate; aggregate by multiplication to a final percentage. The estimate is rough, not precise; the purpose is to prevent hand-waving readings like "acceptable for many" or "strong subset" that name no population fraction. For [how to set up a home office] → standing desk treadmill: ergonomic-upgrade subset of home-office-setup ≈25% × has space for treadmill desk ≈40% × budget for premium ergonomic equipment ≈30% = ~3% of query population. Substitute acceptability and Intent satisfaction each compute their own answer against this denominator below. The aggregated multiplication is the answer. Do not add post-hoc adjustments like "broader acceptance lifts relevance to X%" or "softer reading would put it at Y%." Filter rates already represent soft narrowing — a 70% rate already accounts for users at the edges who'd accept the product despite imperfect fit. Layering a second "broader" pass on top double-counts and inflates the result. If the rates feel too strict, revise the rates upward and re-multiply — do not adjust the aggregate. The single final percentage from one multiplication is what feeds Substitute acceptability and Intent satisfaction below — the downstream rows must cite that exact number, not a separately derived "broader" figure. Format requirement for downstream rows: Substitute acceptability and Intent satisfaction must be written as "[percentage] → [band] → [label]" (e.g., "11% → <25% band → not a substitute"). A bare label without the percentage and band citation is invalid — the lookup is the reading. **Every narrowing axis between Query population scope and Product target population must appear as a separate factor in the multiplication, but every factor must reflect real user rejection, not mere term mismatch.** Do not fold multiple axes into a single rate (e.g., "outdoor/waterproof feature preference" combines use-case and product feature — these are independent and must be separate factors). Cross-check by walking each dimension named in Product target population: demographic, budget tier, use-case, style/aesthetic, product-form fit, occasion specificity. If a dimension narrows the query population, it gets its own factor. **Common axes that get illegitimately folded or omitted:** recipient demographic (gender, age, profession), budget acceptability, style/aesthetic preference, use-case applicability, product-form preference within category, brand/tier sensitivity. If the product is narrowed on N dimensions, the multiplication must have N factors. **Factor-rate heuristics:** core function/category and compatibility/fitment can be low acceptance when missed because they often determine usability; use-case/application can be medium or low depending on whether the product can do the job; price/tier gaps can be low when large and deliberate; ordinary style/color/material cues usually stay moderate-to-high unless they are the point of the query; positive brand/manufacturer/product-line misses are often high-to-moderate acceptance when the alternative preserves category/function/tier; retailer/platform misses are often high acceptance when a reputable alternative source works. Use low brand/retailer factors only when **Requirement Analysis > Filter-strength heuristics** or **Brand / Retailer / Platform Logic** identifies a real reason: officialness, collectibility, exclusivity, ecosystem/fitment, safety/trust, unique identity, membership/gift-card/access, store-exclusive assortment, or large tier gap. **Do not assign 25% just because a brand or retailer was explicit.** If brand, manufacturer, and retailer are commercially linked rather than independently constraining, keep their individual rates high or explain the independent rejection mechanism for each. Example correction patterns: [Hamilton Beach 12-cup coffee maker at Kohl's] → Mr. Coffee 12-cup coffee maker from Best Buy should not automatically use accepts non-Hamilton Beach ≈25% × accepts non-Kohl's ≈25%; the preserved function, capacity, tier, and common retailer interchangeability are stronger than the ordinary brand/retailer miss. A disciplined structure might be: 12-cup drip coffee-maker need ≈85–95% × accepts comparable budget appliance brand ≈70–90% × accepts reputable alternate retailer ≈75–95% × accepts any visible price/tier gap ≈60–90%. [Realspace white cube organizer at Office Depot] → IKEA KALLAX white cube organizer should not automatically use accepts non-Realspace ≈25% × accepts non-Office Depot ≈25%; storage form/dimensions/color/price tier usually drive acceptance more than brand or retailer. A disciplined structure might be: cube-organizer need ≈80–95% × accepts comparable store-brand/private-label alternative ≈70–90% × accepts reputable alternate retailer ≈70–95% × accepts dimension/style/tier gap from visible evidence ≈50–90%. |
@@ -603,6 +742,8 @@ Produce the rating implied by the **Rating Synthesis** above, applied through th
 - **Egregious** is the residual when no higher tier survives.
 
 **Discipline.** Survival reasons must quote the Rating Synthesis indicator label verbatim (e.g., "Substitute acceptability: acceptable for most"; "Substitute acceptability: acceptable for some"; "Intent satisfaction: sits nearby"), not a Part 1 section name (e.g., "Relatedness vs Intent Satisfaction") and not a paraphrase of the label (e.g., "sits in the problem space," "plausible candidate answer," "directly participates"). The verbatim label must appear in the tier's survival-condition list and any added guardrail must be named explicitly — if it doesn't, the tier doesn't survive. A survival reason that names a section without a specific reading, or paraphrases the label rather than quoting it, is invalid — re-derive the survival decision against the actual label text.
+
+**Purpose-structure discipline.** The `Purpose-structure polarity` and `Operative-axis preservation` rows are diagnostic, not independent tier-survival mechanisms. When they are load-bearing, use them to explain why the operative `Substitute acceptability` or `Intent satisfaction` reading is strong or weak. Do not let shared broad purpose alone preserve an Okay reading in a mechanism-divergent case if the operative axis is not preserved enough to support that substitute reading. Conversely, do not penalize mechanism differences too harshly in a purpose-convergent case when the product still reaches the query’s end-state through a plausible alternative route.
 
 **Reference list (consult all that apply, not just the first that matches):**
 - **Key Definitions** for requirement tier interpretation
@@ -762,6 +903,19 @@ Rules:
 ## Borderline cases
 
 If the case is borderline on cultural identification or main-term broadness, use the practical rule from **Position Calibration > Borderline cases** in Part 1: charitable reading when the alternate would push toward Egregious. Borderline cultural identification clears the egregious floor. Borderline main-term broadness keeps a case in Poor rather than Egregious.
+
+## Field under the Part 2 **Borderline cases** section
+
+I’d add something like this directly **after the existing Part 2 `## Borderline cases` text** and before `## Categorical Miss Subtype Assessment`:
+
+### Query Ambiguity Note — descriptive only, not a rating input
+
+This field records the query’s ambiguity state for interpretive transparency. It does **not** independently raise, lower, cap, floor, or otherwise modify the rating. The rating must still be derived from the standard machinery above.
+
+| Field           | Value                                                                                                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Query ambiguity | none / research-resolved / ambiguous (bounded) / ambiguous (unbounded)                                                                                                                                                      |
+| Comment         | Briefly state why this ambiguity state applies, especially whether research stabilized the query, whether several reasonable interpretations remain, or whether the intent space stayed too scattered to bound confidently. |
 
 ## Categorical Miss Subtype Assessment
 

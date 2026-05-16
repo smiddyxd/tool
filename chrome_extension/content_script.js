@@ -34,6 +34,7 @@ Base everything strictly on the screenshot attachment.`;
   const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
   const SCROLL_MESSAGE_TYPE = "scrollChatGpt";
   const SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE = "serverControlMenuCommand";
+  const SERVER_CONTROL_STATUS_LOG_MESSAGE_TYPE = "serverControlStatusLog";
   const PING_MESSAGE_TYPE = "localQueryBridgePing";
   const ELEMENT_WAIT_TIMEOUT_MS = 10000;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
@@ -118,6 +119,10 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
   const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
+  const SERVER_CONTROL_STATUS_LOG_ID = "local-query-bridge-server-control-status-log";
+  const SERVER_CONTROL_STATUS_LOG_STYLE_ID = "local-query-bridge-server-control-status-log-styles";
+  const SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS = "local-query-bridge-server-control-status-log-expanded";
+  const SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS = "local-query-bridge-server-control-status-log-active";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
   const SERVER_CONTROL_ZONE_OVERLAY_ID = "local-query-bridge-server-control-zone-overlay";
   const SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS = "local-query-bridge-server-control-zone-overlay-active";
@@ -137,6 +142,8 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
+  const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
+  const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -208,6 +215,41 @@ Base everything strictly on the screenshot attachment.`;
     { key: "bottom", label: "Bottom Y", gridClass: "bottom" },
   ];
   const DEFAULT_SERVER_CONTROL_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
+  const DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS = {
+    "client-action": "#2563eb",
+    "worker-send": "#7c3aed",
+    "server-received": "#0891b2",
+    capture: "#0d9488",
+    "ocr-start": "#4f46e5",
+    "ocr-attempt": "#d97706",
+    "ocr-result": "#16a34a",
+    "ocr-retry": "#ea580c",
+    "ocr-selected": "#059669",
+    queued: "#0284c7",
+    prompt: "#2563eb",
+    "prompt-sent": "#16a34a",
+    cancel: "#64748b",
+    error: "#dc2626",
+  };
+  const SERVER_CONTROL_STATUS_LOG_TYPE_LABELS = {
+    "client-action": "Action",
+    "worker-send": "Worker",
+    "server-received": "Server",
+    capture: "Capture",
+    "ocr-start": "OCR start",
+    "ocr-attempt": "OCR attempt",
+    "ocr-result": "OCR result",
+    "ocr-retry": "OCR retry",
+    "ocr-selected": "OCR selected",
+    queued: "Queued",
+    prompt: "Prompt",
+    "prompt-sent": "Sent",
+    cancel: "Cancel",
+    error: "Error",
+  };
+  const DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES = Object.fromEntries(
+    Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map((type) => [type, ""]),
+  );
   const DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS = [
     {
       key: SERVER_CONTROL_REGION_DEFAULT_KEY,
@@ -447,9 +489,22 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
     zoneDividerTopLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+    statusLogColors: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS },
+    statusLogMessages: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES },
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
+  };
+
+  const serverControlStatusLogState = {
+    entries: [],
+    currentRunId: "",
+    active: false,
+    expanded: false,
+    nextEntryId: 1,
+    maxEntries: 240,
+    completedRunIds: new Set(),
+    cancelledRunIds: new Set(),
   };
 
   const serverControlZoneContextMenuState = {
@@ -1082,6 +1137,37 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const blue = Number.parseInt(normalizedColor.slice(5, 7), 16) / 255;
     const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
     return luminance > 0.58 ? "#111827" : "#ffffff";
+  }
+
+  function sanitizeServerControlStatusType(value) {
+    const type = typeof value === "string" ? value.trim() : "";
+    return Object.prototype.hasOwnProperty.call(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS, type)
+      ? type
+      : "prompt";
+  }
+
+  function sanitizeServerControlStatusLogColors(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    return Object.fromEntries(
+      Object.entries(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map(([type, fallback]) => [
+        type,
+        sanitizeColor(source[type], fallback),
+      ]),
+    );
+  }
+
+  function sanitizeServerControlStatusLogMessages(rawValue) {
+    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue
+      : {};
+    return Object.fromEntries(
+      Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES).map((type) => [
+        type,
+        typeof source[type] === "string" ? source[type].trim() : "",
+      ]),
+    );
   }
 
   function compileHighlightRule(rawRule, index = 0) {
@@ -3589,6 +3675,592 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     document.addEventListener("DOMContentLoaded", ensureAnalysisTocButtons, { once: true });
   }
 
+  function createServerControlRunId() {
+    if (globalThis.crypto?.randomUUID) {
+      return globalThis.crypto.randomUUID();
+    }
+
+    return `control-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function isServerControlProcessingCommand(command) {
+    return command === "start_task_ocr"
+      || command === "start_task_screenshot"
+      || command === "ocr_google_results";
+  }
+
+  function getServerControlStatusLogColor(type) {
+    const statusType = sanitizeServerControlStatusType(type);
+    return serverControlMenuState.statusLogColors[statusType]
+      ?? DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS[statusType]
+      ?? "#2563eb";
+  }
+
+  function getServerControlStatusLog() {
+    const panel = document.getElementById(SERVER_CONTROL_STATUS_LOG_ID);
+    return panel instanceof HTMLElement ? panel : null;
+  }
+
+  function ensureServerControlStatusLogStyles() {
+    if (document.getElementById(SERVER_CONTROL_STATUS_LOG_STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = SERVER_CONTROL_STATUS_LOG_STYLE_ID;
+    style.textContent = `
+      #${SERVER_CONTROL_STATUS_LOG_ID} {
+        position: fixed;
+        top: 12px;
+        right: ${ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX}px;
+        z-index: 2147483647;
+        width: min(420px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        border-radius: 8px;
+        background: rgba(248, 250, 252, 0.62);
+        color: #0f172a;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+        font: 12px/1.35 "Segoe UI", system-ui, sans-serif;
+        opacity: 0.42;
+        pointer-events: auto;
+        overflow: hidden;
+        transition: opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+      }
+
+      #${SERVER_CONTROL_STATUS_LOG_ID}.${SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS},
+      #${SERVER_CONTROL_STATUS_LOG_ID}:hover,
+      #${SERVER_CONTROL_STATUS_LOG_ID}:focus-within {
+        opacity: 1;
+        background: rgba(248, 250, 252, 0.96);
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.23);
+      }
+
+      #${SERVER_CONTROL_STATUS_LOG_ID} * {
+        box-sizing: border-box;
+        letter-spacing: 0;
+      }
+
+      .local-query-bridge-status-log-header {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 7px;
+        min-height: 34px;
+        padding: 5px 7px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.14);
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .local-query-bridge-status-log-toggle,
+      .local-query-bridge-status-log-cancel {
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 7px;
+        background: #ffffff;
+        color: #0f172a;
+        cursor: pointer;
+        font: 800 12px/1 "Segoe UI", system-ui, sans-serif;
+      }
+
+      .local-query-bridge-status-log-toggle {
+        width: 26px;
+        height: 24px;
+        padding: 0;
+      }
+
+      .local-query-bridge-status-log-cancel {
+        min-height: 24px;
+        padding: 4px 8px;
+      }
+
+      .local-query-bridge-status-log-cancel[hidden] {
+        display: none;
+      }
+
+      .local-query-bridge-status-log-toggle:hover,
+      .local-query-bridge-status-log-cancel:hover {
+        background: #f8fafc;
+      }
+
+      .local-query-bridge-status-log-cancel:disabled {
+        cursor: default;
+        opacity: 0.58;
+      }
+
+      .local-query-bridge-status-log-title {
+        min-width: 0;
+        overflow: hidden;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-status-log-body {
+        max-height: 96px;
+        overflow: auto;
+        padding: 3px 0;
+      }
+
+      #${SERVER_CONTROL_STATUS_LOG_ID}.${SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS} .local-query-bridge-status-log-body {
+        max-height: min(360px, calc(100vh - 72px));
+      }
+
+      .local-query-bridge-status-log-entry {
+        display: grid;
+        grid-template-columns: 70px minmax(0, 1fr);
+        gap: 8px;
+        min-height: 30px;
+        padding: 5px 8px;
+        border-left: 4px solid var(--local-query-bridge-status-color, #2563eb);
+        border-bottom: 1px solid rgba(51, 65, 85, 0.1);
+        background: rgba(255, 255, 255, 0.54);
+      }
+
+      .local-query-bridge-status-log-entry:last-child {
+        border-bottom: 0;
+      }
+
+      .local-query-bridge-status-log-meta {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+        align-content: start;
+      }
+
+      .local-query-bridge-status-log-type {
+        overflow: hidden;
+        color: var(--local-query-bridge-status-color, #2563eb);
+        font-size: 11px;
+        font-weight: 850;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-status-log-time {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .local-query-bridge-status-log-message {
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .local-query-bridge-status-log-message-text,
+      .local-query-bridge-status-log-excerpt {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-status-log-message-text {
+        color: #0f172a;
+        font-weight: 700;
+      }
+
+      .local-query-bridge-status-log-excerpt {
+        color: #334155;
+        font-size: 11px;
+      }
+
+      .local-query-bridge-status-log-details {
+        margin-top: 3px;
+        color: #334155;
+        font-size: 11px;
+      }
+
+      .local-query-bridge-status-log-details summary {
+        cursor: pointer;
+        font-weight: 750;
+      }
+
+      .local-query-bridge-status-log-details pre {
+        max-height: 220px;
+        margin: 4px 0 0;
+        overflow: auto;
+        border: 1px solid rgba(51, 65, 85, 0.16);
+        border-radius: 7px;
+        background: rgba(241, 245, 249, 0.9);
+        color: #0f172a;
+        font: 11px/1.35 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        padding: 6px;
+        white-space: pre-wrap;
+      }
+
+      .local-query-bridge-status-log-empty {
+        padding: 10px;
+        color: #64748b;
+        font-weight: 650;
+      }
+
+      @media (max-width: 720px) {
+        #${SERVER_CONTROL_STATUS_LOG_ID} {
+          top: 8px;
+          right: 8px !important;
+          width: calc(100vw - 16px);
+        }
+      }
+    `;
+    document.documentElement.append(style);
+  }
+
+  function formatServerControlStatusTime(timestamp) {
+    const parsedTime = Date.parse(timestamp);
+    const date = Number.isFinite(parsedTime) ? new Date(parsedTime) : new Date();
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function normalizeServerControlStatusDetails(details) {
+    return details && typeof details === "object" && !Array.isArray(details) ? details : {};
+  }
+
+  function normalizeServerControlStatusEntry(status) {
+    const details = normalizeServerControlStatusDetails(status?.details);
+    const type = sanitizeServerControlStatusType(status?.type);
+    const rawMessage = typeof status?.message === "string" && status.message.trim()
+      ? status.message.trim()
+      : SERVER_CONTROL_STATUS_LOG_TYPE_LABELS[type] ?? "Status";
+    return {
+      id: serverControlStatusLogState.nextEntryId++,
+      runId: typeof status?.runId === "string" ? status.runId : "",
+      type,
+      message: rawMessage,
+      details,
+      timestamp: typeof status?.timestamp === "string" && status.timestamp
+        ? status.timestamp
+        : new Date().toISOString(),
+    };
+  }
+
+  function getServerControlStatusTemplateValue(entry, key) {
+    const details = entry.details ?? {};
+    const values = {
+      message: entry.message,
+      type: SERVER_CONTROL_STATUS_LOG_TYPE_LABELS[entry.type] ?? entry.type,
+      runId: entry.runId,
+      query: details.queryText ?? "",
+      product: details.productText ?? "",
+      variant: details.variant ?? "",
+      phase: details.phase ?? "",
+      attempt: details.attempt ?? "",
+      attemptTotal: details.attemptTotal ?? "",
+      absoluteAttempt: details.absoluteAttempt ?? "",
+      taskCount: details.taskCount ?? "",
+      promptCount: details.promptCount ?? "",
+      screenshotCount: details.screenshotCount ?? "",
+      selectedRegion: details.selectedRegion ?? "",
+      selectedRegionLabel: details.selectedRegionLabel ?? "",
+    };
+    return Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : "";
+  }
+
+  function formatServerControlStatusMessage(entry) {
+    const template = serverControlMenuState.statusLogMessages[entry.type] ?? "";
+    if (!template.trim()) {
+      return entry.message;
+    }
+
+    return template.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (_match, key) => (
+      getServerControlStatusTemplateValue(entry, key)
+    )).trim() || entry.message;
+  }
+
+  function ellipsizeServerControlStatusText(value, maxLength = 120) {
+    const text = String(value ?? "").replace(/\s+/g, " ").trim();
+    if (text.length <= maxLength) {
+      return text;
+    }
+
+    return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+  }
+
+  function buildServerControlStatusDetailText(details) {
+    const lines = [];
+    if (details.queryText) {
+      lines.push(`Query:\n${details.queryText}`);
+    }
+    if (details.productText) {
+      lines.push(`Product:\n${details.productText}`);
+    }
+    if (Array.isArray(details.reasons) && details.reasons.length > 0) {
+      lines.push(`Reasons:\n${details.reasons.join("\n")}`);
+    }
+    if (Array.isArray(details.abortReasons) && details.abortReasons.length > 0) {
+      lines.push(`Abort reasons:\n${details.abortReasons.join("\n")}`);
+    }
+    if (details.error) {
+      lines.push(`Error:\n${details.error}`);
+    }
+    if (details.variant || details.rawLineCount !== undefined || details.averageConfidence !== undefined) {
+      lines.push(
+        [
+          details.variant ? `Variant: ${details.variant}` : "",
+          details.phase ? `Phase: ${details.phase}` : "",
+          details.rawLineCount !== undefined ? `Raw lines: ${details.rawLineCount}` : "",
+          details.averageConfidence !== undefined ? `Avg confidence: ${details.averageConfidence}` : "",
+        ].filter(Boolean).join("\n"),
+      );
+    }
+
+    return lines.filter(Boolean).join("\n\n");
+  }
+
+  function createServerControlStatusEntryElement(entry) {
+    const row = document.createElement("div");
+    row.className = "local-query-bridge-status-log-entry";
+    row.style.setProperty("--local-query-bridge-status-color", getServerControlStatusLogColor(entry.type));
+
+    const meta = document.createElement("div");
+    meta.className = "local-query-bridge-status-log-meta";
+
+    const type = document.createElement("div");
+    type.className = "local-query-bridge-status-log-type";
+    type.textContent = SERVER_CONTROL_STATUS_LOG_TYPE_LABELS[entry.type] ?? entry.type;
+
+    const time = document.createElement("time");
+    time.className = "local-query-bridge-status-log-time";
+    time.dateTime = entry.timestamp;
+    time.textContent = formatServerControlStatusTime(entry.timestamp);
+    meta.append(type, time);
+
+    const message = document.createElement("div");
+    message.className = "local-query-bridge-status-log-message";
+
+    const messageText = document.createElement("div");
+    messageText.className = "local-query-bridge-status-log-message-text";
+    messageText.textContent = formatServerControlStatusMessage(entry);
+    message.append(messageText);
+
+    if (entry.details.queryText) {
+      const query = document.createElement("div");
+      query.className = "local-query-bridge-status-log-excerpt";
+      query.textContent = `Q: ${ellipsizeServerControlStatusText(entry.details.queryText, 150)}`;
+      message.append(query);
+    }
+
+    if (entry.details.productText) {
+      const product = document.createElement("div");
+      product.className = "local-query-bridge-status-log-excerpt";
+      product.textContent = `P: ${ellipsizeServerControlStatusText(entry.details.productText, 150)}`;
+      message.append(product);
+    }
+
+    const detailText = buildServerControlStatusDetailText(entry.details);
+    if (detailText) {
+      const details = document.createElement("details");
+      details.className = "local-query-bridge-status-log-details";
+
+      const summary = document.createElement("summary");
+      summary.textContent = "Details";
+
+      const pre = document.createElement("pre");
+      pre.textContent = detailText;
+      details.append(summary, pre);
+      message.append(details);
+    }
+
+    row.append(meta, message);
+    return row;
+  }
+
+  function syncServerControlStatusLog() {
+    const panel = ensureServerControlStatusLog();
+    if (!(panel instanceof HTMLElement)) {
+      return;
+    }
+
+    panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS, serverControlStatusLogState.active);
+    panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS, serverControlStatusLogState.expanded);
+    panel.style.right = `${getAnalysisTocColumnPositions().rightInsetPx}px`;
+
+    const toggle = panel.querySelector("[data-status-log-toggle]");
+    if (toggle instanceof HTMLButtonElement) {
+      toggle.textContent = serverControlStatusLogState.expanded ? "^" : "v";
+      toggle.title = serverControlStatusLogState.expanded ? "Collapse status log" : "Expand status log";
+      toggle.setAttribute("aria-expanded", serverControlStatusLogState.expanded ? "true" : "false");
+    }
+
+    const title = panel.querySelector("[data-status-log-title]");
+    if (title instanceof HTMLElement) {
+      title.textContent = serverControlStatusLogState.active ? "Bridge processing" : "Bridge log";
+    }
+
+    const cancel = panel.querySelector("[data-status-log-cancel]");
+    if (cancel instanceof HTMLButtonElement) {
+      cancel.hidden = !serverControlStatusLogState.active || !serverControlStatusLogState.currentRunId;
+      cancel.disabled = !serverControlStatusLogState.active || !serverControlStatusLogState.currentRunId;
+    }
+
+    const body = panel.querySelector("[data-status-log-body]");
+    if (!(body instanceof HTMLElement)) {
+      return;
+    }
+
+    body.replaceChildren();
+    if (serverControlStatusLogState.entries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "local-query-bridge-status-log-empty";
+      empty.textContent = "No bridge events yet.";
+      body.append(empty);
+      return;
+    }
+
+    for (const entry of serverControlStatusLogState.entries) {
+      body.append(createServerControlStatusEntryElement(entry));
+    }
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function ensureServerControlStatusLog() {
+    if (!document.body) {
+      return null;
+    }
+
+    ensureServerControlStatusLogStyles();
+    let panel = getServerControlStatusLog();
+    if (panel instanceof HTMLElement) {
+      return panel;
+    }
+
+    panel = document.createElement("aside");
+    panel.id = SERVER_CONTROL_STATUS_LOG_ID;
+    panel.setAttribute("aria-label", "Bridge processing log");
+
+    const header = document.createElement("div");
+    header.className = "local-query-bridge-status-log-header";
+
+    const toggle = document.createElement("button");
+    toggle.className = "local-query-bridge-status-log-toggle";
+    toggle.type = "button";
+    toggle.dataset.statusLogToggle = "true";
+    toggle.addEventListener("click", () => {
+      serverControlStatusLogState.expanded = !serverControlStatusLogState.expanded;
+      syncServerControlStatusLog();
+    });
+
+    const title = document.createElement("div");
+    title.className = "local-query-bridge-status-log-title";
+    title.dataset.statusLogTitle = "true";
+
+    const cancel = document.createElement("button");
+    cancel.className = "local-query-bridge-status-log-cancel";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.dataset.statusLogCancel = "true";
+    cancel.addEventListener("click", () => {
+      void requestServerControlProcessingCancel();
+    });
+
+    const body = document.createElement("div");
+    body.className = "local-query-bridge-status-log-body";
+    body.dataset.statusLogBody = "true";
+
+    header.append(toggle, title, cancel);
+    panel.append(header, body);
+    document.body.append(panel);
+    syncServerControlStatusLog();
+    return panel;
+  }
+
+  function appendServerControlStatusLog(status) {
+    const entry = normalizeServerControlStatusEntry(status);
+    if (entry.runId) {
+      serverControlStatusLogState.currentRunId = entry.runId;
+    }
+
+    if (["prompt-sent", "cancel", "error"].includes(entry.type)) {
+      if (entry.runId) {
+        serverControlStatusLogState.completedRunIds.add(entry.runId);
+        if (entry.type === "cancel") {
+          serverControlStatusLogState.cancelledRunIds.add(entry.runId);
+        }
+      }
+      if (!entry.runId || entry.runId === serverControlStatusLogState.currentRunId) {
+        serverControlStatusLogState.active = false;
+      }
+    } else if (!entry.runId || !serverControlStatusLogState.completedRunIds.has(entry.runId)) {
+      serverControlStatusLogState.active = true;
+    }
+
+    serverControlStatusLogState.entries.push(entry);
+    if (serverControlStatusLogState.entries.length > serverControlStatusLogState.maxEntries) {
+      serverControlStatusLogState.entries.splice(
+        0,
+        serverControlStatusLogState.entries.length - serverControlStatusLogState.maxEntries,
+      );
+    }
+    syncServerControlStatusLog();
+  }
+
+  function beginServerControlStatusLogRun(runId, message, details = {}) {
+    serverControlStatusLogState.currentRunId = runId;
+    serverControlStatusLogState.active = true;
+    serverControlStatusLogState.expanded = false;
+    serverControlStatusLogState.completedRunIds.delete(runId);
+    serverControlStatusLogState.cancelledRunIds.delete(runId);
+    appendServerControlStatusLog({
+      runId,
+      type: "client-action",
+      message,
+      details,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async function requestServerControlProcessingCancel() {
+    const runId = serverControlStatusLogState.currentRunId;
+    if (!runId || !serverControlStatusLogState.active) {
+      return;
+    }
+
+    appendServerControlStatusLog({
+      runId,
+      type: "cancel",
+      message: "Cancel requested.",
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      await chrome.runtime.sendMessage({
+        type: SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE,
+        command: {
+          source: "chatgpt-status-log",
+          command: "cancel_control_processing",
+          controlRunId: runId,
+          currentTaskType: serverControlMenuState.currentTaskType,
+          currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
+          pageUrl: window.location.href,
+          sentAt: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      appendServerControlStatusLog({
+        runId,
+        type: "error",
+        message: "Cancel request failed.",
+        details: { error: `${error}` },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  function isServerControlRunCancelled(runId) {
+    return Boolean(runId && serverControlStatusLogState.cancelledRunIds.has(runId));
+  }
+
+  function throwIfServerControlRunCancelled(runId) {
+    if (isServerControlRunCancelled(runId)) {
+      throw new Error("Processing cancelled before prompt send");
+    }
+  }
+
   function ensureServerControlMenuStyles() {
     if (document.getElementById(SERVER_CONTROL_MENU_STYLE_ID)) {
       return;
@@ -4265,6 +4937,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return isEditableTarget(target)
       || Boolean(target.closest([
         `#${SERVER_CONTROL_MENU_ID}`,
+        `#${SERVER_CONTROL_STATUS_LOG_ID}`,
         `#${HIGHLIGHT_SELECTION_EDITOR_ID}`,
         `.${ANALYSIS_TOC_BUTTON_CLASS}`,
         `.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`,
@@ -5013,6 +5686,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  async function loadServerControlStatusLogSettings() {
+    try {
+      const stored = await chrome.storage.sync.get({
+        [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
+        [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+      });
+      serverControlMenuState.statusLogColors = sanitizeServerControlStatusLogColors(
+        stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS],
+      );
+      serverControlMenuState.statusLogMessages = sanitizeServerControlStatusLogMessages(
+        stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES],
+      );
+      syncServerControlStatusLog();
+    } catch (error) {
+      console.warn("Local Query Bridge failed to load status log settings", error);
+    }
+  }
+
   function getActiveServerControlBoilerplatePrompt() {
     return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
   }
@@ -5374,6 +6065,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const payload = {
       source: "chatgpt-content-control-menu",
       command: buttonConfig.command,
+      controlRunId: buttonConfig.controlRunId ?? "",
       value: buttonConfig.value,
       label: buttonConfig.label,
       group: groupLabel,
@@ -5456,17 +6148,41 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   async function sendServerControlMenuCommand(buttonConfig, groupLabel, button) {
+    const isProcessingCommand = isServerControlProcessingCommand(buttonConfig.command);
+    const controlRunId = isProcessingCommand ? createServerControlRunId() : "";
+    const commandConfig = controlRunId ? { ...buttonConfig, controlRunId } : buttonConfig;
     applyServerControlMenuCommandState(buttonConfig);
     if (buttonConfig.command === "set_task_type") {
       await persistServerControlMenuSettings();
     }
-    const payload = buildServerControlMenuPayload(buttonConfig, groupLabel);
+    const payload = buildServerControlMenuPayload(commandConfig, groupLabel);
+    if (controlRunId) {
+      const regionLabel = payload.selectedRegionLabel || payload.selectedRegion || "";
+      beginServerControlStatusLogRun(
+        controlRunId,
+        `${buttonConfig.label || "Processing"} requested${regionLabel ? ` for ${regionLabel}` : ""}.`,
+        {
+          command: buttonConfig.command,
+          selectedRegion: payload.selectedRegion,
+          selectedRegionLabel: payload.selectedRegionLabel,
+          processingMode: payload.processingMode,
+        },
+      );
+    }
     if (button instanceof HTMLButtonElement) {
       button.disabled = true;
     }
 
     try {
       console.log("Local Query Bridge sending server control command", payload);
+      if (controlRunId) {
+        appendServerControlStatusLog({
+          runId: controlRunId,
+          type: "worker-send",
+          message: "Sending request to bridge worker.",
+          timestamp: new Date().toISOString(),
+        });
+      }
       const response = await chrome.runtime.sendMessage({
         type: SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE,
         command: payload,
@@ -5477,10 +6193,27 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       }
 
       setServerControlMenuStatus(`Sent: ${buttonConfig.label}`);
+      if (controlRunId) {
+        appendServerControlStatusLog({
+          runId: controlRunId,
+          type: "worker-send",
+          message: "Bridge worker accepted the request.",
+          timestamp: new Date().toISOString(),
+        });
+      }
       window.setTimeout(updateServerControlMenuStatus, 1800);
     } catch (error) {
       console.error("Local Query Bridge server control command failed", error);
       setServerControlMenuStatus(`Failed: ${buttonConfig.label}`);
+      if (controlRunId) {
+        appendServerControlStatusLog({
+          runId: controlRunId,
+          type: "error",
+          message: "Processing request failed.",
+          details: { error: `${error}` },
+          timestamp: new Date().toISOString(),
+        });
+      }
     } finally {
       if (button instanceof HTMLButtonElement) {
         button.disabled = false;
@@ -5736,16 +6469,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     )) {
       void loadServerControlProjectSettings();
     }
+
+    if (
+      areaName === "sync"
+      && (
+        changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]
+        || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]
+      )
+    ) {
+      void loadServerControlStatusLogSettings();
+    }
   }
 
   function initializeServerControlMenu() {
     if (document.body) {
       ensureServerControlMenu();
+      ensureServerControlStatusLog();
       void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
+      void loadServerControlStatusLogSettings();
     } else {
       document.addEventListener("DOMContentLoaded", () => {
         ensureServerControlMenu();
+        ensureServerControlStatusLog();
         void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
+        void loadServerControlStatusLogSettings();
       }, { once: true });
     }
 
@@ -6413,6 +7160,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   async function clickSendWhenReady(taskCount, options = {}) {
     const allowLatestPromptRecheck = options.allowLatestPromptRecheck !== false;
+    const controlRunId = typeof options.controlRunId === "string" ? options.controlRunId : "";
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
     console.log("Local Query Bridge waiting before send", {
       promptSettleMs: PROMPT_SETTLE_MS,
@@ -6420,10 +7168,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
 
     for (let attempt = 0; attempt < SEND_BUTTON_RETRY_COUNT; attempt += 1) {
+      throwIfServerControlRunCancelled(controlRunId);
       const remainingDelayMs = earliestSendAt - Date.now();
       if (remainingDelayMs > 0) {
         await delay(remainingDelayMs);
       }
+      throwIfServerControlRunCancelled(controlRunId);
 
       const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
@@ -6473,14 +7223,51 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
       : prepareServerControlBoilerplatePromptForSubmission();
+    const controlRunId = typeof options.controlRunId === "string" ? options.controlRunId : "";
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Prompt event received in ChatGPT.",
+        details: { taskCount, promptLength: prompt.length },
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
+    throwIfServerControlRunCancelled(controlRunId);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Web search requirement checked.",
+        timestamp: new Date().toISOString(),
+      });
+    }
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    throwIfServerControlRunCancelled(controlRunId);
     editor.focus();
     populatePromptEditor(editor, prompt);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Prompt inserted.",
+        timestamp: new Date().toISOString(),
+      });
+    }
     await clickSendWhenReady(taskCount, {
       allowLatestPromptRecheck: options.allowLatestPromptRecheck !== false,
+      controlRunId,
     });
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt-sent",
+        message: "Prompt sent to ChatGPT.",
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   async function submitRepeatDraft(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
@@ -6489,14 +7276,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
   }
 
-  function showNativeAlert(taskCount, alertText) {
+  function showNativeAlert(taskCount, alertText, controlRunId = "") {
     const normalizedAlertText = typeof alertText === "string" && alertText.trim().length > 0
       ? alertText.trim()
       : `Local Query Bridge alert for task ${taskCount}`;
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "error",
+        message: "OCR alert shown instead of sending a prompt.",
+        details: { taskCount, alertText: normalizedAlertText },
+        timestamp: new Date().toISOString(),
+      });
+    }
     window.alert(normalizedAlertText);
   }
 
-  async function submitScreenshot(imageDataUrls, taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
+  async function submitScreenshot(
+    imageDataUrls,
+    taskCount,
+    promptText,
+    taskTypeKey = serverControlMenuState.currentTaskType,
+    controlRunId = "",
+  ) {
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
     console.log("Local Query Bridge received submit request", {
       taskCount,
@@ -6509,6 +7311,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
       : prepareServerControlBoilerplatePromptForSubmission();
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Screenshot event received in ChatGPT.",
+        details: { taskCount, promptLength: prompt.length, screenshotCount: screenshotFiles.length },
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     console.log("Local Query Bridge checking web search requirement before inserting prompt", {
       taskCount,
@@ -6517,12 +7328,32 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       screenshotCount: screenshotFiles.length,
     });
     await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
+    throwIfServerControlRunCancelled(controlRunId);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Web search requirement checked.",
+        timestamp: new Date().toISOString(),
+      });
+    }
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    throwIfServerControlRunCancelled(controlRunId);
     editor.focus();
     const baselineAttachmentCount = countRenderedAttachmentElements(editor);
     await attachScreenshotFiles(screenshotFiles, editor);
+    throwIfServerControlRunCancelled(controlRunId);
     await waitForRenderedBridgeAttachments(editor, screenshotFiles, baselineAttachmentCount);
+    throwIfServerControlRunCancelled(controlRunId);
     populatePromptEditor(editor, prompt);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Screenshot and prompt inserted.",
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
     console.log("Local Query Bridge waiting before send", {
@@ -6531,16 +7362,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
 
     for (let attempt = 0; attempt < SEND_BUTTON_RETRY_COUNT; attempt += 1) {
+      throwIfServerControlRunCancelled(controlRunId);
       const remainingDelayMs = earliestSendAt - Date.now();
       if (remainingDelayMs > 0) {
         await delay(remainingDelayMs);
       }
+      throwIfServerControlRunCancelled(controlRunId);
 
       const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
         startAutoScrollWatch({ allowLatestPromptRecheck: false });
+        if (controlRunId) {
+          appendServerControlStatusLog({
+            runId: controlRunId,
+            type: "prompt-sent",
+            message: "Prompt sent to ChatGPT.",
+            timestamp: new Date().toISOString(),
+          });
+        }
         return;
       }
 
@@ -6570,6 +7411,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (message?.type === SCROLL_MESSAGE_TYPE) {
       queueScroll(message.direction, Number.isFinite(message.steps) ? message.steps : 1);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message?.type === SERVER_CONTROL_STATUS_LOG_MESSAGE_TYPE) {
+      appendServerControlStatusLog(message.status ?? {});
       sendResponse({ ok: true });
       return false;
     }
@@ -6613,6 +7460,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         message.taskCount ?? 0,
         typeof message.promptText === "string" ? message.promptText : "",
         typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
+        {
+          controlRunId: typeof message.controlRunId === "string" ? message.controlRunId : "",
+        },
       ).catch((error) => {
         console.error("Local Query Bridge text prompt submit failed", error);
       });
@@ -6631,6 +7481,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           showNativeAlert(
             message.taskCount ?? 0,
             typeof message.alertText === "string" ? message.alertText : "",
+            typeof message.controlRunId === "string" ? message.controlRunId : "",
           );
         } catch (error) {
           console.error("Local Query Bridge alert display failed", error);
@@ -6657,6 +7508,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       message.taskCount ?? 0,
       typeof message.promptText === "string" ? message.promptText : "",
       typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
+      typeof message.controlRunId === "string" ? message.controlRunId : "",
     ).catch((error) => {
       console.error("Local Query Bridge submit failed", error);
     });

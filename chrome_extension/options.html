@@ -135,6 +135,47 @@
       text-transform: uppercase;
     }
 
+    .status-log-color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .status-log-color-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+    }
+
+    .status-log-color-row > span:first-child {
+      font-weight: 700;
+    }
+
+    .status-log-message-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-log-message-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 0.35fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+    }
+
+    .status-log-message-row > span:first-child {
+      font-weight: 700;
+    }
+
     .hint {
       margin: 0;
       color: var(--muted);
@@ -824,6 +865,18 @@
             </span>
             <p class="hint">Visible divider length from the bottom edge of the main ChatGPT area.</p>
           </label>
+
+          <div>
+            <h3>Processing status log colors</h3>
+            <p class="hint">These colors are used by the top-right ChatGPT processing log for OCR, queueing, prompt insertion, cancellation, and error messages.</p>
+            <div id="server-control-status-log-colors" class="status-log-color-grid"></div>
+          </div>
+
+          <div>
+            <h3>Processing status log messages</h3>
+            <p class="hint">Leave a message blank to use the live bridge message. Templates can include {message}, {attempt}, {attemptTotal}, {variant}, {query}, {product}, {taskCount}, {promptCount}, and {selectedRegionLabel}.</p>
+            <div id="server-control-status-log-messages" class="status-log-message-grid"></div>
+          </div>
 
           <label for="task-type-boilerplate-prompt">
             Boilerplate prompt

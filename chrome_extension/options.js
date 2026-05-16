@@ -129,6 +129,8 @@ const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegi
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -142,6 +144,41 @@ const SERVER_CONTROL_ZONE_DIVIDER_MAX_OPACITY = 1;
 const DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX = 50;
 const SERVER_CONTROL_ZONE_DIVIDER_MIN_LENGTH_PX = 0;
 const SERVER_CONTROL_ZONE_DIVIDER_MAX_LENGTH_PX = 500;
+const DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS = {
+  "client-action": "#2563eb",
+  "worker-send": "#7c3aed",
+  "server-received": "#0891b2",
+  capture: "#0d9488",
+  "ocr-start": "#4f46e5",
+  "ocr-attempt": "#d97706",
+  "ocr-result": "#16a34a",
+  "ocr-retry": "#ea580c",
+  "ocr-selected": "#059669",
+  queued: "#0284c7",
+  prompt: "#2563eb",
+  "prompt-sent": "#16a34a",
+  cancel: "#64748b",
+  error: "#dc2626",
+};
+const SERVER_CONTROL_STATUS_LOG_TYPE_LABELS = {
+  "client-action": "Action",
+  "worker-send": "Worker",
+  "server-received": "Server",
+  capture: "Capture",
+  "ocr-start": "OCR start",
+  "ocr-attempt": "OCR attempt",
+  "ocr-result": "OCR result",
+  "ocr-retry": "OCR retry",
+  "ocr-selected": "OCR selected",
+  queued: "Queued",
+  prompt: "Prompt",
+  "prompt-sent": "Sent",
+  cancel: "Cancel",
+  error: "Error",
+};
+const DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES = Object.fromEntries(
+  Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map((type) => [type, ""]),
+);
 const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
 const TASK_REGION_COORDINATES = [
   { key: "top", label: "Top Y" },
@@ -281,6 +318,8 @@ const highlightState = {
   zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
   zoneDividerTopLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
   zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
+  statusLogColors: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
+  statusLogMessages: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -993,6 +1032,30 @@ function isValidHexColorValue(value) {
   return /^#?[0-9a-f]{3}$/i.test(rawValue) || /^#?[0-9a-f]{6}$/i.test(rawValue);
 }
 
+function sanitizeServerControlStatusLogColors(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  return Object.fromEntries(
+    Object.entries(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map(([type, fallback]) => [
+      type,
+      sanitizeColor(source[type], fallback),
+    ]),
+  );
+}
+
+function sanitizeServerControlStatusLogMessages(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  return Object.fromEntries(
+    Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES).map((type) => [
+      type,
+      typeof source[type] === "string" ? source[type].trim() : "",
+    ]),
+  );
+}
+
 function setColorControlValue(colorInput, hexInput, value, fallback = "#facc15") {
   const normalizedColor = normalizeHexColorValue(value, fallback);
   colorInput.value = normalizedColor;
@@ -1026,6 +1089,91 @@ function bindColorControl(colorInput, hexInput, fallback, onChange) {
 
     setColorControlValue(colorInput, hexInput, colorInput.value, fallback);
   });
+}
+
+function renderServerControlStatusLogColorSettings() {
+  const container = document.querySelector("#server-control-status-log-colors");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  container.replaceChildren();
+  const colors = sanitizeServerControlStatusLogColors(highlightState.statusLogColors);
+  highlightState.statusLogColors = colors;
+
+  for (const [type, fallback] of Object.entries(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS)) {
+    const row = document.createElement("label");
+    row.className = "status-log-color-row";
+    row.htmlFor = `status-log-color-${type}`;
+
+    const label = document.createElement("span");
+    label.textContent = SERVER_CONTROL_STATUS_LOG_TYPE_LABELS[type] ?? type;
+
+    const colorControl = document.createElement("span");
+    colorControl.className = "color-control";
+
+    const colorInput = document.createElement("input");
+    colorInput.id = `status-log-color-${type}`;
+    colorInput.type = "color";
+
+    const hexInput = document.createElement("input");
+    hexInput.className = "hex-color-input";
+    hexInput.type = "text";
+    hexInput.autocomplete = "off";
+    hexInput.spellcheck = false;
+    hexInput.setAttribute("aria-label", `${label.textContent} status color hex code`);
+
+    setColorControlValue(colorInput, hexInput, colors[type], fallback);
+    bindColorControl(colorInput, hexInput, fallback, (color) => {
+      highlightState.statusLogColors = {
+        ...highlightState.statusLogColors,
+        [type]: color,
+      };
+      setStatus("Status log color changed. Save settings to apply it.");
+    });
+
+    colorControl.append(colorInput, hexInput);
+    row.append(label, colorControl);
+    container.append(row);
+  }
+}
+
+function renderServerControlStatusLogMessageSettings() {
+  const container = document.querySelector("#server-control-status-log-messages");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  container.replaceChildren();
+  const messages = sanitizeServerControlStatusLogMessages(highlightState.statusLogMessages);
+  highlightState.statusLogMessages = messages;
+
+  for (const type of Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES)) {
+    const row = document.createElement("label");
+    row.className = "status-log-message-row";
+    row.htmlFor = `status-log-message-${type}`;
+
+    const label = document.createElement("span");
+    label.textContent = SERVER_CONTROL_STATUS_LOG_TYPE_LABELS[type] ?? type;
+
+    const input = document.createElement("input");
+    input.id = `status-log-message-${type}`;
+    input.type = "text";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "Use live bridge message";
+    input.value = messages[type] ?? "";
+    input.addEventListener("input", () => {
+      highlightState.statusLogMessages = {
+        ...highlightState.statusLogMessages,
+        [type]: input.value,
+      };
+      setStatus("Status log message changed. Save settings to apply it.");
+    });
+
+    row.append(label, input);
+    container.append(row);
+  }
 }
 
 function createAnalysisTocEntryKey(value, fallbackPrefix = "toc") {
@@ -3428,6 +3576,8 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: null,
     [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: null,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
   });
 
   const projectSettings = normalizeProjectSettings(
@@ -3492,6 +3642,12 @@ async function loadOptions() {
     sanitizeLatestPromptScrollHoldSeconds,
     stored[STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS],
   );
+  highlightState.statusLogColors = sanitizeServerControlStatusLogColors(
+    stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS],
+  );
+  highlightState.statusLogMessages = sanitizeServerControlStatusLogMessages(
+    stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES],
+  );
   applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
@@ -3501,6 +3657,8 @@ async function loadOptions() {
     highlightState.zoneDividerBottomLengthPx,
   );
   renderTaskTypeProjectIds();
+  renderServerControlStatusLogColorSettings();
+  renderServerControlStatusLogMessageSettings();
   renderActiveTaskTypeScopedSettings();
 }
 
@@ -3531,6 +3689,8 @@ async function saveOptions(event) {
   const tocColumnOpacity = getAnalysisTocColumnOpacityInputValues();
   const tocColumnScale = getAnalysisTocColumnScaleInputValues();
   const latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
+  const statusLogColors = sanitizeServerControlStatusLogColors(highlightState.statusLogColors);
+  const statusLogMessages = sanitizeServerControlStatusLogMessages(highlightState.statusLogMessages);
   const taskTypeHighlightRules = sanitizeTaskTypeScopedMap(
     highlightState.taskTypeHighlightRules,
     sanitizeHighlightRules,
@@ -3624,6 +3784,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: tocColumnOpacity,
     [STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE]: tocColumnScale,
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: statusLogColors,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: statusLogMessages,
   });
   await chrome.storage.sync.remove([
     STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
@@ -3650,6 +3812,8 @@ async function saveOptions(event) {
   highlightState.tocColumnOpacity = tocColumnOpacity;
   highlightState.tocColumnScale = tocColumnScale;
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
+  highlightState.statusLogColors = statusLogColors;
+  highlightState.statusLogMessages = statusLogMessages;
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlZoneDividerLengthInputs(
     highlightState.zoneDividerTopLengthPx,
@@ -3657,6 +3821,8 @@ async function saveOptions(event) {
   );
   document.querySelector("#reset-limit").value = String(resetLimit);
   renderTaskTypeProjectIds();
+  renderServerControlStatusLogColorSettings();
+  renderServerControlStatusLogMessageSettings();
   setAnalysisTocColumnPositionInputs(highlightState.tocColumnPositions);
   setAnalysisTocColumnOpacityInputs(highlightState.tocColumnOpacity);
   setAnalysisTocColumnScaleInputs(highlightState.tocColumnScale);
