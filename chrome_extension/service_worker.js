@@ -95,8 +95,10 @@ const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
+const CONTROL_COMMAND_TIMEOUT_MS = 30000;
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
+const CONTROL_PROCESSING_COMMANDS = new Set(["start_task_ocr", "start_task_screenshot", "ocr_google_results"]);
 
 const state = {
   isPolling: false,
@@ -1504,6 +1506,10 @@ function isProjectSwitchCommand(command) {
   return command?.command === "set_task_type" || command?.command === "set_project_account";
 }
 
+function isAbortError(error) {
+  return error?.name === "AbortError" || String(error).includes("AbortError");
+}
+
 async function navigateServerControlProject(sideEffects) {
   if (!Number.isInteger(sideEffects?.navigateTabId) || !sideEffects.projectUrl) {
     return false;
@@ -1521,7 +1527,11 @@ async function navigateServerControlProject(sideEffects) {
 
 async function sendServerControlCommand(command, sender) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const isProcessingCommand = CONTROL_PROCESSING_COMMANDS.has(command?.command);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    isProcessingCommand ? CONTROL_COMMAND_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
+  );
   const controlRunId = typeof command?.controlRunId === "string" ? command.controlRunId.trim() : "";
   const isCancelCommand = command?.command === "cancel_control_processing";
   if (isCancelCommand && controlRunId) {
@@ -1573,6 +1583,17 @@ async function sendServerControlCommand(command, sender) {
       const navigationOk = await navigationPromise;
       console.warn("Local Query Bridge server control log failed after project switch", error);
       return navigationOk;
+    }
+
+    if (isProcessingCommand && isAbortError(error)) {
+      console.warn("Local Query Bridge server control acknowledgement timed out; continuing to watch status events", {
+        command: command?.command,
+        controlRunId,
+      });
+      return {
+        ok: true,
+        ackTimedOut: true,
+      };
     }
 
     throw error;
@@ -1952,7 +1973,14 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE) {
     void sendServerControlCommand(message.command, _sender)
-      .then((ok) => sendResponse({ ok }))
+      .then((result) => {
+        if (result && typeof result === "object" && !Array.isArray(result)) {
+          sendResponse({ ok: result.ok !== false, ...result });
+          return;
+        }
+
+        sendResponse({ ok: result === true });
+      })
       .catch((error) => {
         console.warn("Local Query Bridge server control command failed", error);
         sendResponse({ ok: false, error: `${error}` });

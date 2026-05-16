@@ -6238,12 +6238,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         appendServerControlStatusLog({
           runId: controlRunId,
           type: "worker-send",
-          message: "Bridge worker accepted the request.",
+          message: response?.ackTimedOut === true
+            ? "Bridge acknowledgement timed out; watching status events."
+            : "Bridge worker accepted the request.",
           timestamp: new Date().toISOString(),
         });
       }
       window.setTimeout(updateServerControlMenuStatus, 1800);
     } catch (error) {
+      const errorText = String(error);
+      if (controlRunId && isProcessingCommand && errorText.includes("AbortError")) {
+        console.warn("Local Query Bridge server control acknowledgement timed out", error);
+        setServerControlMenuStatus(`Sent: ${buttonConfig.label}`);
+        appendServerControlStatusLog({
+          runId: controlRunId,
+          type: "worker-send",
+          message: "Bridge acknowledgement timed out; watching status events.",
+          details: { error: errorText },
+          timestamp: new Date().toISOString(),
+        });
+        window.setTimeout(updateServerControlMenuStatus, 1800);
+        return;
+      }
+
       console.error("Local Query Bridge server control command failed", error);
       setServerControlMenuStatus(`Failed: ${buttonConfig.label}`);
       if (controlRunId) {
