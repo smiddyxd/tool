@@ -505,6 +505,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     maxEntries: 240,
     completedRunIds: new Set(),
     cancelledRunIds: new Set(),
+    elapsedTimerId: null,
   };
 
   const serverControlZoneContextMenuState = {
@@ -3911,10 +3912,46 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     document.documentElement.append(style);
   }
 
-  function formatServerControlStatusTime(timestamp) {
+  function getServerControlStatusElapsedSeconds(timestamp) {
     const parsedTime = Date.parse(timestamp);
-    const date = Number.isFinite(parsedTime) ? new Date(parsedTime) : new Date();
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    if (!Number.isFinite(parsedTime)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.floor((Date.now() - parsedTime) / 1000));
+  }
+
+  function formatServerControlStatusElapsed(timestamp) {
+    const elapsedSeconds = getServerControlStatusElapsedSeconds(timestamp);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function updateServerControlStatusElapsedTimes() {
+    const panel = getServerControlStatusLog();
+    if (!(panel instanceof HTMLElement)) {
+      return;
+    }
+
+    for (const time of panel.querySelectorAll("[data-status-log-timestamp]")) {
+      if (!(time instanceof HTMLElement)) {
+        continue;
+      }
+
+      time.textContent = formatServerControlStatusElapsed(time.dataset.statusLogTimestamp ?? "");
+    }
+  }
+
+  function ensureServerControlStatusElapsedTimer() {
+    if (serverControlStatusLogState.elapsedTimerId !== null) {
+      return;
+    }
+
+    serverControlStatusLogState.elapsedTimerId = window.setInterval(
+      updateServerControlStatusElapsedTimes,
+      1000,
+    );
   }
 
   function normalizeServerControlStatusDetails(details) {
@@ -4027,7 +4064,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const time = document.createElement("time");
     time.className = "local-query-bridge-status-log-time";
     time.dateTime = entry.timestamp;
-    time.textContent = formatServerControlStatusTime(entry.timestamp);
+    time.dataset.statusLogTimestamp = entry.timestamp;
+    time.title = `Sent at ${entry.timestamp}`;
+    time.textContent = formatServerControlStatusElapsed(entry.timestamp);
     meta.append(type, time);
 
     const message = document.createElement("div");
@@ -4115,6 +4154,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     for (const entry of serverControlStatusLogState.entries) {
       body.append(createServerControlStatusEntryElement(entry));
     }
+    updateServerControlStatusElapsedTimes();
+    ensureServerControlStatusElapsedTimer();
     body.scrollTop = body.scrollHeight;
   }
 
