@@ -131,6 +131,7 @@ const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDiv
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -179,6 +180,9 @@ const SERVER_CONTROL_STATUS_LOG_TYPE_LABELS = {
 const DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES = Object.fromEntries(
   Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map((type) => [type, ""]),
 );
+const DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = 0.42;
+const SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY = 0.05;
+const SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY = 1;
 const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
 const TASK_REGION_COORDINATES = [
   { key: "top", label: "Top Y" },
@@ -320,6 +324,7 @@ const highlightState = {
   zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
   statusLogColors: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
   statusLogMessages: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+  statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -678,6 +683,23 @@ function sanitizeServerControlZoneDividerOpacity(value) {
 
 function serverControlZoneDividerOpacityToPercent(value) {
   return Math.round(sanitizeServerControlZoneDividerOpacity(value) * 100);
+}
+
+function sanitizeServerControlStatusLogIdleOpacity(value) {
+  const parsedValue = Number.parseFloat(`${value}`);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY;
+  }
+
+  const normalizedValue = parsedValue > 1 ? parsedValue / 100 : parsedValue;
+  return Math.min(
+    SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY,
+    Math.max(SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY, normalizedValue),
+  );
+}
+
+function serverControlStatusLogIdleOpacityToPercent(value) {
+  return Math.round(sanitizeServerControlStatusLogIdleOpacity(value) * 100);
 }
 
 function sanitizeServerControlZoneDividerLength(value) {
@@ -2243,6 +2265,24 @@ function getServerControlZoneDividerOpacityInputValue() {
   );
 }
 
+function setServerControlStatusLogIdleOpacityInput(value) {
+  const normalizedPercent = serverControlStatusLogIdleOpacityToPercent(value);
+  const input = document.querySelector("#server-control-status-log-idle-opacity");
+  const valueText = document.querySelector("#server-control-status-log-idle-opacity-value");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(normalizedPercent);
+  }
+  if (valueText instanceof HTMLElement) {
+    valueText.textContent = `${normalizedPercent}%`;
+  }
+}
+
+function getServerControlStatusLogIdleOpacityInputValue() {
+  return sanitizeServerControlStatusLogIdleOpacity(
+    document.querySelector("#server-control-status-log-idle-opacity")?.value,
+  );
+}
+
 function setServerControlZoneDividerLengthInputs(topLength, bottomLength) {
   const normalizedTopLength = sanitizeServerControlZoneDividerLength(topLength);
   const normalizedBottomLength = sanitizeServerControlZoneDividerLength(bottomLength);
@@ -3578,6 +3618,7 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
   });
 
   const projectSettings = normalizeProjectSettings(
@@ -3648,10 +3689,14 @@ async function loadOptions() {
   highlightState.statusLogMessages = sanitizeServerControlStatusLogMessages(
     stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES],
   );
+  highlightState.statusLogIdleOpacity = sanitizeServerControlStatusLogIdleOpacity(
+    stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY],
+  );
   applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
+  setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
   setServerControlZoneDividerLengthInputs(
     highlightState.zoneDividerTopLengthPx,
     highlightState.zoneDividerBottomLengthPx,
@@ -3671,10 +3716,12 @@ async function saveOptions(event) {
   const taskRegions = sanitizeTaskRegionsMap(highlightState.taskRegions);
   const universalRegions = sanitizeUniversalRegionsMap(highlightState.universalRegions);
   const zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
+  const statusLogIdleOpacity = getServerControlStatusLogIdleOpacityInputValue();
   const zoneDividerLengths = getServerControlZoneDividerLengthInputValues();
   highlightState.taskRegions = taskRegions;
   highlightState.universalRegions = universalRegions;
   highlightState.zoneDividerOpacity = zoneDividerOpacity;
+  highlightState.statusLogIdleOpacity = statusLogIdleOpacity;
   highlightState.zoneDividerTopLengthPx = zoneDividerLengths.topLengthPx;
   highlightState.zoneDividerBottomLengthPx = zoneDividerLengths.bottomLengthPx;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
@@ -3786,6 +3833,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: latestPromptScrollHoldSeconds,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: statusLogColors,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: statusLogMessages,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: statusLogIdleOpacity,
   });
   await chrome.storage.sync.remove([
     STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
@@ -3814,7 +3862,9 @@ async function saveOptions(event) {
   highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   highlightState.statusLogColors = statusLogColors;
   highlightState.statusLogMessages = statusLogMessages;
+  highlightState.statusLogIdleOpacity = statusLogIdleOpacity;
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
+  setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
   setServerControlZoneDividerLengthInputs(
     highlightState.zoneDividerTopLengthPx,
     highlightState.zoneDividerBottomLengthPx,
@@ -3870,6 +3920,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tocRightScaleInput = document.querySelector("#analysis-toc-right-scale");
   const latestPromptScrollHoldInput = document.querySelector("#latest-prompt-scroll-hold-seconds");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
+  const statusLogIdleOpacityInput = document.querySelector("#server-control-status-log-idle-opacity");
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
 
@@ -3990,6 +4041,11 @@ document.addEventListener("DOMContentLoaded", () => {
     highlightState.zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
     setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
     setStatus("Zone divider translucence changed. Save settings to apply it.");
+  });
+  statusLogIdleOpacityInput?.addEventListener("input", () => {
+    highlightState.statusLogIdleOpacity = getServerControlStatusLogIdleOpacityInputValue();
+    setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
+    setStatus("Status log idle opacity changed. Save settings to apply it.");
   });
   for (const input of [zoneDividerTopLengthInput, zoneDividerBottomLengthInput]) {
     input?.addEventListener("input", () => {

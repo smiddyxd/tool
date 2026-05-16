@@ -144,6 +144,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
+  const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -250,6 +251,9 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES = Object.fromEntries(
     Object.keys(DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS).map((type) => [type, ""]),
   );
+  const DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = 0.42;
+  const SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY = 0.05;
+  const SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY = 1;
   const DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS = [
     {
       key: SERVER_CONTROL_REGION_DEFAULT_KEY,
@@ -491,6 +495,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     statusLogColors: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS },
     statusLogMessages: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES },
+    statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -1168,6 +1173,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         type,
         typeof source[type] === "string" ? source[type].trim() : "",
       ]),
+    );
+  }
+
+  function sanitizeServerControlStatusLogIdleOpacity(value) {
+    const parsedValue = Number.parseFloat(`${value}`);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY;
+    }
+
+    const normalizedValue = parsedValue > 1 ? parsedValue / 100 : parsedValue;
+    return Math.min(
+      SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY,
+      Math.max(SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY, normalizedValue),
     );
   }
 
@@ -3726,7 +3744,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         color: #0f172a;
         box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
         font: 12px/1.35 "Segoe UI", system-ui, sans-serif;
-        opacity: 0.42;
+        opacity: var(--local-query-bridge-status-log-idle-opacity, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY});
         pointer-events: auto;
         overflow: hidden;
         transition: opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
@@ -4118,6 +4136,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS, serverControlStatusLogState.active);
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS, serverControlStatusLogState.expanded);
     panel.style.right = `${getAnalysisTocColumnPositions().rightInsetPx}px`;
+    panel.style.setProperty(
+      "--local-query-bridge-status-log-idle-opacity",
+      `${sanitizeServerControlStatusLogIdleOpacity(serverControlMenuState.statusLogIdleOpacity)}`,
+    );
 
     const toggle = panel.querySelector("[data-status-log-toggle]");
     if (toggle instanceof HTMLButtonElement) {
@@ -5732,12 +5754,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       const stored = await chrome.storage.sync.get({
         [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
         [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+        [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
       });
       serverControlMenuState.statusLogColors = sanitizeServerControlStatusLogColors(
         stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS],
       );
       serverControlMenuState.statusLogMessages = sanitizeServerControlStatusLogMessages(
         stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES],
+      );
+      serverControlMenuState.statusLogIdleOpacity = sanitizeServerControlStatusLogIdleOpacity(
+        stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY],
       );
       syncServerControlStatusLog();
     } catch (error) {
@@ -6533,6 +6559,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       && (
         changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]
         || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]
+        || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]
       )
     ) {
       void loadServerControlStatusLogSettings();

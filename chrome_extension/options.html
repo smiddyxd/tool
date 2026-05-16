@@ -866,6 +866,15 @@
             <p class="hint">Visible divider length from the bottom edge of the main ChatGPT area.</p>
           </label>
 
+          <label for="server-control-status-log-idle-opacity">
+            Processing log idle opacity
+            <span class="range-control">
+              <input id="server-control-status-log-idle-opacity" type="range" min="5" max="100" step="1">
+              <output id="server-control-status-log-idle-opacity-value" for="server-control-status-log-idle-opacity">42%</output>
+            </span>
+            <p class="hint">Controls the top-right processing log opacity when idle. Hover, focus, and active processing stay fully opaque.</p>
+          </label>
+
           <div>
             <h3>Processing status log colors</h3>
             <p class="hint">These colors are used by the top-right ChatGPT processing log for OCR, queueing, prompt insertion, cancellation, and error messages.</p>
