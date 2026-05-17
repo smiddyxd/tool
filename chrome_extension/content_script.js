@@ -3750,7 +3750,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
         font: 12px/1.35 "Segoe UI", system-ui, sans-serif;
         opacity: var(--local-query-bridge-status-log-idle-opacity, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY});
-        pointer-events: auto;
+        pointer-events: var(--local-query-bridge-status-log-pointer-events, auto);
         overflow: hidden;
         transition: top 160ms ease, opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
       }
@@ -4147,8 +4147,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         "--local-query-bridge-status-log-top",
         "var(--local-query-bridge-status-log-menu-open-top)",
       );
+      panel.style.setProperty("--local-query-bridge-status-log-pointer-events", "none");
     } else {
       panel.style.removeProperty("--local-query-bridge-status-log-top");
+      panel.style.removeProperty("--local-query-bridge-status-log-pointer-events");
     }
   }
 
