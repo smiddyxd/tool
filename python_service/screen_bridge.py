@@ -373,23 +373,44 @@ class SharedState:
         tab_id: str = "",
         task_type: str = "",
     ) -> None:
-        normalized_run_id = sanitize_control_command_field(run_id, 120)
-        if not normalized_run_id:
+        event = self.build_control_status_event(
+            run_id,
+            status_type,
+            message,
+            details=details,
+            tab_id=tab_id,
+            task_type=task_type,
+        )
+        if event is None:
             return
 
         with self.lock:
-            self.pending_events.append(
-                {
-                    "type": CONTROL_STATUS_EVENT_TYPE,
-                    "run_id": normalized_run_id,
-                    "status_type": sanitize_control_command_field(status_type, 80),
-                    "message": sanitize_control_command_field(message, 300),
-                    "details": details if isinstance(details, dict) else {},
-                    "tab_id": sanitize_control_command_field(tab_id, 40),
-                    "task_type": str(task_type or ""),
-                    "timestamp": timestamp_now(),
-                }
-            )
+            self.pending_events.append(event)
+
+    def build_control_status_event(
+        self,
+        run_id: str,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        tab_id: str = "",
+        task_type: str = "",
+    ) -> dict[str, Any] | None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return None
+
+        return {
+            "type": CONTROL_STATUS_EVENT_TYPE,
+            "run_id": normalized_run_id,
+            "status_type": sanitize_control_command_field(status_type, 80),
+            "message": sanitize_control_command_field(message, 300),
+            "details": details if isinstance(details, dict) else {},
+            "tab_id": sanitize_control_command_field(tab_id, 40),
+            "task_type": str(task_type or ""),
+            "timestamp": timestamp_now(),
+        }
 
     def publish_payload(
         self,
@@ -411,6 +432,42 @@ class SharedState:
                 }
             )
 
+    def publish_control_status_and_payload(
+        self,
+        run_id: str,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        tab_id: str = "",
+        status_task_type: str = "",
+        task_count: int,
+        screenshots_png: list[bytes] | tuple[bytes, ...],
+        prompts: list[str] | tuple[str, ...],
+        payload_task_type: str = "",
+        control_run_id: str = "",
+    ) -> None:
+        status_event = self.build_control_status_event(
+            run_id,
+            status_type,
+            message,
+            details=details,
+            tab_id=tab_id,
+            task_type=status_task_type,
+        )
+        payload_event = {
+            "type": "task",
+            "task_count": task_count,
+            "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
+            "prompts": list(prompts),
+            "task_type": str(payload_task_type or ""),
+            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+        }
+        with self.lock:
+            if status_event is not None:
+                self.pending_events.append(status_event)
+            self.pending_events.append(payload_event)
+
     def publish_text_payload(
         self,
         task_count: int,
@@ -429,6 +486,40 @@ class SharedState:
                 }
             )
 
+    def publish_control_status_and_text_payload(
+        self,
+        run_id: str,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        tab_id: str = "",
+        status_task_type: str = "",
+        task_count: int,
+        prompts: list[str] | tuple[str, ...],
+        payload_task_type: str = "",
+        control_run_id: str = "",
+    ) -> None:
+        status_event = self.build_control_status_event(
+            run_id,
+            status_type,
+            message,
+            details=details,
+            tab_id=tab_id,
+            task_type=status_task_type,
+        )
+        payload_event = {
+            "type": TEXT_TASK_EVENT_TYPE,
+            "task_count": task_count,
+            "prompts": list(prompts),
+            "task_type": str(payload_task_type or ""),
+            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+        }
+        with self.lock:
+            if status_event is not None:
+                self.pending_events.append(status_event)
+            self.pending_events.append(payload_event)
+
     def publish_alert_payload(
         self,
         task_count: int,
@@ -446,6 +537,40 @@ class SharedState:
                     "control_run_id": sanitize_control_command_field(control_run_id, 120),
                 }
             )
+
+    def publish_control_status_and_alert_payload(
+        self,
+        run_id: str,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        tab_id: str = "",
+        status_task_type: str = "",
+        task_count: int,
+        alerts: list[str] | tuple[str, ...],
+        payload_task_type: str = "",
+        control_run_id: str = "",
+    ) -> None:
+        status_event = self.build_control_status_event(
+            run_id,
+            status_type,
+            message,
+            details=details,
+            tab_id=tab_id,
+            task_type=status_task_type,
+        )
+        payload_event = {
+            "type": ALERT_TASK_EVENT_TYPE,
+            "task_count": task_count,
+            "alerts": list(alerts),
+            "task_type": str(payload_task_type or ""),
+            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+        }
+        with self.lock:
+            if status_event is not None:
+                self.pending_events.append(status_event)
+            self.pending_events.append(payload_event)
 
     def publish_scroll(self, direction: str, steps: int = 1) -> None:
         with self.lock:
@@ -825,19 +950,19 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
         settings.repeat_prefix,
         screenshot_png,
     )
-    publish_control_status(
-        payload,
+    run_id = get_control_run_id(payload)
+    STATE.publish_control_status_and_payload(
+        run_id,
         "queued",
         "Screenshot event queued for ChatGPT.",
         details={"taskCount": effective_task_count, "promptCount": len(prompts), "screenshotCount": 1},
-        task_type=settings.task_type,
-    )
-    STATE.publish_payload(
-        effective_task_count,
-        [screenshot_png],
-        prompts,
-        task_type=get_control_payload_task_type_key(payload, settings.task_type),
-        control_run_id=get_control_run_id(payload),
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=settings.task_type,
+        task_count=effective_task_count,
+        screenshots_png=[screenshot_png],
+        prompts=prompts,
+        payload_task_type=get_control_payload_task_type_key(payload, settings.task_type),
+        control_run_id=run_id,
     )
     print(
         f"[control {timestamp_now()}] queued-screenshot counter={effective_task_count} type={settings.task_type}",
@@ -926,17 +1051,16 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
             ocr_warning=ocr_warning,
         )
         if abort_alerts:
-            publish_control_status(
-                payload,
+            STATE.publish_control_status_and_alert_payload(
+                run_id,
                 "queued",
                 "OCR alert queued for ChatGPT.",
                 details={"taskCount": effective_task_count, "abortReasons": abort_reasons},
-                task_type=settings.task_type,
-            )
-            STATE.publish_alert_payload(
-                effective_task_count,
-                abort_alerts,
-                task_type=get_control_payload_task_type_key(payload, settings.task_type),
+                tab_id=get_control_payload_tab_id(payload),
+                status_task_type=settings.task_type,
+                task_count=effective_task_count,
+                alerts=abort_alerts,
+                payload_task_type=get_control_payload_task_type_key(payload, settings.task_type),
                 control_run_id=run_id,
             )
             print(
@@ -960,17 +1084,16 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
         publish_control_status(payload, "cancel", "OCR request cancelled before queueing prompt.", task_type=settings.task_type)
         return False
 
-    publish_control_status(
-        payload,
+    STATE.publish_control_status_and_text_payload(
+        run_id,
         "queued",
         "OCR prompt queued for ChatGPT.",
         details={"taskCount": effective_task_count, "promptCount": len(text_prompts)},
-        task_type=settings.task_type,
-    )
-    STATE.publish_text_payload(
-        effective_task_count,
-        text_prompts,
-        task_type=get_control_payload_task_type_key(payload, settings.task_type),
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=settings.task_type,
+        task_count=effective_task_count,
+        prompts=text_prompts,
+        payload_task_type=get_control_payload_task_type_key(payload, settings.task_type),
         control_run_id=run_id,
     )
     print(

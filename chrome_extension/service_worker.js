@@ -109,6 +109,7 @@ const state = {
   pendingDeliveryRetryTimer: null,
   pendingRepeatDraft: null,
   cancelledControlRunIds: new Set(),
+  controlRunTabIds: new Map(),
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
 };
@@ -123,6 +124,41 @@ function delay(milliseconds) {
   });
 }
 
+function normalizeTabId(value) {
+  const tabId = Number.parseInt(`${value ?? ""}`, 10);
+  return Number.isInteger(tabId) && tabId > 0 ? tabId : null;
+}
+
+function rememberControlRunTab(runId, tabId) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  const normalizedTabId = normalizeTabId(tabId);
+  if (!normalizedRunId || normalizedTabId === null) {
+    return;
+  }
+
+  state.controlRunTabIds.set(normalizedRunId, normalizedTabId);
+}
+
+function getControlRunTabId(runId) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (!normalizedRunId) {
+    return null;
+  }
+
+  return normalizeTabId(state.controlRunTabIds.get(normalizedRunId));
+}
+
+function forgetControlRunTab(runId) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (normalizedRunId) {
+    state.controlRunTabIds.delete(normalizedRunId);
+  }
+}
+
+function isTerminalControlStatusType(statusType) {
+  return statusType === "response-complete" || statusType === "cancel" || statusType === "error";
+}
+
 function maybeLogHandshake() {
   const now = Date.now();
   if (now - state.lastHandshakeLogAt < HANDSHAKE_LOG_INTERVAL_MS) {
@@ -131,6 +167,14 @@ function maybeLogHandshake() {
 
   state.lastHandshakeLogAt = now;
   console.log("Local Query Bridge handshake");
+}
+
+function isEmptyBridgePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return true;
+  }
+
+  return ["a", "b", "c", "d", "e", "f"].every((key) => !payload[key]);
 }
 
 function xorDecryptHex(hexValue, key) {
@@ -711,6 +755,20 @@ function getSlotValue(slotMap, tabId) {
   return Number.isInteger(value) ? value : Number.parseInt(`${value}`, 10);
 }
 
+async function getChatGptTabById(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  if (normalizedTabId === null) {
+    return null;
+  }
+
+  try {
+    const tab = await chrome.tabs.get(normalizedTabId);
+    return tab?.id && isChatGptUrl(tab.url) ? tab : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 async function getPreferredChatGptTab(startPageUrl = DEFAULT_START_PAGE_URL) {
   if (Number.isInteger(state.lastChatGptTabId)) {
     try {
@@ -1076,9 +1134,17 @@ async function assignPromptTargets(baseTabs, promptTexts, logLabel, taskType) {
   return targets;
 }
 
-async function buildSubmissionTargets(promptTexts, taskType = "") {
+async function buildSubmissionTargets(promptTexts, taskType = "", preferredTabId = null) {
   const settings = await getRoutingOptionsForTaskType(taskType);
+  const promptCount = Math.max(1, Array.isArray(promptTexts) && promptTexts.length > 0 ? promptTexts.length : 1);
+  const preferredTab = await getChatGptTabById(preferredTabId);
   let baseTabs = await getActiveChatGptTabsAcrossWindows(settings.defaultStartPageUrl);
+
+  if (preferredTab?.id) {
+    baseTabs = promptCount <= 1
+      ? [preferredTab]
+      : [preferredTab, ...baseTabs.filter((tab) => tab?.id !== preferredTab.id)];
+  }
 
   if (baseTabs.length === 0) {
     const preferredTab = await getPreferredChatGptTab(settings.defaultStartPageUrl);
@@ -1144,9 +1210,13 @@ async function buildRepeatTargets(promptTexts, taskType = "") {
   return assignPromptTargets(baseTabs, promptTexts, "Local Query Bridge resolved repeat targets", settings.activeBridgeTaskType);
 }
 
-async function buildAlertTargets(alertTexts, taskType = "") {
+async function buildAlertTargets(alertTexts, taskType = "", preferredTabId = null) {
   const settings = await getRoutingOptionsForTaskType(taskType);
-  let tab = await getPreferredChatGptTab(settings.defaultStartPageUrl);
+  let tab = await getChatGptTabById(preferredTabId);
+
+  if (!tab?.id) {
+    tab = await getPreferredChatGptTab(settings.defaultStartPageUrl);
+  }
 
   if (!tab?.id) {
     tab = await openFreshChatGptTab(undefined, settings.defaultStartPageUrl);
@@ -1201,8 +1271,16 @@ async function getOrCreatePendingTargets() {
   }
 
   const nextTargets = state.pendingSubmission.submissionMode === EVENT_TYPE_ALERT_TASK
-    ? await buildAlertTargets(state.pendingSubmission.promptTexts, state.pendingSubmission.taskType)
-    : await buildSubmissionTargets(state.pendingSubmission.promptTexts, state.pendingSubmission.taskType);
+    ? await buildAlertTargets(
+      state.pendingSubmission.promptTexts,
+      state.pendingSubmission.taskType,
+      state.pendingSubmission.preferredTabId,
+    )
+    : await buildSubmissionTargets(
+      state.pendingSubmission.promptTexts,
+      state.pendingSubmission.taskType,
+      state.pendingSubmission.preferredTabId,
+    );
   state.pendingSubmission.targets = nextTargets;
   return nextTargets;
 }
@@ -1262,6 +1340,9 @@ async function deliverPendingSubmissionAttempt() {
       },
     );
     state.pendingSubmission = null;
+    if (pendingSubmission.controlRunId) {
+      forgetControlRunTab(pendingSubmission.controlRunId);
+    }
     return;
   }
 
@@ -1291,6 +1372,9 @@ async function deliverPendingSubmissionAttempt() {
       },
     );
     state.pendingSubmission = null;
+    if (pendingSubmission.controlRunId) {
+      forgetControlRunTab(pendingSubmission.controlRunId);
+    }
     return;
   }
 
@@ -1298,6 +1382,7 @@ async function deliverPendingSubmissionAttempt() {
   if (controlRunId && state.cancelledControlRunIds.has(controlRunId)) {
     console.log("Local Query Bridge skipped cancelled control-run delivery", { controlRunId, taskCount });
     state.pendingSubmission = null;
+    forgetControlRunTab(controlRunId);
     return;
   }
   const isAlertSubmission = submissionMode === EVENT_TYPE_ALERT_TASK;
@@ -1307,6 +1392,7 @@ async function deliverPendingSubmissionAttempt() {
     taskCount,
     screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
     deliveryAttempt,
+    preferredTabId: pendingSubmission.preferredTabId ?? "",
     targets: targets.map((target) => target.tabId),
   });
   await reportControlDeliveryStatus(
@@ -1354,6 +1440,7 @@ async function deliverPendingSubmissionAttempt() {
     console.log(`Local Query Bridge completed ${deliveryLabel} in ${successfulCount} tab(s)`);
     if (controlRunId) {
       state.cancelledControlRunIds.delete(controlRunId);
+      forgetControlRunTab(controlRunId);
     }
     state.pendingSubmission = null;
     return;
@@ -1387,6 +1474,9 @@ async function deliverPendingSubmissionAttempt() {
     },
   );
   state.pendingSubmission = null;
+  if (controlRunId) {
+    forgetControlRunTab(controlRunId);
+  }
 }
 
 async function handleScrollEvent(direction, steps) {
@@ -1527,6 +1617,7 @@ async function reportControlDeliveryStatus(pendingSubmission, type, message, det
 
   return sendControlStatusToChatGpt({
     runId,
+    tabId: pendingSubmission.preferredTabId ?? "",
     type,
     message,
     details: {
@@ -1697,6 +1788,7 @@ async function sendServerControlCommand(command, sender) {
   const isCancelCommand = command?.command === "cancel_control_processing";
   if (isCancelCommand && controlRunId) {
     state.cancelledControlRunIds.add(controlRunId);
+    forgetControlRunTab(controlRunId);
     if (state.pendingSubmission?.controlRunId === controlRunId) {
       state.pendingSubmission = null;
     }
@@ -1713,6 +1805,9 @@ async function sendServerControlCommand(command, sender) {
     tabId: sender?.tab?.id ?? null,
     tabUrl: sender?.tab?.url ?? "",
   };
+  if (controlRunId) {
+    rememberControlRunTab(controlRunId, payload.tabId);
+  }
 
   try {
     const response = await fetch(CONTROL_COMMAND_URL, {
@@ -1903,6 +1998,7 @@ async function pollLocalBridge() {
 
   state.isPolling = true;
   let sawScrollEvent = false;
+  let queuedControlStatusFollowups = 0;
 
   try {
     if (state.pendingSubmission) {
@@ -1915,6 +2011,14 @@ async function pollLocalBridge() {
     for (let iteration = 0; iteration < MAX_EVENTS_PER_POLL; iteration += 1) {
       const payload = await fetchBridgePayload();
       if (!payload) {
+        return;
+      }
+      if (isEmptyBridgePayload(payload)) {
+        if (queuedControlStatusFollowups > 0) {
+          queuedControlStatusFollowups -= 1;
+          await delay(150);
+          continue;
+        }
         return;
       }
 
@@ -1933,11 +2037,21 @@ async function pollLocalBridge() {
         }
 
         if (status && typeof status === "object") {
+          if (status.runId && status.tabId) {
+            rememberControlRunTab(status.runId, status.tabId);
+          }
           if (status.type === "cancel" && status.runId) {
             state.cancelledControlRunIds.add(status.runId);
+            forgetControlRunTab(status.runId);
           }
           if (status.type === "prompt-sent" && status.runId) {
             state.cancelledControlRunIds.delete(status.runId);
+          }
+          if (isTerminalControlStatusType(status.type) && status.runId) {
+            forgetControlRunTab(status.runId);
+          }
+          if (status.type === "queued" && status.runId) {
+            queuedControlStatusFollowups = Math.max(queuedControlStatusFollowups, 4);
           }
           await sendControlStatusToChatGpt(status);
           continue;
@@ -1998,6 +2112,7 @@ async function pollLocalBridge() {
           submissionMode: EVENT_TYPE_TEXT_TASK,
           taskType: eventTaskType,
           controlRunId,
+          preferredTabId: getControlRunTabId(controlRunId),
         };
 
         await deliverPendingSubmission();
@@ -2038,6 +2153,7 @@ async function pollLocalBridge() {
           submissionMode: EVENT_TYPE_ALERT_TASK,
           taskType: eventTaskType,
           controlRunId,
+          preferredTabId: getControlRunTabId(controlRunId),
         };
 
         await deliverPendingSubmission();
@@ -2088,6 +2204,7 @@ async function pollLocalBridge() {
         submissionMode: EVENT_TYPE_TASK,
         taskType: eventTaskType,
         controlRunId,
+        preferredTabId: getControlRunTabId(controlRunId),
       };
 
       await deliverPendingSubmission();
