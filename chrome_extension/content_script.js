@@ -145,6 +145,8 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
+  const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
+  const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -256,6 +258,12 @@ Base everything strictly on the screenshot attachment.`;
   const DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = 0.42;
   const SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY = 0.05;
   const SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY = 1;
+  const DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX = 420;
+  const SERVER_CONTROL_STATUS_LOG_MIN_WIDTH_PX = 260;
+  const SERVER_CONTROL_STATUS_LOG_MAX_WIDTH_PX = 900;
+  const DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX = 12;
+  const SERVER_CONTROL_STATUS_LOG_MIN_LEFT_PX = 0;
+  const SERVER_CONTROL_STATUS_LOG_MAX_LEFT_PX = 5000;
   const DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS = [
     {
       key: SERVER_CONTROL_REGION_DEFAULT_KEY,
@@ -499,6 +507,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     statusLogColors: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS },
     statusLogMessages: { ...DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES },
     statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+    statusLogWidthPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
+    statusLogLeftPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -1189,6 +1199,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return Math.min(
       SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY,
       Math.max(SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY, normalizedValue),
+    );
+  }
+
+  function sanitizeServerControlStatusLogWidth(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX;
+    }
+
+    return Math.min(
+      SERVER_CONTROL_STATUS_LOG_MAX_WIDTH_PX,
+      Math.max(SERVER_CONTROL_STATUS_LOG_MIN_WIDTH_PX, parsedValue),
+    );
+  }
+
+  function sanitizeServerControlStatusLogLeft(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX;
+    }
+
+    return Math.min(
+      SERVER_CONTROL_STATUS_LOG_MAX_LEFT_PX,
+      Math.max(SERVER_CONTROL_STATUS_LOG_MIN_LEFT_PX, parsedValue),
     );
   }
 
@@ -3734,10 +3768,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       #${SERVER_CONTROL_STATUS_LOG_ID} {
         position: fixed;
         bottom: 12px;
-        right: ${ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX}px;
+        left: var(--local-query-bridge-status-log-left, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX}px);
         z-index: 2147483646;
-        width: min(420px, calc(100vw - 24px));
-        max-width: calc(100vw - 24px);
+        width: min(var(--local-query-bridge-status-log-width, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX}px), max(160px, calc(100vw - var(--local-query-bridge-status-log-left, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX}px) - 12px)));
+        max-width: max(160px, calc(100vw - var(--local-query-bridge-status-log-left, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX}px) - 12px));
         box-sizing: border-box;
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
@@ -3925,8 +3959,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       @media (max-width: 720px) {
         #${SERVER_CONTROL_STATUS_LOG_ID} {
           bottom: 8px;
-          right: 8px !important;
-          width: calc(100vw - 16px);
+          left: 8px;
+          width: min(var(--local-query-bridge-status-log-width, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX}px), calc(100vw - 16px));
+          max-width: calc(100vw - 16px);
         }
       }
     `;
@@ -4155,10 +4190,17 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS, serverControlStatusLogState.active);
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS, serverControlStatusLogState.expanded);
     updateServerControlStatusLogPosition(panel);
-    panel.style.right = `${getAnalysisTocColumnPositions().rightInsetPx}px`;
     panel.style.setProperty(
       "--local-query-bridge-status-log-idle-opacity",
       `${sanitizeServerControlStatusLogIdleOpacity(serverControlMenuState.statusLogIdleOpacity)}`,
+    );
+    panel.style.setProperty(
+      "--local-query-bridge-status-log-width",
+      `${sanitizeServerControlStatusLogWidth(serverControlMenuState.statusLogWidthPx)}px`,
+    );
+    panel.style.setProperty(
+      "--local-query-bridge-status-log-left",
+      `${sanitizeServerControlStatusLogLeft(serverControlMenuState.statusLogLeftPx)}px`,
     );
 
     const toggle = panel.querySelector("[data-status-log-toggle]");
@@ -5812,6 +5854,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
         [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
         [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+        [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
+        [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
       });
       serverControlMenuState.statusLogColors = sanitizeServerControlStatusLogColors(
         stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS],
@@ -5821,6 +5865,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       );
       serverControlMenuState.statusLogIdleOpacity = sanitizeServerControlStatusLogIdleOpacity(
         stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY],
+      );
+      serverControlMenuState.statusLogWidthPx = sanitizeServerControlStatusLogWidth(
+        stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH],
+      );
+      serverControlMenuState.statusLogLeftPx = sanitizeServerControlStatusLogLeft(
+        stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT],
       );
       syncServerControlStatusLog();
     } catch (error) {
@@ -6626,6 +6676,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]
         || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]
         || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]
+        || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]
+        || changes[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]
       )
     ) {
       void loadServerControlStatusLogSettings();

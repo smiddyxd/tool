@@ -98,11 +98,15 @@ const REQUEST_TIMEOUT_MS = 5000;
 const CONTROL_COMMAND_TIMEOUT_MS = 30000;
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
+const MAX_DELIVERY_ATTEMPTS = 3;
+const DELIVERY_RETRY_DELAY_MS = 1000;
 const CONTROL_PROCESSING_COMMANDS = new Set(["start_task_ocr", "start_task_screenshot", "ocr_google_results"]);
 
 const state = {
   isPolling: false,
+  isDelivering: false,
   pendingSubmission: null,
+  pendingDeliveryRetryTimer: null,
   pendingRepeatDraft: null,
   cancelledControlRunIds: new Set(),
   lastHandshakeLogAt: 0,
@@ -1204,17 +1208,93 @@ async function getOrCreatePendingTargets() {
 }
 
 async function deliverPendingSubmission() {
+  if (!state.pendingSubmission || state.isDelivering) {
+    return;
+  }
+
+  clearPendingDeliveryRetry();
+  state.isDelivering = true;
+  try {
+    await deliverPendingSubmissionAttempt();
+  } finally {
+    state.isDelivering = false;
+  }
+}
+
+async function deliverPendingSubmissionAttempt() {
   if (!state.pendingSubmission) {
     return;
   }
 
-  const targets = await getOrCreatePendingTargets();
-  if (targets.length === 0) {
-    console.warn("Local Query Bridge has no eligible ChatGPT submission targets");
+  const pendingSubmission = state.pendingSubmission;
+  pendingSubmission.deliveryAttempts = Number.isInteger(pendingSubmission.deliveryAttempts)
+    ? pendingSubmission.deliveryAttempts + 1
+    : 1;
+  const deliveryAttempt = pendingSubmission.deliveryAttempts;
+  let targets = [];
+  try {
+    targets = await getOrCreatePendingTargets();
+  } catch (error) {
+    console.warn("Local Query Bridge failed to resolve submission targets", error);
+    if (deliveryAttempt < MAX_DELIVERY_ATTEMPTS) {
+      await reportControlDeliveryStatus(
+        pendingSubmission,
+        "worker-send",
+        "ChatGPT target lookup failed; retrying delivery.",
+        {
+          attempt: deliveryAttempt,
+          attemptTotal: MAX_DELIVERY_ATTEMPTS,
+          error: `${error}`,
+        },
+      );
+      schedulePendingDeliveryRetry();
+      return;
+    }
+
+    await reportControlDeliveryStatus(
+      pendingSubmission,
+      "error",
+      "ChatGPT target lookup failed.",
+      {
+        attempt: deliveryAttempt,
+        attemptTotal: MAX_DELIVERY_ATTEMPTS,
+        error: `${error}`,
+      },
+    );
+    state.pendingSubmission = null;
     return;
   }
 
-  const { imageDataUrls, taskCount, submissionMode, controlRunId } = state.pendingSubmission;
+  if (targets.length === 0) {
+    console.warn("Local Query Bridge has no eligible ChatGPT submission targets");
+    if (deliveryAttempt < MAX_DELIVERY_ATTEMPTS) {
+      await reportControlDeliveryStatus(
+        pendingSubmission,
+        "worker-send",
+        "No eligible ChatGPT target yet; retrying delivery.",
+        {
+          attempt: deliveryAttempt,
+          attemptTotal: MAX_DELIVERY_ATTEMPTS,
+        },
+      );
+      schedulePendingDeliveryRetry();
+      return;
+    }
+
+    await reportControlDeliveryStatus(
+      pendingSubmission,
+      "error",
+      "No eligible ChatGPT tab was available for delivery.",
+      {
+        attempt: deliveryAttempt,
+        attemptTotal: MAX_DELIVERY_ATTEMPTS,
+      },
+    );
+    state.pendingSubmission = null;
+    return;
+  }
+
+  const { imageDataUrls, taskCount, submissionMode, controlRunId } = pendingSubmission;
   if (controlRunId && state.cancelledControlRunIds.has(controlRunId)) {
     console.log("Local Query Bridge skipped cancelled control-run delivery", { controlRunId, taskCount });
     state.pendingSubmission = null;
@@ -1226,8 +1306,19 @@ async function deliverPendingSubmission() {
   console.log(`Local Query Bridge delivering ${deliveryLabel}`, {
     taskCount,
     screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
+    deliveryAttempt,
     targets: targets.map((target) => target.tabId),
   });
+  await reportControlDeliveryStatus(
+    pendingSubmission,
+    "worker-send",
+    `Delivering ${deliveryLabel} to ChatGPT.`,
+    {
+      attempt: deliveryAttempt,
+      attemptTotal: MAX_DELIVERY_ATTEMPTS,
+      screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
+    },
+  );
   const results = await Promise.allSettled(
     targets.map((target) => (
       isAlertSubmission
@@ -1253,7 +1344,10 @@ async function deliverPendingSubmission() {
       continue;
     }
 
-    failedTargets.push(target);
+    failedTargets.push({
+      ...target,
+      lastError: result.status === "rejected" ? `${result.reason}` : "Content script did not acknowledge delivery.",
+    });
   }
 
   if (failedTargets.length === 0) {
@@ -1266,7 +1360,33 @@ async function deliverPendingSubmission() {
   }
 
   console.warn("Local Query Bridge delivery left pending targets", failedTargets.map((target) => target.tabId));
-  state.pendingSubmission.targets = failedTargets;
+  if (deliveryAttempt < MAX_DELIVERY_ATTEMPTS) {
+    state.pendingSubmission.targets = failedTargets;
+    await reportControlDeliveryStatus(
+      pendingSubmission,
+      "worker-send",
+      `${deliveryLabel} delivery failed; retrying.`,
+      {
+        attempt: deliveryAttempt,
+        attemptTotal: MAX_DELIVERY_ATTEMPTS,
+        error: failedTargets.map((target) => `${target.tabId}: ${target.lastError}`).join("\n"),
+      },
+    );
+    schedulePendingDeliveryRetry();
+    return;
+  }
+
+  await reportControlDeliveryStatus(
+    pendingSubmission,
+    "error",
+    `${deliveryLabel} delivery failed.`,
+    {
+      attempt: deliveryAttempt,
+      attemptTotal: MAX_DELIVERY_ATTEMPTS,
+      error: failedTargets.map((target) => `${target.tabId}: ${target.lastError}`).join("\n"),
+    },
+  );
+  state.pendingSubmission = null;
 }
 
 async function handleScrollEvent(direction, steps) {
@@ -1397,6 +1517,47 @@ async function sendControlStatusToChatGpt(status) {
   }
 
   return false;
+}
+
+async function reportControlDeliveryStatus(pendingSubmission, type, message, details = {}) {
+  const runId = typeof pendingSubmission?.controlRunId === "string" ? pendingSubmission.controlRunId : "";
+  if (!runId) {
+    return false;
+  }
+
+  return sendControlStatusToChatGpt({
+    runId,
+    type,
+    message,
+    details: {
+      taskCount: pendingSubmission.taskCount ?? "",
+      ...(details && typeof details === "object" && !Array.isArray(details) ? details : {}),
+    },
+    taskType: pendingSubmission.taskType ?? "",
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function schedulePendingDeliveryRetry() {
+  if (state.pendingDeliveryRetryTimer !== null) {
+    return;
+  }
+
+  state.pendingDeliveryRetryTimer = setTimeout(() => {
+    state.pendingDeliveryRetryTimer = null;
+    void deliverPendingSubmission().catch((error) => {
+      console.warn("Local Query Bridge pending delivery retry failed", error);
+    });
+  }, DELIVERY_RETRY_DELAY_MS);
+}
+
+function clearPendingDeliveryRetry() {
+  if (state.pendingDeliveryRetryTimer === null) {
+    return;
+  }
+
+  clearTimeout(state.pendingDeliveryRetryTimer);
+  state.pendingDeliveryRetryTimer = null;
 }
 
 async function switchBridgeTaskType(taskType, sender) {

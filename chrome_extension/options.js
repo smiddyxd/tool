@@ -132,6 +132,8 @@ const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZone
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -185,6 +187,12 @@ const DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES = Object.fromEntries(
 const DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = 0.42;
 const SERVER_CONTROL_STATUS_LOG_MIN_IDLE_OPACITY = 0.05;
 const SERVER_CONTROL_STATUS_LOG_MAX_IDLE_OPACITY = 1;
+const DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX = 420;
+const SERVER_CONTROL_STATUS_LOG_MIN_WIDTH_PX = 260;
+const SERVER_CONTROL_STATUS_LOG_MAX_WIDTH_PX = 900;
+const DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX = 12;
+const SERVER_CONTROL_STATUS_LOG_MIN_LEFT_PX = 0;
+const SERVER_CONTROL_STATUS_LOG_MAX_LEFT_PX = 5000;
 const DEFAULT_TASK_REGION_BOUNDS = { top: 0, left: 0, right: 0, bottom: 0 };
 const TASK_REGION_COORDINATES = [
   { key: "top", label: "Top Y" },
@@ -327,6 +335,8 @@ const highlightState = {
   statusLogColors: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
   statusLogMessages: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
   statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+  statusLogWidthPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
+  statusLogLeftPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -702,6 +712,30 @@ function sanitizeServerControlStatusLogIdleOpacity(value) {
 
 function serverControlStatusLogIdleOpacityToPercent(value) {
   return Math.round(sanitizeServerControlStatusLogIdleOpacity(value) * 100);
+}
+
+function sanitizeServerControlStatusLogWidth(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX;
+  }
+
+  return Math.min(
+    SERVER_CONTROL_STATUS_LOG_MAX_WIDTH_PX,
+    Math.max(SERVER_CONTROL_STATUS_LOG_MIN_WIDTH_PX, parsedValue),
+  );
+}
+
+function sanitizeServerControlStatusLogLeft(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX;
+  }
+
+  return Math.min(
+    SERVER_CONTROL_STATUS_LOG_MAX_LEFT_PX,
+    Math.max(SERVER_CONTROL_STATUS_LOG_MIN_LEFT_PX, parsedValue),
+  );
 }
 
 function sanitizeServerControlZoneDividerLength(value) {
@@ -2285,6 +2319,42 @@ function getServerControlStatusLogIdleOpacityInputValue() {
   );
 }
 
+function setServerControlStatusLogWidthInput(value) {
+  const normalizedWidth = sanitizeServerControlStatusLogWidth(value);
+  const input = document.querySelector("#server-control-status-log-width");
+  const valueText = document.querySelector("#server-control-status-log-width-value");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(normalizedWidth);
+  }
+  if (valueText instanceof HTMLElement) {
+    valueText.textContent = `${normalizedWidth}px`;
+  }
+}
+
+function getServerControlStatusLogWidthInputValue() {
+  return sanitizeServerControlStatusLogWidth(
+    document.querySelector("#server-control-status-log-width")?.value,
+  );
+}
+
+function setServerControlStatusLogLeftInput(value) {
+  const normalizedLeft = sanitizeServerControlStatusLogLeft(value);
+  const input = document.querySelector("#server-control-status-log-left");
+  const valueText = document.querySelector("#server-control-status-log-left-value");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(normalizedLeft);
+  }
+  if (valueText instanceof HTMLElement) {
+    valueText.textContent = `${normalizedLeft}px`;
+  }
+}
+
+function getServerControlStatusLogLeftInputValue() {
+  return sanitizeServerControlStatusLogLeft(
+    document.querySelector("#server-control-status-log-left")?.value,
+  );
+}
+
 function setServerControlZoneDividerLengthInputs(topLength, bottomLength) {
   const normalizedTopLength = sanitizeServerControlZoneDividerLength(topLength);
   const normalizedBottomLength = sanitizeServerControlZoneDividerLength(bottomLength);
@@ -3621,6 +3691,8 @@ async function loadOptions() {
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: DEFAULT_SERVER_CONTROL_STATUS_LOG_MESSAGES,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
   });
 
   const projectSettings = normalizeProjectSettings(
@@ -3694,11 +3766,19 @@ async function loadOptions() {
   highlightState.statusLogIdleOpacity = sanitizeServerControlStatusLogIdleOpacity(
     stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY],
   );
+  highlightState.statusLogWidthPx = sanitizeServerControlStatusLogWidth(
+    stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH],
+  );
+  highlightState.statusLogLeftPx = sanitizeServerControlStatusLogLeft(
+    stored[STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT],
+  );
   applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
+  setServerControlStatusLogWidthInput(highlightState.statusLogWidthPx);
+  setServerControlStatusLogLeftInput(highlightState.statusLogLeftPx);
   setServerControlZoneDividerLengthInputs(
     highlightState.zoneDividerTopLengthPx,
     highlightState.zoneDividerBottomLengthPx,
@@ -3719,11 +3799,15 @@ async function saveOptions(event) {
   const universalRegions = sanitizeUniversalRegionsMap(highlightState.universalRegions);
   const zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();
   const statusLogIdleOpacity = getServerControlStatusLogIdleOpacityInputValue();
+  const statusLogWidthPx = getServerControlStatusLogWidthInputValue();
+  const statusLogLeftPx = getServerControlStatusLogLeftInputValue();
   const zoneDividerLengths = getServerControlZoneDividerLengthInputValues();
   highlightState.taskRegions = taskRegions;
   highlightState.universalRegions = universalRegions;
   highlightState.zoneDividerOpacity = zoneDividerOpacity;
   highlightState.statusLogIdleOpacity = statusLogIdleOpacity;
+  highlightState.statusLogWidthPx = statusLogWidthPx;
+  highlightState.statusLogLeftPx = statusLogLeftPx;
   highlightState.zoneDividerTopLengthPx = zoneDividerLengths.topLengthPx;
   highlightState.zoneDividerBottomLengthPx = zoneDividerLengths.bottomLengthPx;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
@@ -3836,6 +3920,8 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: statusLogColors,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: statusLogMessages,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: statusLogIdleOpacity,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]: statusLogWidthPx,
+    [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]: statusLogLeftPx,
   });
   await chrome.storage.sync.remove([
     STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
@@ -3865,8 +3951,12 @@ async function saveOptions(event) {
   highlightState.statusLogColors = statusLogColors;
   highlightState.statusLogMessages = statusLogMessages;
   highlightState.statusLogIdleOpacity = statusLogIdleOpacity;
+  highlightState.statusLogWidthPx = statusLogWidthPx;
+  highlightState.statusLogLeftPx = statusLogLeftPx;
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
+  setServerControlStatusLogWidthInput(highlightState.statusLogWidthPx);
+  setServerControlStatusLogLeftInput(highlightState.statusLogLeftPx);
   setServerControlZoneDividerLengthInputs(
     highlightState.zoneDividerTopLengthPx,
     highlightState.zoneDividerBottomLengthPx,
@@ -3923,6 +4013,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const latestPromptScrollHoldInput = document.querySelector("#latest-prompt-scroll-hold-seconds");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
   const statusLogIdleOpacityInput = document.querySelector("#server-control-status-log-idle-opacity");
+  const statusLogWidthInput = document.querySelector("#server-control-status-log-width");
+  const statusLogLeftInput = document.querySelector("#server-control-status-log-left");
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
 
@@ -4048,6 +4140,16 @@ document.addEventListener("DOMContentLoaded", () => {
     highlightState.statusLogIdleOpacity = getServerControlStatusLogIdleOpacityInputValue();
     setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
     setStatus("Status log idle opacity changed. Save settings to apply it.");
+  });
+  statusLogWidthInput?.addEventListener("input", () => {
+    highlightState.statusLogWidthPx = getServerControlStatusLogWidthInputValue();
+    setServerControlStatusLogWidthInput(highlightState.statusLogWidthPx);
+    setStatus("Status log width changed. Save settings to apply it.");
+  });
+  statusLogLeftInput?.addEventListener("input", () => {
+    highlightState.statusLogLeftPx = getServerControlStatusLogLeftInputValue();
+    setServerControlStatusLogLeftInput(highlightState.statusLogLeftPx);
+    setStatus("Status log horizontal position changed. Save settings to apply it.");
   });
   for (const input of [zoneDividerTopLengthInput, zoneDividerBottomLengthInput]) {
     input?.addEventListener("input", () => {
