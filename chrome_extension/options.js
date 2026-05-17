@@ -158,6 +158,7 @@ const DEFAULT_SERVER_CONTROL_STATUS_LOG_COLORS = {
   queued: "#0284c7",
   prompt: "#2563eb",
   "prompt-sent": "#16a34a",
+  "response-complete": "#16a34a",
   cancel: "#64748b",
   error: "#dc2626",
 };
@@ -174,6 +175,7 @@ const SERVER_CONTROL_STATUS_LOG_TYPE_LABELS = {
   queued: "Queued",
   prompt: "Prompt",
   "prompt-sent": "Sent",
+  "response-complete": "Done",
   cancel: "Cancel",
   error: "Error",
 };

@@ -229,6 +229,7 @@ Base everything strictly on the screenshot attachment.`;
     queued: "#0284c7",
     prompt: "#2563eb",
     "prompt-sent": "#16a34a",
+    "response-complete": "#16a34a",
     cancel: "#64748b",
     error: "#dc2626",
   };
@@ -245,6 +246,7 @@ Base everything strictly on the screenshot attachment.`;
     queued: "Queued",
     prompt: "Prompt",
     "prompt-sent": "Sent",
+    "response-complete": "Done",
     cancel: "Cancel",
     error: "Error",
   };
@@ -490,6 +492,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     taskTypeActiveProjectAccounts: getDefaultServerControlTaskTypeActiveProjectAccounts(),
     projectPickerOpen: false,
     zoneClickEnabled: false,
+    zoneClickSuspendedRunId: "",
     zoneDividerOpacity: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
     zoneDividerTopLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     zoneDividerBottomLengthPx: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
@@ -3729,10 +3732,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     style.id = SERVER_CONTROL_STATUS_LOG_STYLE_ID;
     style.textContent = `
       #${SERVER_CONTROL_STATUS_LOG_ID} {
+        --local-query-bridge-status-log-default-top: 12px;
+        --local-query-bridge-status-log-menu-open-top: calc(50vh + 12px);
         position: fixed;
-        top: 12px;
+        top: var(--local-query-bridge-status-log-top, var(--local-query-bridge-status-log-default-top));
         right: ${ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX}px;
-        z-index: 2147483647;
+        z-index: 2147483646;
         width: min(420px, calc(100vw - 24px));
         max-width: calc(100vw - 24px);
         box-sizing: border-box;
@@ -3747,7 +3752,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         opacity: var(--local-query-bridge-status-log-idle-opacity, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY});
         pointer-events: auto;
         overflow: hidden;
-        transition: opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+        transition: top 160ms ease, opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
       }
 
       #${SERVER_CONTROL_STATUS_LOG_ID}.${SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS},
@@ -3921,7 +3926,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       @media (max-width: 720px) {
         #${SERVER_CONTROL_STATUS_LOG_ID} {
-          top: 8px;
+          --local-query-bridge-status-log-default-top: 8px;
+          --local-query-bridge-status-log-menu-open-top: calc(50vh + 8px);
           right: 8px !important;
           width: calc(100vw - 16px);
         }
@@ -4127,6 +4133,25 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return row;
   }
 
+  function isServerControlTerminalStatusType(type) {
+    return type === "response-complete" || type === "cancel" || type === "error";
+  }
+
+  function updateServerControlStatusLogPosition(panel = getServerControlStatusLog()) {
+    if (!(panel instanceof HTMLElement)) {
+      return;
+    }
+
+    if (serverControlMenuState.isOpen) {
+      panel.style.setProperty(
+        "--local-query-bridge-status-log-top",
+        "var(--local-query-bridge-status-log-menu-open-top)",
+      );
+    } else {
+      panel.style.removeProperty("--local-query-bridge-status-log-top");
+    }
+  }
+
   function syncServerControlStatusLog() {
     const panel = ensureServerControlStatusLog();
     if (!(panel instanceof HTMLElement)) {
@@ -4135,6 +4160,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS, serverControlStatusLogState.active);
     panel.classList.toggle(SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS, serverControlStatusLogState.expanded);
+    updateServerControlStatusLogPosition(panel);
     panel.style.right = `${getAnalysisTocColumnPositions().rightInsetPx}px`;
     panel.style.setProperty(
       "--local-query-bridge-status-log-idle-opacity",
@@ -4238,7 +4264,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       serverControlStatusLogState.currentRunId = entry.runId;
     }
 
-    if (["prompt-sent", "cancel", "error"].includes(entry.type)) {
+    if (isServerControlTerminalStatusType(entry.type)) {
       if (entry.runId) {
         serverControlStatusLogState.completedRunIds.add(entry.runId);
         if (entry.type === "cancel") {
@@ -4248,6 +4274,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (!entry.runId || entry.runId === serverControlStatusLogState.currentRunId) {
         serverControlStatusLogState.active = false;
       }
+      resumeServerControlZoneClicksForRun(entry.runId);
     } else if (!entry.runId || !serverControlStatusLogState.completedRunIds.has(entry.runId)) {
       serverControlStatusLogState.active = true;
     }
@@ -4915,7 +4942,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       `${sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerBottomLengthPx)}px`,
     );
     if (
-      !serverControlMenuState.zoneClickEnabled
+      !isServerControlZoneClickActive()
       || actionEntries.length <= 1
       || !(root instanceof HTMLElement)
     ) {
@@ -4951,11 +4978,47 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     overlay.classList.add(SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS);
   }
 
-  function setServerControlZoneClickEnabled(enabled) {
-    serverControlMenuState.zoneClickEnabled = Boolean(enabled);
+  function isServerControlZoneClickSuspended() {
+    return Boolean(serverControlMenuState.zoneClickSuspendedRunId);
+  }
+
+  function isServerControlZoneClickActive() {
+    return serverControlMenuState.zoneClickEnabled && !isServerControlZoneClickSuspended();
+  }
+
+  function refreshServerControlZoneClickControls() {
     syncServerControlActionControls();
     syncServerControlZoneOverlay();
     updateServerControlMenuStatus();
+  }
+
+  function suspendServerControlZoneClicksForRun(runId) {
+    if (!runId) {
+      return;
+    }
+
+    serverControlMenuState.zoneClickSuspendedRunId = runId;
+    refreshServerControlZoneClickControls();
+  }
+
+  function resumeServerControlZoneClicksForRun(runId = "") {
+    if (
+      !serverControlMenuState.zoneClickSuspendedRunId
+      || (runId && serverControlMenuState.zoneClickSuspendedRunId !== runId)
+    ) {
+      return;
+    }
+
+    serverControlMenuState.zoneClickSuspendedRunId = "";
+    refreshServerControlZoneClickControls();
+  }
+
+  function setServerControlZoneClickEnabled(enabled) {
+    serverControlMenuState.zoneClickEnabled = Boolean(enabled);
+    if (!serverControlMenuState.zoneClickEnabled) {
+      serverControlMenuState.zoneClickSuspendedRunId = "";
+    }
+    refreshServerControlZoneClickControls();
   }
 
   function toggleServerControlZoneClickEnabled() {
@@ -4964,7 +5027,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function getServerControlZoneActionForPoint(clientX, clientY) {
     const actionEntries = getCurrentServerControlActionEntries();
-    if (!serverControlMenuState.zoneClickEnabled || actionEntries.length === 0) {
+    if (!isServerControlZoneClickActive() || actionEntries.length === 0) {
       return null;
     }
 
@@ -5037,7 +5100,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return true;
     }
 
-    if (!serverControlMenuState.zoneClickEnabled) {
+    if (!isServerControlZoneClickActive()) {
       return true;
     }
 
@@ -5848,7 +5911,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function getServerControlMenuStatusText() {
     const taskLabel = getCurrentServerControlTaskTypeDefinition().label;
     const accountLabel = getServerControlProjectAccountLabel(getServerControlActiveProjectAccount());
-    return `${taskLabel} | Zones: ${serverControlMenuState.zoneClickEnabled ? "on" : "off"} | Project: ${accountLabel}`;
+    const zoneStatus = isServerControlZoneClickSuspended()
+      ? "paused"
+      : (serverControlMenuState.zoneClickEnabled ? "on" : "off");
+    return `${taskLabel} | Zones: ${zoneStatus} | Project: ${accountLabel}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -5934,11 +6000,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     );
     container.classList.toggle(
       SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS,
-      serverControlMenuState.zoneClickEnabled,
+      isServerControlZoneClickActive(),
     );
-    container.title = serverControlMenuState.zoneClickEnabled
-      ? "Zone click mode is on. Click to turn it off."
-      : "Zone click mode is off. Click to turn it on.";
+    container.title = isServerControlZoneClickSuspended()
+      ? "Zone click mode is paused until processing finishes."
+      : (serverControlMenuState.zoneClickEnabled
+        ? "Zone click mode is on. Click to turn it off."
+        : "Zone click mode is off. Click to turn it on.");
     for (const actionKey of currentTaskDefinition.actions) {
       const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
       if (!actionDefinition) {
@@ -5954,9 +6022,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       button.dataset.controlActionKey = actionKey;
       button.classList.toggle(
         SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
-        serverControlMenuState.zoneClickEnabled,
+        isServerControlZoneClickActive(),
       );
-      button.setAttribute("aria-pressed", serverControlMenuState.zoneClickEnabled ? "true" : "false");
+      button.disabled = isServerControlZoneClickSuspended();
+      button.setAttribute("aria-pressed", isServerControlZoneClickActive() ? "true" : "false");
       button.title = container.title;
       button.addEventListener("click", () => {
         toggleServerControlZoneClickEnabled();
@@ -6235,6 +6304,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           processingMode: payload.processingMode,
         },
       );
+      suspendServerControlZoneClicksForRun(controlRunId);
     }
     if (button instanceof HTMLButtonElement) {
       button.disabled = true;
@@ -6497,6 +6567,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     serverControlMenuState.isOpen = true;
     menu.classList.add(SERVER_CONTROL_MENU_OPEN_CLASS);
     menu.setAttribute("aria-hidden", "false");
+    updateServerControlStatusLogPosition();
   }
 
   function hideServerControlMenu(reason) {
@@ -6508,6 +6579,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     serverControlMenuState.isOpen = false;
     menu.classList.remove(SERVER_CONTROL_MENU_OPEN_CLASS);
     menu.setAttribute("aria-hidden", "true");
+    updateServerControlStatusLogPosition();
     console.log("Local Query Bridge closed server control menu", { reason });
   }
 
@@ -6844,21 +6916,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return matches[matches.length - 1] ?? null;
   }
 
-  function scrollToAnalysisTocTarget(headingKey) {
-    const targetElement = findLatestAnalysisTocElement(headingKey);
-    if (!(targetElement instanceof HTMLElement)) {
-      return false;
-    }
-
-    targetElement.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-      behavior: "auto",
-    });
-    applyAutoScrollOffset(getAnalysisTocButtonOffset(headingKey));
-    return true;
-  }
-
   function getScrollTargetViewportTop(target) {
     if (
       !(target instanceof HTMLElement)
@@ -6872,16 +6929,125 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return target.getBoundingClientRect().top;
   }
 
+  function getScrollableRange(target) {
+    if (!(target instanceof HTMLElement)) {
+      return 0;
+    }
+
+    return Math.max(0, target.scrollHeight - target.clientHeight);
+  }
+
+  function canElementScrollVertically(target) {
+    if (!(target instanceof HTMLElement) || getScrollableRange(target) <= 0) {
+      return false;
+    }
+
+    if (
+      target === document.scrollingElement
+      || target === document.documentElement
+      || target === document.body
+    ) {
+      return true;
+    }
+
+    const overflowY = window.getComputedStyle(target).overflowY;
+    return ["auto", "scroll", "overlay"].includes(overflowY);
+  }
+
+  function getScrollTargetForElement(element) {
+    if (!(element instanceof HTMLElement)) {
+      return getScrollTarget();
+    }
+
+    let candidate = element.parentElement;
+    while (candidate instanceof HTMLElement) {
+      if (canElementScrollVertically(candidate)) {
+        return candidate;
+      }
+
+      candidate = candidate.parentElement;
+    }
+
+    const root = document.scrollingElement || document.documentElement || document.body;
+    if (root instanceof HTMLElement && canElementScrollVertically(root)) {
+      return root;
+    }
+
+    return getScrollTarget();
+  }
+
+  function getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey, scrollTarget = getScrollTargetForElement(targetElement)) {
+    if (!(targetElement instanceof HTMLElement)) {
+      return null;
+    }
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const containerTop = getScrollTargetViewportTop(scrollTarget);
+    return targetRect.top - containerTop + getAnalysisTocButtonOffset(headingKey);
+  }
+
+  function applyAnalysisTocTargetScrollPosition(targetElement, headingKey, scrollTarget = getScrollTargetForElement(targetElement)) {
+    const deltaPx = getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey, scrollTarget);
+    if (!Number.isFinite(deltaPx)) {
+      return false;
+    }
+
+    if (scrollTarget instanceof HTMLElement) {
+      const currentScrollTop = scrollTarget.scrollTop;
+      const maxScrollTop = getScrollableRange(scrollTarget);
+      const nextScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + deltaPx));
+      if (Math.abs(nextScrollTop - currentScrollTop) <= 0.5) {
+        return Math.abs(deltaPx) <= LATEST_PROMPT_SCROLL_TOLERANCE_PX;
+      }
+
+      scrollTarget.scrollTop = nextScrollTop;
+      return true;
+    }
+
+    const root = document.scrollingElement || document.documentElement || document.body;
+    const currentScrollTop = root instanceof HTMLElement ? root.scrollTop : window.scrollY;
+    const maxScrollTop = root instanceof HTMLElement ? getScrollableRange(root) : currentScrollTop + deltaPx;
+    const nextScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + deltaPx));
+    window.scrollTo({ top: nextScrollTop, left: 0, behavior: "auto" });
+    return true;
+  }
+
+  function scheduleAnalysisTocScrollPositionCorrection(targetElement, headingKey, scrollTarget) {
+    let remainingFrames = 2;
+    const correctPosition = () => {
+      if (!document.contains(targetElement)) {
+        return;
+      }
+
+      applyAnalysisTocTargetScrollPosition(targetElement, headingKey, scrollTarget);
+      remainingFrames -= 1;
+      if (remainingFrames > 0) {
+        window.requestAnimationFrame(correctPosition);
+      }
+    };
+
+    window.requestAnimationFrame(correctPosition);
+  }
+
+  function scrollToAnalysisTocTarget(headingKey) {
+    const targetElement = findLatestAnalysisTocElement(headingKey);
+    if (!(targetElement instanceof HTMLElement)) {
+      return false;
+    }
+
+    const scrollTarget = getScrollTargetForElement(targetElement);
+    const didScroll = applyAnalysisTocTargetScrollPosition(targetElement, headingKey, scrollTarget);
+    scheduleAnalysisTocScrollPositionCorrection(targetElement, headingKey, scrollTarget);
+    return didScroll;
+  }
+
   function getAnalysisTocTargetScrollDelta(headingKey) {
     const targetElement = findLatestAnalysisTocElement(headingKey);
     if (!(targetElement instanceof HTMLElement)) {
       return null;
     }
 
-    const targetRect = targetElement.getBoundingClientRect();
-    const scrollTarget = getScrollTarget();
-    const containerTop = getScrollTargetViewportTop(scrollTarget);
-    return targetRect.top - containerTop + getAnalysisTocButtonOffset(headingKey);
+    return getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey);
   }
 
   function restoreLatestPromptJumpPositionIfNeeded(runId) {
@@ -6978,23 +7144,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return latestAssistantElement instanceof HTMLElement;
   }
 
-  function applyAutoScrollOffset(offsetPx) {
-    if (!Number.isFinite(offsetPx) || offsetPx === 0) {
-      return;
-    }
-
-    const target = getScrollTarget();
-    if (target instanceof HTMLElement) {
-      target.scrollTop += offsetPx;
-      return;
-    }
-
-    window.scrollBy({ top: offsetPx, left: 0, behavior: "auto" });
-  }
-
   async function watchResponseGenerationAndHeadings(runId, baselineAssistantCount, options = {}) {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
     const allowLatestPromptRecheck = options.allowLatestPromptRecheck === true;
+    const controlRunId = typeof options.controlRunId === "string" ? options.controlRunId : "";
     let sawGenerating = false;
     let scrolledToLatestPrompt = false;
     let latestPromptScrollHoldUntil = 0;
@@ -7043,7 +7196,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           restoreLatestPromptJumpPositionIfNeeded(runId);
           nextLatestPromptScrollCheckAt += LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS;
         }
-      } else if (sawGenerating && isResponseIdle()) {
+      } else if ((sawGenerating || currentAssistantElement instanceof HTMLElement) && isResponseIdle()) {
         responseCompleted = true;
         break;
       }
@@ -7065,9 +7218,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         console.log("Local Query Bridge refreshed highlights after response completion", {
           runId,
         });
+        if (controlRunId) {
+          appendServerControlStatusLog({
+            runId: controlRunId,
+            type: "response-complete",
+            message: "Response finished generating.",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (controlRunId) {
+        appendServerControlStatusLog({
+          runId: controlRunId,
+          type: "error",
+          message: "Response completion watch timed out.",
+          timestamp: new Date().toISOString(),
+        });
       }
 
       autoScrollState.runId = 0;
+    } else if (controlRunId) {
+      resumeServerControlZoneClicksForRun(controlRunId);
     }
   }
 
@@ -7080,6 +7250,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     resetAnalysisTocForRun(runId, baselineAssistantCount, baselineHeadingCounts);
     void watchResponseGenerationAndHeadings(runId, baselineAssistantCount, {
       allowLatestPromptRecheck: options.allowLatestPromptRecheck === true,
+      controlRunId: typeof options.controlRunId === "string" ? options.controlRunId : "",
     });
   }
 
@@ -7264,7 +7435,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
-        startAutoScrollWatch({ allowLatestPromptRecheck });
+        startAutoScrollWatch({ allowLatestPromptRecheck, controlRunId });
         return;
       }
 
@@ -7377,6 +7548,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     window.alert(normalizedAlertText);
   }
 
+  function appendServerControlProcessingError(controlRunId, message, error) {
+    if (
+      !controlRunId
+      || isServerControlRunCancelled(controlRunId)
+      || serverControlStatusLogState.completedRunIds.has(controlRunId)
+    ) {
+      return;
+    }
+
+    appendServerControlStatusLog({
+      runId: controlRunId,
+      type: "error",
+      message,
+      details: { error: `${error}` },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   async function submitScreenshot(
     imageDataUrls,
     taskCount,
@@ -7458,7 +7647,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
-        startAutoScrollWatch({ allowLatestPromptRecheck: false });
+        startAutoScrollWatch({ allowLatestPromptRecheck: false, controlRunId });
         if (controlRunId) {
           appendServerControlStatusLog({
             runId: controlRunId,
@@ -7536,6 +7725,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (message?.type === SUBMIT_TEXT_PROMPT_MESSAGE_TYPE) {
       hotkeyState.enabled = true;
+      const controlRunId = typeof message.controlRunId === "string" ? message.controlRunId : "";
       console.log("Local Query Bridge content script got text prompt message", {
         taskCount: message.taskCount ?? 0,
         promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
@@ -7546,10 +7736,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         typeof message.promptText === "string" ? message.promptText : "",
         typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
         {
-          controlRunId: typeof message.controlRunId === "string" ? message.controlRunId : "",
+          controlRunId,
         },
       ).catch((error) => {
         console.error("Local Query Bridge text prompt submit failed", error);
+        appendServerControlProcessingError(controlRunId, "Prompt submission failed.", error);
       });
       return false;
     }
@@ -7588,14 +7779,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
     sendResponse({ ok: true });
 
+    const controlRunId = typeof message.controlRunId === "string" ? message.controlRunId : "";
     void submitScreenshot(
       imageDataUrls,
       message.taskCount ?? 0,
       typeof message.promptText === "string" ? message.promptText : "",
       typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
-      typeof message.controlRunId === "string" ? message.controlRunId : "",
+      controlRunId,
     ).catch((error) => {
       console.error("Local Query Bridge submit failed", error);
+      appendServerControlProcessingError(controlRunId, "Screenshot submission failed.", error);
     });
 
     return false;
