@@ -3732,10 +3732,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     style.id = SERVER_CONTROL_STATUS_LOG_STYLE_ID;
     style.textContent = `
       #${SERVER_CONTROL_STATUS_LOG_ID} {
-        --local-query-bridge-status-log-default-top: 12px;
-        --local-query-bridge-status-log-menu-open-top: calc(50vh + 12px);
         position: fixed;
-        top: var(--local-query-bridge-status-log-top, var(--local-query-bridge-status-log-default-top));
+        bottom: 12px;
         right: ${ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX}px;
         z-index: 2147483646;
         width: min(420px, calc(100vw - 24px));
@@ -3752,7 +3750,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         opacity: var(--local-query-bridge-status-log-idle-opacity, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY});
         pointer-events: var(--local-query-bridge-status-log-pointer-events, auto);
         overflow: hidden;
-        transition: top 160ms ease, opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+        transition: opacity 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
       }
 
       #${SERVER_CONTROL_STATUS_LOG_ID}.${SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS},
@@ -3926,8 +3924,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       @media (max-width: 720px) {
         #${SERVER_CONTROL_STATUS_LOG_ID} {
-          --local-query-bridge-status-log-default-top: 8px;
-          --local-query-bridge-status-log-menu-open-top: calc(50vh + 8px);
+          bottom: 8px;
           right: 8px !important;
           width: calc(100vw - 16px);
         }
@@ -4143,13 +4140,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     if (serverControlMenuState.isOpen) {
-      panel.style.setProperty(
-        "--local-query-bridge-status-log-top",
-        "var(--local-query-bridge-status-log-menu-open-top)",
-      );
       panel.style.setProperty("--local-query-bridge-status-log-pointer-events", "none");
     } else {
-      panel.style.removeProperty("--local-query-bridge-status-log-top");
       panel.style.removeProperty("--local-query-bridge-status-log-pointer-events");
     }
   }

@@ -400,10 +400,11 @@ Mandatory headings:
 15. Standard-Machinery Rating Suggestion
 16. Rating Guardrails Audit
 17. Position Calibration Check
-18. Borderline cases
-19. Categorical Miss Subtype Assessment
-20. Override Impact
-21. Formatting compliance check
+18. Steelmanned Reality Check
+19. Borderline cases
+20. Categorical Miss Subtype Assessment
+21. Override Impact
+22. Formatting compliance check
 
 Only `Override Impact` may be reduced to one line when no subtype candidate is surfaced: `No override under consideration; standard-machinery rating stands.`
 
@@ -714,7 +715,23 @@ Compress the preceding analysis into a case profile along the dimensions that dr
 | Operative-axis preservation | full / strong / partial / weak / none / N/A — state whether the product preserves the axis identified above, not merely whether it shares the broad parent category |
 | Query population scope | broad/heterogeneous (multiple recipient profiles, budgets, styles, or sub-intents plausible — name the segments) / moderate / narrow (query pins most attributes to a single segment) — denominator for Substitute acceptability and Intent satisfaction below |
 | Product target population | who the product is designed, priced, marketed, and sized for — segments named explicitly (demographic, budget tier, use-case, style orientation, product-form fit, occasion specificity). For [how to set up a home office] → standing desk treadmill: active-work advocates with space and budget for premium ergonomic equipment. **Each named dimension that narrows the query population becomes a factor in Population overlap estimate below.** |
-| Population overlap estimate | rough fraction of Query population scope falling within Product target population — the starting denominator for Substitute acceptability and Intent satisfaction below, not the final answer for either. List each narrowing dimension named in Product target population and estimate its filter rate; aggregate by multiplication to a final percentage. The estimate is rough, not precise; the purpose is to prevent hand-waving readings like "acceptable for many" or "strong subset" that name no population fraction. For [how to set up a home office] → standing desk treadmill: ergonomic-upgrade subset of home-office-setup ≈25% × has space for treadmill desk ≈40% × budget for premium ergonomic equipment ≈30% = ~3% of query population. Substitute acceptability and Intent satisfaction each compute their own answer against this denominator below. The aggregated multiplication is the answer. Do not add post-hoc adjustments like "broader acceptance lifts relevance to X%" or "softer reading would put it at Y%." Filter rates already represent soft narrowing — a 70% rate already accounts for users at the edges who'd accept the product despite imperfect fit. Layering a second "broader" pass on top double-counts and inflates the result. If the rates feel too strict, revise the rates upward and re-multiply — do not adjust the aggregate. The single final percentage from one multiplication is what feeds Substitute acceptability and Intent satisfaction below — the downstream rows must cite that exact number, not a separately derived "broader" figure. Format requirement for downstream rows: Substitute acceptability and Intent satisfaction must be written as "[percentage] → [band] → [label]" (e.g., "11% → <25% band → not a substitute"). A bare label without the percentage and band citation is invalid — the lookup is the reading. **Every narrowing axis between Query population scope and Product target population must appear as a separate factor in the multiplication, but every factor must reflect real user rejection, not mere term mismatch.** Do not fold multiple axes into a single rate (e.g., "outdoor/waterproof feature preference" combines use-case and product feature — these are independent and must be separate factors). Cross-check by walking each dimension named in Product target population: demographic, budget tier, use-case, style/aesthetic, product-form fit, occasion specificity. If a dimension narrows the query population, it gets its own factor. **Common axes that get illegitimately folded or omitted:** recipient demographic (gender, age, profession), budget acceptability, style/aesthetic preference, use-case applicability, product-form preference within category, brand/tier sensitivity. If the product is narrowed on N dimensions, the multiplication must have N factors. **Factor-rate heuristics:** core function/category and compatibility/fitment can be low acceptance when missed because they often determine usability; use-case/application can be medium or low depending on whether the product can do the job; price/tier gaps can be low when large and deliberate; ordinary style/color/material cues usually stay moderate-to-high unless they are the point of the query; positive brand/manufacturer/product-line misses are often high-to-moderate acceptance when the alternative preserves category/function/tier; retailer/platform misses are often high acceptance when a reputable alternative source works. Use low brand/retailer factors only when **Requirement Analysis > Filter-strength heuristics** or **Brand / Retailer / Platform Logic** identifies a real reason: officialness, collectibility, exclusivity, ecosystem/fitment, safety/trust, unique identity, membership/gift-card/access, store-exclusive assortment, or large tier gap. **Do not assign 25% just because a brand or retailer was explicit.** If brand, manufacturer, and retailer are commercially linked rather than independently constraining, keep their individual rates high or explain the independent rejection mechanism for each. Example correction patterns: [Hamilton Beach 12-cup coffee maker at Kohl's] → Mr. Coffee 12-cup coffee maker from Best Buy should not automatically use accepts non-Hamilton Beach ≈25% × accepts non-Kohl's ≈25%; the preserved function, capacity, tier, and common retailer interchangeability are stronger than the ordinary brand/retailer miss. A disciplined structure might be: 12-cup drip coffee-maker need ≈85–95% × accepts comparable budget appliance brand ≈70–90% × accepts reputable alternate retailer ≈75–95% × accepts any visible price/tier gap ≈60–90%. [Realspace white cube organizer at Office Depot] → IKEA KALLAX white cube organizer should not automatically use accepts non-Realspace ≈25% × accepts non-Office Depot ≈25%; storage form/dimensions/color/price tier usually drive acceptance more than brand or retailer. A disciplined structure might be: cube-organizer need ≈80–95% × accepts comparable store-brand/private-label alternative ≈70–90% × accepts reputable alternate retailer ≈70–95% × accepts dimension/style/tier gap from visible evidence ≈50–90%. |
+**Only dimensions that materially narrow acceptance for users with this query become factors in Population overlap estimate below.** Name the product's designed, priced, marketed, and sized-for segment accurately, but do not assume every concrete product-card detail creates a separate user-rejection mechanism. Ordinary listing specificity on a broad query — such as a standard capacity, common finish, routine feature, or normal variant detail on a broadly matching product, like a black 1.7L cordless kettle with automatic shut-off for `[electric kettle]` — may describe the product without independently reducing the overlap.
+| Population overlap estimate | rough fraction of Query population scope falling within Product target population — the starting denominator for Substitute acceptability and Intent satisfaction below, not the final answer for either. List each narrowing dimension named in Product target population and estimate its filter rate; aggregate by multiplication to a final percentage. The estimate is rough, not precise; the purpose is to prevent hand-waving readings like "acceptable for many" or "strong subset" that name no population fraction. For [how to set up a home office] → standing desk treadmill: ergonomic-upgrade subset of home-office-setup ≈25% × has space for treadmill desk ≈40% × budget for premium ergonomic equipment ≈30% = ~3% of query population. Substitute acceptability and Intent satisfaction each compute their own answer against this denominator below. The aggregated multiplication is the answer. Do not add post-hoc adjustments like "broader acceptance lifts relevance to X%" or "softer reading would put it at Y%." Filter rates already represent soft narrowing — a 70% rate already accounts for users at the edges who'd accept the product despite imperfect fit. Layering a second "broader" pass on top double-counts and inflates the result. If the rates feel too strict, revise the rates upward and re-multiply — do not adjust the aggregate. The single final percentage from one multiplication is what feeds Substitute acceptability and Intent satisfaction below — the downstream rows must cite that exact number, not a separately derived "broader" figure. Format requirement for downstream rows: Substitute acceptability and Intent satisfaction must be written as "[percentage] → [band] → [label]" (e.g., "11% → <25% band → not a substitute"). A bare label without the percentage and band citation is invalid — the lookup is the reading. 
+**Every narrowing axis between Query population scope and Product target population must appear as a separate factor in the multiplication, but every factor must reflect real user rejection, not mere term mismatch.** 
+
+**Every materially narrowing axis between Query population scope and Product target population must appear as a separate factor in the multiplication, but every factor must reflect real user rejection, not mere term mismatch or ordinary listing specificity.**
+
+**Factor-inclusion gate:** before assigning a rate, ask whether this product detail creates a real rejection mechanism for users issuing this query, or whether it is merely the ordinary specificity any concrete product listing must have. Include it only in the former case. Do not multiply against normal product-card specificity merely because the query is broad.
+
+**Convergent guardrail — broad query / specific product.** If the product preserves the queried category and its extra details are ordinary instantiations of that category, do not turn those details into separate low-acceptance factors. Only factor them when they make the product unusually niche, visibly misaligned with a reasonable dominant query branch, or materially less acceptable to the query population. A broad query necessarily receives a specific product listing; specificity itself is not a penalty.
+
+**Convergent guardrail — brand / retailer / product-line weighting.** A positive commercial-anchor miss may reduce overlap, but do not assign a low acceptance factor unless Requirement Analysis or Brand / Retailer / Platform Logic identified a concrete rejection mechanism such as officialness, authenticity, collectibility, fitment/ecosystem lock-in, exclusivity, trust/access, or a real tier gap. If the alternative preserves category, function, approximate tier, and normal shopping role, the factor should usually be high-to-moderate rather than low.
+
+**Convergent guardrail — broad idea queries.** For idea, recommendation, or inspiration queries, a concrete product avoids harsh narrowing only if at least one of these is true: (1) it is sufficiently generic / broadly plausible across the open-ended query population; or (2) it matches one or more explicit query requirements strongly enough to justify its specificity. Otherwise, recipient, style, occasion, use-case, and price-tier narrowness are real overlap factors and should be multiplied rather than hand-waved.
+
+**Convergent guardrail — price difference.** Include price or market tier as a narrowing factor only when the visible difference signals a real positioning break — budget vs. luxury, mass market vs. premium, casual vs. professional, ordinary vs. collectible — not ordinary retail variation within the same shopping role.
+
+Do not fold multiple axes into a single rate (e.g., "outdoor/waterproof feature preference" combines use-case and product feature — these are independent and must be separate factors). Cross-check by walking each dimension named in Product target population: demographic, budget tier, use-case, style/aesthetic, product-form fit, occasion specificity. If a dimension narrows the query population, it gets its own factor. **Common axes that get illegitimately folded or omitted:** recipient demographic (gender, age, profession), budget acceptability, style/aesthetic preference, use-case applicability, product-form preference within category, brand/tier sensitivity. If the product is narrowed on N dimensions, the multiplication must have N factors. **Factor-rate heuristics:** core function/category and compatibility/fitment can be low acceptance when missed because they often determine usability; use-case/application can be medium or low depending on whether the product can do the job; price/tier gaps can be low when large and deliberate; ordinary style/color/material cues usually stay moderate-to-high unless they are the point of the query; positive brand/manufacturer/product-line misses are often high-to-moderate acceptance when the alternative preserves category/function/tier; retailer/platform misses are often high acceptance when a reputable alternative source works. Use low brand/retailer factors only when **Requirement Analysis > Filter-strength heuristics** or **Brand / Retailer / Platform Logic** identifies a real reason: officialness, collectibility, exclusivity, ecosystem/fitment, safety/trust, unique identity, membership/gift-card/access, store-exclusive assortment, or large tier gap. **Do not assign 25% just because a brand or retailer was explicit.** If brand, manufacturer, and retailer are commercially linked rather than independently constraining, keep their individual rates high or explain the independent rejection mechanism for each. Example correction patterns: [Hamilton Beach 12-cup coffee maker at Kohl's] → Mr. Coffee 12-cup coffee maker from Best Buy should not automatically use accepts non-Hamilton Beach ≈25% × accepts non-Kohl's ≈25%; the preserved function, capacity, tier, and common retailer interchangeability are stronger than the ordinary brand/retailer miss. A disciplined structure might be: 12-cup drip coffee-maker need ≈85–95% × accepts comparable budget appliance brand ≈70–90% × accepts reputable alternate retailer ≈75–95% × accepts any visible price/tier gap ≈60–90%. [Realspace white cube organizer at Office Depot] → IKEA KALLAX white cube organizer should not automatically use accepts non-Realspace ≈25% × accepts non-Office Depot ≈25%; storage form/dimensions/color/price tier usually drive acceptance more than brand or retailer. A disciplined structure might be: cube-organizer need ≈80–95% × accepts comparable store-brand/private-label alternative ≈70–90% × accepts reputable alternate retailer ≈70–95% × accepts dimension/style/tier gap from visible evidence ≈50–90%. |
 | Substitute acceptability | N/A — non-operative for this query type (when the operative lens per Decision Gates is intent satisfaction). Otherwise: direct match / acceptable for most / acceptable for some / not a substitute — see **Substitute & Compatibility Tests**. **Reading derived from a substitute-acceptance percentage: of the query population, what fraction would accept this product as a substitute for what they asked for? Population overlap estimate above is the starting denominator — users outside the overlap rarely accept; users inside it usually do, but not always. Map: ≥~70% → "acceptable for most"; ~25–70% → "acceptable for some"; <~25% → "not a substitute." Hedging language like "acceptable for many" or "strong subset" without a fraction is not a valid reading.** **'Acceptable for some' fires when a non-trivial subset of users would accept the product as a substitute even if most wouldn't. 'Not a substitute' is reserved for cases where almost no user would accept it. For [waterproof jacket for hiking] → casual rain jacket, a non-trivial subset of hikers in mild conditions or low-intensity day hikes might accept the casual jacket as adequate → 'acceptable for some,' not 'not a substitute.'** **The reading must be exactly one of the four labels with no qualifying clauses.** "Acceptable for some-to-many," "addresses directly for a subset," "acceptable for most practical-gift buyers" and similar hedges are invalid — they smuggle population narrowing back into a categorical reading. If the percentage lands at a band boundary, pick the lower band; if a qualifying clause feels necessary, the correct reading is one band lower. **Format requirement.** The reading must show the derivation: "[percentage from Population overlap estimate] → [band] → [label]." A bare label without the percentage and band citation is invalid — the lookup is the reading, not a separate justification step. **Substitute concepts forbidden.** The Population overlap estimate is the only valid input; the activity-enabling extension is the only valid addend above it. No alternative metric — "gift-idea relevance," "candidate-answer strength," "subject participation level," "topical fit," etc. — may stand in for the overlap or be added to it. Outputs that route to a label via a freeform concept rather than a derived percentage (e.g., "gift-idea relevance exceeds overlap → addresses directly") are invalid regardless of whether the label feels right. **Default derivation (when this row is operative — see operative-lens rule):** Substitute acceptability % = Population overlap estimate %. Most users outside the demographic/budget/use-case overlap don't accept the product as a substitute, and most users inside it do — the two effects roughly cancel. **Deviating from the overlap % requires showing the math:** "X% inside overlap accept × overlap % + Y% outside overlap accept × non-overlap %." A bare percentage that doesn't equal the overlap and doesn't show this derivation is invalid — re-derive from the overlap.|
 | Intent satisfaction | N/A — non-operative for this query type (when the operative lens per Decision Gates is substitute acceptability). Otherwise: addresses directly / activity-enabling (advances goal via alternative pathway) / sits nearby / does not advance — see **Relatedness vs Intent Satisfaction**. **Reading derived from an intent-served percentage: of the query population, whose intent does the product address or whose goal does it enable? This is a separate calculation from substitute acceptability — a product can fail as a substitute but enable the goal (whetstone for [how to sharpen a kitchen knife]: low substitute acceptability, high activity-enabling). Population overlap estimate above is the starting denominator for "addresses directly"; "activity-enabling" can extend beyond the overlap if the product enables the goal regardless of demographic fit. Map: ≥~70% → "addresses directly" or "activity-enabling"; ~25–70% → "sits nearby"; <~25% → "does not advance." "Addresses directly" and "activity-enabling" measure the share of users whose intent the product addresses or whose goal it enables, not the conceptual fit between product and query — a perfect-fit-for-one-slice reading is "sits nearby" or weaker.** **'Sits nearby' fires when the product is in the same problem space as the query, even if it solves a different specific problem within that space. 'Does not advance' is reserved for products with no problem-space relationship at all. For [windshield de-icer] → windshield washer fluid, both are windshield-maintenance products in the same problem space, even though they solve different problems → 'sits nearby,' not 'does not advance.'** **The reading must be exactly one of the four labels with no qualifying clauses.** "Acceptable for some-to-many," "addresses directly for a subset," "acceptable for most practical-gift buyers" and similar hedges are invalid — they smuggle population narrowing back into a categorical reading. If the percentage lands at a band boundary, pick the lower band; if a qualifying clause feels necessary, the correct reading is one band lower. **Format requirement.** The reading must show the derivation: "[percentage from Population overlap estimate] → [band] → [label]." A bare label without the percentage and band citation is invalid — the lookup is the reading, not a separate justification step. **Substitute concepts forbidden.** The Population overlap estimate is the only valid input; the activity-enabling extension is the only valid addend above it. No alternative metric — "gift-idea relevance," "candidate-answer strength," "subject participation level," "topical fit," etc. — may stand in for the overlap or be added to it. Outputs that route to a label via a freeform concept rather than a derived percentage (e.g., "gift-idea relevance exceeds overlap → addresses directly") are invalid regardless of whether the label feels right. **Default derivation (when this row is operative — see operative-lens rule):** Intent satisfaction % = Population overlap estimate %. **Activity-enabling extension:** if the product enables the goal regardless of demographic fit (e.g., whetstone for [how to sharpen a kitchen knife] enables sharpening for any user, regardless of age/gender/budget), the extension above the overlap % must be quantified and justified as a separate addend: "overlap % + activity-enabling extension % = total." The activity-enabling extension applies narrowly: the product must be a functional tool or component the query's activity requires, not a topically-related product. Without an explicit activity-enabling case and quantified extension, Intent satisfaction % defaults to the overlap %. A bare percentage above the overlap without this derivation is invalid.|
 | Compatibility/fitment | matched / mismatched (functional break) / N/A — see **Substitute & Compatibility Tests > Compatibility / fitment dimension**. **'Mismatched (functional break)' fires only when the product is functionally unusable without the missing fitment anchor — wrong battery for a device that won't power on, wrong toner for a printer that won't accept the cartridge. Soft compatibility concerns (off-brand cartridge that may or may not work, accessory that fits loosely) are handled by substitute acceptability, not by this row. N/A applies when fitment isn't a relevant dimension for the product type at all.** |
@@ -797,17 +814,22 @@ The **note-only surfaced reminders** near the end of this section do **not** by 
 - If no rating-affecting guardrail materially applies, write:
   `N/A — no rating guardrail materially applies.`
 - If one or more guardrails materially undermine the provisional rating, revise the rating here before continuing.
+- When a guardrail concerns Population overlap estimate, Substitute acceptability, Intent satisfaction, or any other upstream derivation, the audit must check whether the relevant upstream calculation actually honored that guardrail. If not, it must explicitly revise the affected reading before finalizing the rating; it may not merely note the concern while preserving the same downstream conclusion.
 - The later **Position Calibration Check**, **Steelmanned Reality Check**, **Categorical Miss Subtype Assessment**, and **Override Impact** must operate on the **final rating after this audit**, not the provisional rating.
 
-If one or more guardrails apply, use:
+If one or more guardrails apply, use the table below.
 
-| Rating guardrail | Why it applies | Earlier premise challenged | Rating pressure | Audit conclusion |
+In the `Guardrail` column, use the compact display label defined for that guardrail, not the full descriptive heading.
+
+| Guardrail | Why it applies | Earlier premise challenged | Rating pressure | Audit conclusion |
 |---|---|---|---|---|
-| [guardrail name] | [brief] | [brief] | upward / downward / within-band only | keep provisional rating / revise to [rating] |
+| [short display label] | [brief] | [brief] | upward / downward / within-band only | keep provisional rating / revise to [rating] |
 
 ### Rating-affecting guardrails
 
 #### Brand / retailer / product-line weighting — judge implied constraint, not mere mention
+
+**Display label:** `Brand / Retailer Weighting`
 
 Use this guardrail when:
 - the provisional rating is pushed downward mainly because the product misses a brand, retailer, manufacturer, or product line;
@@ -830,6 +852,8 @@ Guardrail:
 
 #### Nearby intent — same practical goal, nearby route?
 
+**Display label:** `Nearby intent`
+
 Use this guardrail when:
 - the product is not a direct substitute,
 - but it may still serve a genuinely nearby practical intent,
@@ -845,6 +869,8 @@ Reference example:
 
 #### Informational queries can be helped by products that materially enable the user’s goal
 
+**Display label:** `Info - Helpful Product`
+
 Use this guardrail when:
 - the query is informational,
 - the product is not an answer,
@@ -857,6 +883,8 @@ Guardrail:
 - A product that directly enables the queried activity can be Okay under **Information Seeking – Result is a relevant product**, even though it does not provide the requested instructions.
 
 #### Broad idea query — too niche for the open-ended intent?
+
+**Display label:** `Ideas - Niche Product`
 
 Use this guardrail when:
 - the query asks for ideas, recommendations, or broad suggestions,
@@ -877,6 +905,8 @@ Guardrail:
 
 #### Non-commercial query — same-name merchandise may still be irrelevant
 
+**Display label:** `Non-commercial - Word Match`
+
 Use this guardrail when:
 - the query is clearly factual, biographical, or otherwise non-commercial,
 - and the product merely shares the subject’s name, a collaboration name, or celebrity-related branding.
@@ -888,6 +918,8 @@ Guardrail:
 - If the product is merely commercial merchandise attached to the named subject, Egregious may still be appropriate.
 
 #### Broad query / specific product — do not over-penalize ordinary specifics
+
+**Display label:** `Generic - Specific`
 
 Use this guardrail when:
 - the query is generic or broad,
@@ -901,6 +933,8 @@ Guardrail:
 - If the added specifics are ordinary and non-exclusionary, they should not drag an otherwise relevant product down into Poor.
 
 #### Price difference — real tier mismatch or ordinary variation?
+
+**Display label:** `Price Mismatch`
 
 Use this guardrail when:
 - price difference is being used to push a substitute downward.
@@ -922,22 +956,24 @@ Immediately below the final rating, add a short `Rating notes:` line when one or
 
 Some surfaced notes correspond to rating-affecting guardrails that may also have influenced the final rating. Others are **note-only reminders**: they do not by themselves alter the rating, but flag ambiguity, visual verification needs, or fuzzy judgment that may deserve manual attention.
 
-Use short semicolon-separated labels only. Omit the `Rating notes:` line entirely if no surfaced note applies.
+List each applicable surfaced note label on its own bullet line directly below `Rating notes:`. Omit the entire `Rating notes:` block if no surfaced note applies. These surfaced labels use the same compact display-label style as the `Guardrail` column above.
 
 Available surfaced note labels:
 
-- `ambiguous query — consult Google results`
-- `brand/retailer weighting — judge implied constraint, not mere mention`
-- `nearby intent — same practical goal, nearby route?`
-- `info-query product usefulness — does it materially help the activity?`
-- `broad idea query — too niche for the open-ended intent?`
-- `non-commercial query — same-name merchandise may still be irrelevant`
-- `style similarity — might require personal judgment`
-- `visual check — product image may resolve unclear requirement`
-- `broad query / specific product — do not over-penalize ordinary specifics`
-- `price difference — real tier mismatch or ordinary variation?`
+- `Ambiguous - Research Google`
+- `Brand / Retailer Weighting`
+- `Nearby intent`
+- `Info - Helpful Product`
+- `Ideas - Niche Product`
+- `Non-commercial - Word Match`
+- `Style Judgement`
+- `Check Requirement in Image`
+- `Generic - Specific`
+- `Price Mismatch`
 
-**Rating notes:** [semicolon-separated surfaced note labels, if applicable]
+**Rating notes:**
+- [surfaced note label]
+- [additional surfaced note label, if applicable]
 
 **Position rationale:**
 - [bullet citing the final decisive reasons for the audited rating and position]
@@ -947,7 +983,7 @@ Available surfaced note labels:
 
 These reminders may appear in `Rating notes:` but do not by themselves revise the rating.
 
-#### Ambiguous query — consult Google results
+#### Ambiguous - Research Google
 
 Use this note when:
 - the query is short, strange, idiomatic, malformed, or semantically unusual;
@@ -955,14 +991,14 @@ Use this note when:
 - the rating depends materially on how the query is interpreted;
 - the product appears to match only by splitting query words across product title fragments, color names, or unrelated modifiers.
 
-#### Style similarity — might require personal judgment
+#### Style Judgement
 
 Use this note when:
 - style, visual language, color, finish, print, pattern, or design identity is load-bearing;
 - especially in fashion, decor, and other visually judged domains;
 - the rating depends on whether two aesthetics are “similar enough,” “somewhat adjacent,” or “meaningfully different.”
 
-#### Visual check — product image may resolve unclear requirement
+#### Check Requirement in Image
 
 Use this note when:
 - no screenshot of the product is provided,
