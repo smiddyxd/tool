@@ -95,6 +95,7 @@ const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
+const BRIDGE_EVENT_TIMEOUT_MS = 30000;
 const CONTROL_COMMAND_TIMEOUT_MS = 30000;
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
@@ -110,6 +111,7 @@ const state = {
   pendingRepeatDraft: null,
   cancelledControlRunIds: new Set(),
   controlRunTabIds: new Map(),
+  lastQueuedControlStatus: null,
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
 };
@@ -175,6 +177,70 @@ function isEmptyBridgePayload(payload) {
   }
 
   return ["a", "b", "c", "d", "e", "f"].every((key) => !payload[key]);
+}
+
+function rememberQueuedControlStatus(status) {
+  const runId = typeof status?.runId === "string" ? status.runId.trim() : "";
+  if (!runId) {
+    return;
+  }
+
+  state.lastQueuedControlStatus = {
+    runId,
+    tabId: normalizeTabId(status.tabId),
+    taskType: typeof status.taskType === "string" ? status.taskType : "",
+    message: typeof status.message === "string" ? status.message : "",
+    queuedAt: Date.now(),
+  };
+}
+
+function clearQueuedControlStatus(runId = "") {
+  if (
+    !state.lastQueuedControlStatus
+    || (runId && state.lastQueuedControlStatus.runId !== runId)
+  ) {
+    return;
+  }
+
+  state.lastQueuedControlStatus = null;
+}
+
+async function reportQueuedBridgeStatus(type, message, details = {}) {
+  const queuedStatus = state.lastQueuedControlStatus;
+  if (!queuedStatus?.runId) {
+    return false;
+  }
+
+  return sendControlStatusToChatGpt({
+    runId: queuedStatus.runId,
+    tabId: queuedStatus.tabId ?? "",
+    type,
+    message,
+    details: {
+      queuedMessage: queuedStatus.message,
+      queuedAgeMs: Date.now() - queuedStatus.queuedAt,
+      ...(details && typeof details === "object" && !Array.isArray(details) ? details : {}),
+    },
+    taskType: queuedStatus.taskType,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+async function reportControlRunStatus(runId, type, message, details = {}, taskType = "") {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (!normalizedRunId) {
+    return false;
+  }
+
+  return sendControlStatusToChatGpt({
+    runId: normalizedRunId,
+    tabId: getControlRunTabId(normalizedRunId) ?? "",
+    type,
+    message,
+    details: details && typeof details === "object" && !Array.isArray(details) ? details : {},
+    taskType,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 function xorDecryptHex(hexValue, key) {
@@ -552,12 +618,18 @@ function isFreshProjectStartUrl(url, startPageUrl) {
   }
 
   const suffix = normalizedUrl.slice(prefix.length);
+  const pathSuffix = suffix.split(/[?#]/, 1)[0];
+  if (/(^|\/)(?:c|chat)(?:\/|$)/.test(pathSuffix)) {
+    return false;
+  }
+
   return (
-    suffix === ""
-    || suffix === "/"
+    pathSuffix === ""
+    || pathSuffix === "/"
+    || pathSuffix === "/project"
+    || pathSuffix === "/project/"
     || suffix.startsWith("?")
     || suffix.startsWith("#")
-    || suffix.includes("/project")
   );
 }
 
@@ -833,7 +905,7 @@ async function waitForChatGptTabReady(tabId, startPageUrl = DEFAULT_START_PAGE_U
   while (Date.now() < deadline) {
     try {
       const tab = await chrome.tabs.get(tabId);
-      if (tab?.id && isEligibleProjectUrl(tab.url, startPageUrl) && tab.status === "complete") {
+      if (tab?.id && isFreshProjectStartUrl(tab.url, startPageUrl) && tab.status === "complete") {
         return tab;
       }
     } catch (_error) {
@@ -1504,9 +1576,10 @@ async function handleScrollEvent(direction, steps) {
   }
 }
 
-async function fetchBridgePayload() {
+async function fetchBridgePayload(timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
 
   try {
     const response = await fetch(LOCAL_EVENT_URL, {
@@ -1521,6 +1594,17 @@ async function fetchBridgePayload() {
 
     const payload = await response.json();
     maybeLogHandshake();
+    const payloadChars = ["a", "b", "c", "d", "e", "f"].reduce((total, key) => (
+      total + (typeof payload?.[key] === "string" ? payload[key].length : 0)
+    ), 0);
+    const durationMs = Date.now() - startedAt;
+    if (payloadChars > 0 || durationMs > 1000) {
+      console.log("Local Query Bridge fetched bridge event", {
+        durationMs,
+        timeoutMs,
+        payloadChars,
+      });
+    }
     return payload;
   } finally {
     clearTimeout(timeoutId);
@@ -1789,6 +1873,7 @@ async function sendServerControlCommand(command, sender) {
   if (isCancelCommand && controlRunId) {
     state.cancelledControlRunIds.add(controlRunId);
     forgetControlRunTab(controlRunId);
+    clearQueuedControlStatus(controlRunId);
     if (state.pendingSubmission?.controlRunId === controlRunId) {
       state.pendingSubmission = null;
     }
@@ -2009,7 +2094,10 @@ async function pollLocalBridge() {
     }
 
     for (let iteration = 0; iteration < MAX_EVENTS_PER_POLL; iteration += 1) {
-      const payload = await fetchBridgePayload();
+      const hasQueuedControlStatus = Boolean(state.lastQueuedControlStatus?.runId);
+      const payload = await fetchBridgePayload(
+        hasQueuedControlStatus ? BRIDGE_EVENT_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
+      );
       if (!payload) {
         return;
       }
@@ -2018,6 +2106,14 @@ async function pollLocalBridge() {
           queuedControlStatusFollowups -= 1;
           await delay(150);
           continue;
+        }
+        if (state.lastQueuedControlStatus?.runId) {
+          await reportQueuedBridgeStatus(
+            "error",
+            "Bridge queue was empty after the queued event.",
+            { followupAttempts: 4 },
+          );
+          clearQueuedControlStatus();
         }
         return;
       }
@@ -2049,11 +2145,20 @@ async function pollLocalBridge() {
           }
           if (isTerminalControlStatusType(status.type) && status.runId) {
             forgetControlRunTab(status.runId);
+            clearQueuedControlStatus(status.runId);
           }
           if (status.type === "queued" && status.runId) {
+            rememberQueuedControlStatus(status);
             queuedControlStatusFollowups = Math.max(queuedControlStatusFollowups, 4);
           }
           await sendControlStatusToChatGpt(status);
+          if (status.type === "queued" && status.runId) {
+            await reportQueuedBridgeStatus(
+              "worker-send",
+              "Bridge worker saw queued status; fetching event payload.",
+              { nextFetchTimeoutMs: BRIDGE_EVENT_TIMEOUT_MS },
+            );
+          }
           continue;
         }
         return;
@@ -2080,11 +2185,27 @@ async function pollLocalBridge() {
 
       if (eventType === EVENT_TYPE_TEXT_TASK) {
         if (!payload?.a) {
+          await reportQueuedBridgeStatus(
+            "error",
+            "Bridge worker received a text-prompt event without a task count.",
+            { eventType },
+          );
+          clearQueuedControlStatus();
           return;
         }
 
         const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
         const taskCount = Number.parseInt(taskText, 10);
+        await reportControlRunStatus(
+          controlRunId,
+          "worker-send",
+          "Bridge worker received text-prompt payload.",
+          {
+            taskCount: Number.isNaN(taskCount) ? taskText : taskCount,
+            encryptedPromptChars: typeof payload.c === "string" ? payload.c.length : 0,
+          },
+          eventTaskType,
+        );
         const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
         let promptTexts = [];
         if (promptPayload) {
@@ -2095,6 +2216,18 @@ async function pollLocalBridge() {
           }
         }
         if (Number.isNaN(taskCount) || promptTexts.length === 0) {
+          await reportControlRunStatus(
+            controlRunId,
+            "error",
+            "Bridge worker could not decode a valid text-prompt payload.",
+            {
+              taskCountText: taskText,
+              promptCount: promptTexts.length,
+              encryptedPromptChars: typeof payload.c === "string" ? payload.c.length : 0,
+            },
+            eventTaskType,
+          );
+          clearQueuedControlStatus(controlRunId);
           return;
         }
 
@@ -2116,16 +2249,33 @@ async function pollLocalBridge() {
         };
 
         await deliverPendingSubmission();
+        clearQueuedControlStatus(controlRunId);
         return;
       }
 
       if (eventType === EVENT_TYPE_ALERT_TASK) {
         if (!payload?.a) {
+          await reportQueuedBridgeStatus(
+            "error",
+            "Bridge worker received an alert event without a task count.",
+            { eventType },
+          );
+          clearQueuedControlStatus();
           return;
         }
 
         const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
         const taskCount = Number.parseInt(taskText, 10);
+        await reportControlRunStatus(
+          controlRunId,
+          "worker-send",
+          "Bridge worker received alert payload.",
+          {
+            taskCount: Number.isNaN(taskCount) ? taskText : taskCount,
+            encryptedAlertChars: typeof payload.c === "string" ? payload.c.length : 0,
+          },
+          eventTaskType,
+        );
         const alertPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
         let alertTexts = [];
         if (alertPayload) {
@@ -2136,6 +2286,18 @@ async function pollLocalBridge() {
           }
         }
         if (Number.isNaN(taskCount) || alertTexts.length === 0) {
+          await reportControlRunStatus(
+            controlRunId,
+            "error",
+            "Bridge worker could not decode a valid alert payload.",
+            {
+              taskCountText: taskText,
+              alertCount: alertTexts.length,
+              encryptedAlertChars: typeof payload.c === "string" ? payload.c.length : 0,
+            },
+            eventTaskType,
+          );
+          clearQueuedControlStatus(controlRunId);
           return;
         }
 
@@ -2157,15 +2319,37 @@ async function pollLocalBridge() {
         };
 
         await deliverPendingSubmission();
+        clearQueuedControlStatus(controlRunId);
         return;
       }
 
       if (!payload?.a || !payload?.b) {
+        await reportQueuedBridgeStatus(
+          "error",
+          "Bridge worker received an invalid screenshot event payload.",
+          {
+            eventType,
+            hasTaskCount: Boolean(payload?.a),
+            hasImagePayload: Boolean(payload?.b),
+          },
+        );
+        clearQueuedControlStatus();
         return;
       }
 
       const taskText = xorDecryptHex(payload.a, XOR_KEY).trim();
       const taskCount = Number.parseInt(taskText, 10);
+      await reportControlRunStatus(
+        controlRunId,
+        "worker-send",
+        "Bridge worker received screenshot payload; decoding image data.",
+        {
+          taskCount: Number.isNaN(taskCount) ? taskText : taskCount,
+          encryptedImageChars: typeof payload.b === "string" ? payload.b.length : 0,
+          encryptedPromptChars: typeof payload.c === "string" ? payload.c.length : 0,
+        },
+        eventTaskType,
+      );
       const imagePayload = xorDecryptBase64ToString(payload.b ?? "", XOR_KEY).trim();
       let imageDataUrls = [];
       if (imagePayload) {
@@ -2177,6 +2361,18 @@ async function pollLocalBridge() {
       }
       const promptPayload = xorDecryptBase64ToString(payload.c ?? "", XOR_KEY).trim();
       if (Number.isNaN(taskCount) || imageDataUrls.length === 0) {
+        await reportControlRunStatus(
+          controlRunId,
+          "error",
+          "Bridge worker could not decode a valid screenshot payload.",
+          {
+            taskCountText: taskText,
+            screenshotCount: imageDataUrls.length,
+            encryptedImageChars: typeof payload.b === "string" ? payload.b.length : 0,
+          },
+          eventTaskType,
+        );
+        clearQueuedControlStatus(controlRunId);
         return;
       }
 
@@ -2195,6 +2391,17 @@ async function pollLocalBridge() {
         taskType: eventTaskType || "(active)",
         controlRunId: controlRunId || "",
       });
+      await reportControlRunStatus(
+        controlRunId,
+        "worker-send",
+        "Screenshot payload decoded; resolving ChatGPT target.",
+        {
+          taskCount,
+          screenshotCount: imageDataUrls.length,
+          promptCount: promptTexts.length,
+        },
+        eventTaskType,
+      );
       state.pendingRepeatDraft = null;
       state.pendingSubmission = {
         taskCount,
@@ -2208,10 +2415,23 @@ async function pollLocalBridge() {
       };
 
       await deliverPendingSubmission();
+      clearQueuedControlStatus(controlRunId);
       return;
     }
   } catch (error) {
     console.warn("Local Query Bridge poll failed", error);
+    if (state.lastQueuedControlStatus?.runId) {
+      await reportQueuedBridgeStatus(
+        "error",
+        "Bridge worker failed while fetching or decoding the queued event.",
+        {
+          error: `${error}`,
+          errorName: error?.name ?? "",
+          eventFetchTimeoutMs: BRIDGE_EVENT_TIMEOUT_MS,
+        },
+      );
+      clearQueuedControlStatus();
+    }
   } finally {
     state.isPolling = false;
     if (sawScrollEvent && !state.pendingSubmission) {

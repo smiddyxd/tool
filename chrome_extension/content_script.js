@@ -5061,6 +5061,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     setServerControlZoneClickEnabled(!serverControlMenuState.zoneClickEnabled);
   }
 
+  function getServerControlZoneActiveVerticalBounds(rootRect) {
+    if (!rootRect || typeof rootRect.height !== "number" || rootRect.height <= 0) {
+      return null;
+    }
+
+    const maxInset = rootRect.height / 2;
+    const topInset = Math.min(
+      sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerTopLengthPx),
+      maxInset,
+    );
+    const bottomInset = Math.min(
+      sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerBottomLengthPx),
+      maxInset,
+    );
+    const activeTop = rootRect.top + topInset;
+    const activeBottom = rootRect.bottom - bottomInset;
+    if (activeBottom <= activeTop) {
+      return null;
+    }
+
+    return { activeTop, activeBottom };
+  }
+
   function getServerControlZoneActionForPoint(clientX, clientY) {
     const actionEntries = getCurrentServerControlActionEntries();
     if (!isServerControlZoneClickActive() || actionEntries.length === 0) {
@@ -5080,6 +5103,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || clientX > rootRect.right
       || clientY < rootRect.top
       || clientY > rootRect.bottom
+    ) {
+      return null;
+    }
+
+    const verticalBounds = getServerControlZoneActiveVerticalBounds(rootRect);
+    if (
+      verticalBounds === null
+      || clientY <= verticalBounds.activeTop
+      || clientY >= verticalBounds.activeBottom
     ) {
       return null;
     }
