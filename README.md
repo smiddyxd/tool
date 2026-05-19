@@ -70,9 +70,9 @@ Both launchers stop any process already listening on the configured bridge port 
 The bridge now listens on LAN as well as locally (`HTTP_HOST = 0.0.0.0`).
 
 Current primary-PC LAN endpoint:
-- `http://192.168.0.215:62041/a`
-- `http://192.168.0.215:62041/b`
-- `http://192.168.0.215:62041/c`
+- `http://192.168.0.34:62041/a`
+- `http://192.168.0.34:62041/b`
+- `http://192.168.0.34:62041/c`
 
 Local endpoint on the same PC:
 - `http://127.0.0.1:62041/a`
@@ -253,7 +253,7 @@ The script requires PaddleOCR to be installed separately from the main bridge re
 The extension now requests:
 - `http://127.0.0.1/*`
 - `http://localhost/*`
-- `http://192.168.0.215/*`
+- `http://192.168.0.34/*`
 
 ## Logging
 
@@ -297,7 +297,7 @@ python_service/debug/
 To run the extension on a second device on the same router:
 
 1. Run the Python bridge on PC 1.
-2. Make sure PC 1 keeps the same LAN IP, or update the extension if it changes. The current detected IP is `192.168.0.215`.
+2. Make sure PC 1 keeps the same LAN IP, or update the extension if it changes. The current detected IP is `192.168.0.34`.
 3. On PC 2, load the unpacked extension from the same `chrome_extension` folder contents.
 4. In `chrome://extensions`, reload the extension after any `manifest.json` or `service_worker.js` change.
 5. Open a ChatGPT tab on PC 2 and refresh it once after reloading the extension.

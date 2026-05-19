@@ -1,5 +1,5 @@
 // Bridge endpoint exposed by the Python service. Set this to the LAN IP of the PC running the Python bridge.
-const BRIDGE_BASE_URL = "http://192.168.0.215:62041";
+const BRIDGE_BASE_URL = "http://192.168.0.34:62041";
 const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
 const REPEAT_CAPTURE_URL = `${BRIDGE_BASE_URL}/b`;
 const CONTROL_COMMAND_URL = `${BRIDGE_BASE_URL}/c`;
