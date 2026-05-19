@@ -1246,9 +1246,30 @@ function isHardCodedAnalysisTocTaskType(taskType = highlightState.activeBridgeTa
   return HARD_CODED_TOC_TASK_TYPE_KEYS.has(sanitizeBridgeTaskType(taskType));
 }
 
-function sanitizeCustomAnalysisTocEntries(rawValue) {
+function getBuiltInAnalysisTocEntryKeys(taskType = highlightState.activeBridgeTaskType) {
+  return isHardCodedAnalysisTocTaskType(taskType)
+    ? new Set(ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key))
+    : new Set();
+}
+
+function sanitizeAnalysisTocTargetTexts(entry) {
+  const rawTargetTexts = Array.isArray(entry?.targetTexts)
+    ? entry.targetTexts
+    : [entry?.targetText ?? entry?.heading ?? ""];
+  return normalizeStringList(rawTargetTexts.map((value) => (
+    typeof value === "string" ? value.replace(/\s+/g, " ").trim() : ""
+  )));
+}
+
+function getAnalysisTocEntryTargetTexts(entry) {
+  return Array.isArray(entry?.targetTexts) && entry.targetTexts.length > 0
+    ? entry.targetTexts
+    : sanitizeAnalysisTocTargetTexts(entry);
+}
+
+function sanitizeCustomAnalysisTocEntries(rawValue, options = {}) {
   const sourceEntries = Array.isArray(rawValue) ? rawValue : [];
-  const usedKeys = new Set();
+  const usedKeys = new Set(options.reservedKeys instanceof Set ? options.reservedKeys : []);
   return sourceEntries
     .map((entry, index) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -1270,7 +1291,8 @@ function sanitizeCustomAnalysisTocEntries(rawValue) {
         };
       }
 
-      const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
+      const targetTexts = sanitizeAnalysisTocTargetTexts(entry);
+      const targetText = targetTexts[0] ?? "";
       const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
       if (!targetText) {
         return null;
@@ -1284,6 +1306,7 @@ function sanitizeCustomAnalysisTocEntries(rawValue) {
         heading: targetText,
         label,
         targetText,
+        targetTexts,
         type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
         index,
       };
@@ -1296,7 +1319,7 @@ function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBri
   const sourceEntries = Array.isArray(highlightState.taskTypeTocEntries[sanitizedTaskType])
     ? highlightState.taskTypeTocEntries[sanitizedTaskType]
     : [];
-  const usedKeys = new Set();
+  const usedKeys = getBuiltInAnalysisTocEntryKeys(sanitizedTaskType);
 
   return sourceEntries
     .map((entry, index) => {
@@ -1319,7 +1342,8 @@ function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBri
         };
       }
 
-      const targetText = typeof entry.targetText === "string" ? entry.targetText : "";
+      const targetTexts = sanitizeAnalysisTocTargetTexts(entry);
+      const targetText = targetTexts[0] ?? "";
       const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
       const rawKey = typeof entry.key === "string" && entry.key.trim()
         ? entry.key.trim()
@@ -1330,6 +1354,7 @@ function getEditableCustomAnalysisTocEntries(taskType = highlightState.activeBri
         heading: targetText,
         label,
         targetText,
+        targetTexts,
         type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
         index,
       };
@@ -1344,20 +1369,30 @@ function sanitizeTaskTypeAnalysisTocEntriesMap(rawValue) {
   return Object.fromEntries(
     getTaskTypeDefinitions().map((definition) => [
       definition.key,
-      isHardCodedAnalysisTocTaskType(definition.key)
-        ? []
-        : sanitizeCustomAnalysisTocEntries(source[definition.key]),
+      sanitizeCustomAnalysisTocEntries(source[definition.key], {
+        reservedKeys: getBuiltInAnalysisTocEntryKeys(definition.key),
+      }),
     ]),
   );
 }
 
 function getAnalysisTocEntries(taskType = highlightState.activeBridgeTaskType) {
   const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
+  const customEntries = sanitizeCustomAnalysisTocEntries(
+    getEditableCustomAnalysisTocEntries(sanitizedTaskType),
+    { reservedKeys: getBuiltInAnalysisTocEntryKeys(sanitizedTaskType) },
+  );
   if (isHardCodedAnalysisTocTaskType(sanitizedTaskType)) {
-    return ANALYSIS_HEADING_ENTRIES;
+    return [
+      ...ANALYSIS_HEADING_ENTRIES,
+      ...customEntries.map((entry, index) => ({
+        ...entry,
+        index: ANALYSIS_HEADING_ENTRIES.length + index,
+      })),
+    ];
   }
 
-  return sanitizeCustomAnalysisTocEntries(getEditableCustomAnalysisTocEntries(sanitizedTaskType));
+  return customEntries;
 }
 
 function getDefaultAnalysisTocButtonColors(entries = getAnalysisTocEntries()) {
@@ -2931,14 +2966,14 @@ function moveAnalysisTocButtonOrder(headingKey, direction) {
 }
 
 function updateCustomAnalysisTocEntries(updater) {
-  if (isHardCodedAnalysisTocTaskType()) {
-    return;
-  }
-
   syncActiveTaskTypeScopedSettings();
   const taskType = getActiveTaskTypeKey();
-  const currentEntries = sanitizeCustomAnalysisTocEntries(highlightState.taskTypeTocEntries[taskType]);
-  const nextEntries = sanitizeCustomAnalysisTocEntries(updater(currentEntries));
+  const currentEntries = sanitizeCustomAnalysisTocEntries(highlightState.taskTypeTocEntries[taskType], {
+    reservedKeys: getBuiltInAnalysisTocEntryKeys(taskType),
+  });
+  const nextEntries = sanitizeCustomAnalysisTocEntries(updater(currentEntries), {
+    reservedKeys: getBuiltInAnalysisTocEntryKeys(taskType),
+  });
   highlightState.taskTypeTocEntries = {
     ...highlightState.taskTypeTocEntries,
     [taskType]: nextEntries,
@@ -2951,7 +2986,7 @@ function updateCustomAnalysisTocEntries(updater) {
 function getCopyableAnalysisTocEntries(taskType) {
   return getAnalysisTocEntries(taskType).filter((entry) => (
     entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
-    || Boolean((entry.targetText ?? entry.heading ?? "").trim())
+    || getAnalysisTocEntryTargetTexts(entry).length > 0
   ));
 }
 
@@ -2979,8 +3014,8 @@ function getSourceAnalysisTocState(taskType) {
   };
 }
 
-function createCopiedAnalysisTocEntries(sourceEntries, sourceLabels) {
-  const usedKeys = new Set();
+function createCopiedAnalysisTocEntries(sourceEntries, sourceLabels, reservedKeys = new Set()) {
+  const usedKeys = new Set(reservedKeys);
   const keyMap = {};
   const copiedEntries = [];
 
@@ -3000,9 +3035,8 @@ function createCopiedAnalysisTocEntries(sourceEntries, sourceLabels) {
       continue;
     }
 
-    const targetText = typeof entry.targetText === "string" && entry.targetText.trim()
-      ? entry.targetText.trim()
-      : (typeof entry.heading === "string" ? entry.heading.trim() : "");
+    const targetTexts = getAnalysisTocEntryTargetTexts(entry);
+    const targetText = targetTexts[0] ?? "";
     if (!targetText) {
       continue;
     }
@@ -3018,24 +3052,21 @@ function createCopiedAnalysisTocEntries(sourceEntries, sourceLabels) {
       key: copiedKey,
       label,
       targetText,
+      targetTexts,
       type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
     });
   }
 
   return {
-    entries: sanitizeCustomAnalysisTocEntries(copiedEntries),
+    entries: sanitizeCustomAnalysisTocEntries(copiedEntries, { reservedKeys }),
     keyMap,
   };
 }
 
 function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
-  if (isHardCodedAnalysisTocTaskType()) {
-    return;
-  }
-
   syncActiveTaskTypeScopedSettings();
   const targetTaskType = getActiveTaskTypeKey();
-  if (getAnalysisTocEntries(targetTaskType).length > 0) {
+  if (getEditableCustomAnalysisTocEntries(targetTaskType).length > 0) {
     setStatus("This task type already has TOC buttons.");
     return;
   }
@@ -3052,7 +3083,11 @@ function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
     return;
   }
 
-  const { entries, keyMap } = createCopiedAnalysisTocEntries(source.entries, source.labels);
+  const { entries, keyMap } = createCopiedAnalysisTocEntries(
+    source.entries,
+    source.labels,
+    getBuiltInAnalysisTocEntryKeys(targetTaskType),
+  );
   if (entries.length === 0) {
     setStatus(`${sourceDefinition.label} has no copyable TOC buttons.`);
     return;
@@ -3138,6 +3173,7 @@ function addCustomAnalysisTocEntry() {
         key: makeUniqueAnalysisTocEntryKey(createAnalysisTocEntryKey("New TOC Button", "toc"), usedKeys),
         label: "New TOC Button",
         targetText: "Rating:",
+        targetTexts: ["Rating:"],
       },
     ];
   });
@@ -3202,18 +3238,17 @@ function renderCustomAnalysisTocEntryEditor() {
   panel.hidden = false;
   list.replaceChildren();
   if (addButton instanceof HTMLButtonElement) {
-    addButton.hidden = isHardCoded;
+    addButton.hidden = false;
   }
 
   if (isHardCoded) {
     const message = document.createElement("p");
     message.className = "empty-state";
-    message.textContent = "This task type uses the built-in Search Experience TOC targets.";
+    message.textContent = "This task type keeps the built-in Search Experience TOC targets. Custom string TOC buttons added here appear alongside them.";
     list.append(message);
-    return;
   }
 
-  const entries = getAnalysisTocEntries();
+  const entries = getEditableCustomAnalysisTocEntries();
   if (entries.length === 0) {
     const message = document.createElement("p");
     message.className = "empty-state";
@@ -3252,12 +3287,16 @@ function renderCustomAnalysisTocEntryEditor() {
     const targetControl = document.createElement("label");
     targetControl.textContent = entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
       ? "Target"
-      : "Response text to find";
-    const targetInput = document.createElement("input");
-    targetInput.type = "text";
+      : "Detection strings";
+    const targetInput = document.createElement(
+      entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT ? "input" : "textarea",
+    );
+    if (targetInput instanceof HTMLInputElement) {
+      targetInput.type = "text";
+    }
     targetInput.value = entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT
       ? "Latest user prompt"
-      : entry.targetText;
+      : getAnalysisTocEntryTargetTexts(entry).join("\n");
     targetInput.autocomplete = "off";
     targetInput.spellcheck = false;
     if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_LATEST_USER_PROMPT) {
@@ -3268,7 +3307,13 @@ function renderCustomAnalysisTocEntryEditor() {
         highlightState.taskTypeTocEntries = {
           ...highlightState.taskTypeTocEntries,
           [taskType]: getEditableCustomAnalysisTocEntries(taskType).map((candidate) => (
-            candidate.key === entry.key ? { ...candidate, targetText: targetInput.value } : candidate
+            candidate.key === entry.key
+              ? {
+                ...candidate,
+                targetText: normalizeStringList(targetInput.value)[0] ?? "",
+                targetTexts: normalizeStringList(targetInput.value),
+              }
+              : candidate
           )),
         };
         renderAnalysisTocSettings();

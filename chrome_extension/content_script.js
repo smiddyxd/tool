@@ -457,6 +457,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   const highlightSelectionEditorState = {
     selectedRuleId: "",
+    selectedTocEntryKey: "",
     mode: "match",
     selectionText: "",
     rangeRect: null,
@@ -491,6 +492,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     },
     latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
     taskTypeTocEntries: {},
+    textTargetCycles: {},
     hoveredSides: new Set(),
     collapsedSides: new Set(),
   };
@@ -586,9 +588,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return HARD_CODED_TOC_TASK_TYPE_KEYS.has(sanitizeServerControlTaskTypeKey(taskType));
   }
 
-  function sanitizeCustomAnalysisTocEntries(rawValue) {
+  function getBuiltInAnalysisTocEntryKeys(taskType = serverControlMenuState.currentTaskType) {
+    return isHardCodedAnalysisTocTaskType(taskType)
+      ? new Set(ANALYSIS_HEADING_ENTRIES.map((entry) => entry.key))
+      : new Set();
+  }
+
+  function sanitizeAnalysisTocTargetTexts(entry) {
+    const rawTargetTexts = Array.isArray(entry?.targetTexts)
+      ? entry.targetTexts
+      : [entry?.targetText ?? entry?.heading ?? ""];
+    return normalizeStringList(rawTargetTexts.map((value) => (
+      typeof value === "string" ? value.replace(/\s+/g, " ").trim() : ""
+    )));
+  }
+
+  function getAnalysisTocEntryTargetTexts(entry) {
+    return Array.isArray(entry?.targetTexts) && entry.targetTexts.length > 0
+      ? entry.targetTexts
+      : sanitizeAnalysisTocTargetTexts(entry);
+  }
+
+  function sanitizeCustomAnalysisTocEntries(rawValue, options = {}) {
     const sourceEntries = Array.isArray(rawValue) ? rawValue : [];
-    const usedKeys = new Set();
+    const usedKeys = new Set(options.reservedKeys instanceof Set ? options.reservedKeys : []);
     return sourceEntries
       .map((entry, index) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -610,7 +633,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           };
         }
 
-        const targetText = typeof entry.targetText === "string" ? entry.targetText.replace(/\s+/g, " ").trim() : "";
+        const targetTexts = sanitizeAnalysisTocTargetTexts(entry);
+        const targetText = targetTexts[0] ?? "";
         const label = sanitizeAnalysisTocButtonLabel(entry.label, targetText || `TOC ${index + 1}`);
         if (!targetText) {
           return null;
@@ -632,6 +656,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           heading: targetText,
           label,
           targetText,
+          targetTexts,
           type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
           index,
         };
@@ -644,20 +669,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return Object.fromEntries(
       SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((definition) => [
         definition.key,
-        isHardCodedAnalysisTocTaskType(definition.key)
-          ? []
-          : sanitizeCustomAnalysisTocEntries(source[definition.key]),
+        sanitizeCustomAnalysisTocEntries(source[definition.key], {
+          reservedKeys: getBuiltInAnalysisTocEntryKeys(definition.key),
+        }),
       ]),
     );
   }
 
   function getAnalysisTocEntries(taskType = serverControlMenuState.currentTaskType) {
     const sanitizedTaskType = sanitizeServerControlTaskTypeKey(taskType);
+    const customEntries = sanitizeCustomAnalysisTocEntries(analysisTocState.taskTypeTocEntries[sanitizedTaskType], {
+      reservedKeys: getBuiltInAnalysisTocEntryKeys(sanitizedTaskType),
+    });
     if (isHardCodedAnalysisTocTaskType(sanitizedTaskType)) {
-      return ANALYSIS_HEADING_ENTRIES;
+      return [
+        ...ANALYSIS_HEADING_ENTRIES,
+        ...customEntries.map((entry, index) => ({
+          ...entry,
+          index: ANALYSIS_HEADING_ENTRIES.length + index,
+        })),
+      ];
     }
 
-    return sanitizeCustomAnalysisTocEntries(analysisTocState.taskTypeTocEntries[sanitizedTaskType]);
+    return customEntries;
   }
 
   function getDefaultAnalysisTocButtonColors(entries = getAnalysisTocEntries()) {
@@ -1549,6 +1583,42 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
       }
 
+      .local-query-bridge-highlight-selection-toc {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 7px;
+        padding-top: 7px;
+        border-top: 1px solid rgba(148, 163, 184, 0.32);
+      }
+
+      .local-query-bridge-highlight-selection-toc label {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .local-query-bridge-highlight-selection-toc select {
+        min-width: 0;
+        width: 100%;
+        height: 34px;
+        border: 1px solid rgba(15, 23, 42, 0.22);
+        border-radius: 6px;
+        padding: 5px 8px;
+        background: #ffffff;
+        color: #111827;
+        font: 13px/1.3 "Segoe UI", system-ui, sans-serif;
+      }
+
+      .local-query-bridge-highlight-selection-toc-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+
       .local-query-bridge-highlight-selection-add {
         margin-left: auto;
         background: #2563eb !important;
@@ -1575,6 +1645,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return input instanceof HTMLInputElement ? input : null;
   }
 
+  function getHighlightSelectionEditorTocLabelInput() {
+    const input = getHighlightSelectionEditor()?.querySelector("[data-highlight-selection-toc-label]");
+    return input instanceof HTMLInputElement ? input : null;
+  }
+
+  function getHighlightSelectionEditorTocSelect() {
+    const select = getHighlightSelectionEditor()?.querySelector("[data-highlight-selection-toc-entry]");
+    return select instanceof HTMLSelectElement ? select : null;
+  }
+
   function setHighlightSelectionEditorStatus(message) {
     const status = getHighlightSelectionEditor()?.querySelector("[data-highlight-selection-status]");
     if (status instanceof HTMLElement) {
@@ -1584,6 +1664,56 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function getHighlightSelectionEditorRules() {
     return highlightState.rules;
+  }
+
+  function getEditableAnalysisTocStringEntries(taskType = serverControlMenuState.currentTaskType) {
+    const sanitizedTaskType = sanitizeServerControlTaskTypeKey(taskType);
+    return sanitizeCustomAnalysisTocEntries(analysisTocState.taskTypeTocEntries[sanitizedTaskType], {
+      reservedKeys: getBuiltInAnalysisTocEntryKeys(sanitizedTaskType),
+    }).filter((entry) => entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT);
+  }
+
+  function getDefaultTocLabelForSelectedText(value) {
+    const text = sanitizeAnalysisTocButtonLabel(value, "New TOC Button");
+    return text.length > 48 ? `${text.slice(0, 45)}...` : text;
+  }
+
+  function getHighlightSelectionEditorTocTargetText() {
+    const input = getHighlightSelectionEditorInput();
+    return typeof input?.value === "string"
+      ? input.value.replace(/\s+/g, " ").trim()
+      : "";
+  }
+
+  function renderHighlightSelectionEditorTocControls(editor) {
+    const select = editor.querySelector("[data-highlight-selection-toc-entry]");
+    const labelInput = editor.querySelector("[data-highlight-selection-toc-label]");
+    const existingButton = editor.querySelector('[data-highlight-selection-toc-command="add-existing"]');
+    if (!(select instanceof HTMLSelectElement) || !(labelInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const entries = getEditableAnalysisTocStringEntries();
+    if (!entries.some((entry) => entry.key === highlightSelectionEditorState.selectedTocEntryKey)) {
+      highlightSelectionEditorState.selectedTocEntryKey = entries[0]?.key ?? "";
+    }
+
+    select.replaceChildren();
+    for (const entry of entries) {
+      const option = document.createElement("option");
+      option.value = entry.key;
+      option.textContent = entry.label;
+      select.append(option);
+    }
+    select.value = highlightSelectionEditorState.selectedTocEntryKey;
+    select.disabled = entries.length === 0;
+    if (existingButton instanceof HTMLButtonElement) {
+      existingButton.disabled = entries.length === 0;
+    }
+
+    if (!labelInput.value.trim()) {
+      labelInput.value = getDefaultTocLabelForSelectedText(highlightSelectionEditorState.selectionText);
+    }
   }
 
   function syncHighlightSelectionEditorButtonStates() {
@@ -1619,6 +1749,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         ? "Toggle exclusion marker for the current matched-string line"
         : "Exclusion markers only apply to matched strings";
     }
+
+    renderHighlightSelectionEditorTocControls(editor);
   }
 
   function renderHighlightSelectionEditorRuleButtons(editor) {
@@ -1746,6 +1878,47 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       markerRow.append(button);
     }
 
+    const tocSection = document.createElement("div");
+    tocSection.className = "local-query-bridge-highlight-selection-toc";
+
+    const tocLabelControl = document.createElement("label");
+    tocLabelControl.textContent = "New TOC label";
+    const tocLabelInput = document.createElement("input");
+    tocLabelInput.type = "text";
+    tocLabelInput.autocomplete = "off";
+    tocLabelInput.spellcheck = false;
+    tocLabelInput.dataset.highlightSelectionTocLabel = "true";
+    tocLabelControl.append(tocLabelInput);
+
+    const tocEntryControl = document.createElement("label");
+    tocEntryControl.textContent = "Existing TOC";
+    const tocEntrySelect = document.createElement("select");
+    tocEntrySelect.dataset.highlightSelectionTocEntry = "true";
+    tocEntrySelect.addEventListener("change", () => {
+      highlightSelectionEditorState.selectedTocEntryKey = tocEntrySelect.value;
+      renderHighlightSelectionEditorTocControls(editor);
+    });
+    tocEntryControl.append(tocEntrySelect);
+
+    const tocActionRow = document.createElement("div");
+    tocActionRow.className = "local-query-bridge-highlight-selection-toc-actions";
+    const tocExistingButton = document.createElement("button");
+    tocExistingButton.type = "button";
+    tocExistingButton.textContent = "Add pattern";
+    tocExistingButton.dataset.highlightSelectionTocCommand = "add-existing";
+    tocExistingButton.addEventListener("click", () => {
+      void saveHighlightSelectionEditorTocPattern({ mode: "existing" });
+    });
+    const tocNewButton = document.createElement("button");
+    tocNewButton.type = "button";
+    tocNewButton.textContent = "New TOC";
+    tocNewButton.dataset.highlightSelectionTocCommand = "new";
+    tocNewButton.addEventListener("click", () => {
+      void saveHighlightSelectionEditorTocPattern({ mode: "new" });
+    });
+    tocActionRow.append(tocExistingButton, tocNewButton);
+    tocSection.append(tocLabelControl, tocEntryControl, tocActionRow);
+
     const actionRow = document.createElement("div");
     actionRow.className = "local-query-bridge-highlight-selection-actions";
     const closeButton = document.createElement("button");
@@ -1765,9 +1938,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     status.className = "local-query-bridge-highlight-selection-status";
     status.dataset.highlightSelectionStatus = "true";
 
-    editor.append(inputRow, rules, modeRow, markerRow, actionRow, status);
+    editor.append(inputRow, rules, modeRow, markerRow, tocSection, actionRow, status);
     document.body.append(editor);
     renderHighlightSelectionEditorRuleButtons(editor);
+    renderHighlightSelectionEditorTocControls(editor);
     return editor;
   }
 
@@ -1922,6 +2096,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     highlightSelectionEditorState.selectionText = selectionDetails.text;
     highlightSelectionEditorState.rangeRect = selectionDetails.rect;
     input.value = selectionDetails.text;
+    const tocLabelInput = getHighlightSelectionEditorTocLabelInput();
+    if (tocLabelInput instanceof HTMLInputElement) {
+      tocLabelInput.value = getDefaultTocLabelForSelectedText(selectionDetails.text);
+    }
     editor.classList.add(HIGHLIGHT_SELECTION_EDITOR_OPEN_CLASS);
     setHighlightSelectionEditorStatus(
       getHighlightSelectionEditorRules().length === 0
@@ -1929,6 +2107,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         : "Choose a color/rule and add as a matched string or adjacent term.",
     );
     syncHighlightSelectionEditorButtonStates();
+    renderHighlightSelectionEditorTocControls(editor);
     window.requestAnimationFrame(() => {
       positionHighlightSelectionEditor(editor, selectionDetails.rect);
     });
@@ -2170,6 +2349,113 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     } catch (error) {
       console.error("Local Query Bridge failed to save selected highlight text", error);
       setHighlightSelectionEditorStatus("Saving failed. Try again or use the options page.");
+    }
+  }
+
+  async function updateCurrentTaskTypeAnalysisTocEntries(updater) {
+    const taskType = sanitizeServerControlTaskTypeKey(serverControlMenuState.currentTaskType);
+    const stored = await chrome.storage.sync.get({
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: null,
+    });
+    const scopedEntries = sanitizeTaskTypeAnalysisTocEntriesMap(
+      stored[STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES],
+    );
+    const currentEntries = sanitizeCustomAnalysisTocEntries(scopedEntries[taskType], {
+      reservedKeys: getBuiltInAnalysisTocEntryKeys(taskType),
+    });
+    const nextEntries = sanitizeCustomAnalysisTocEntries(updater(currentEntries), {
+      reservedKeys: getBuiltInAnalysisTocEntryKeys(taskType),
+    });
+    const nextScopedEntries = {
+      ...scopedEntries,
+      [taskType]: nextEntries,
+    };
+
+    await chrome.storage.sync.set({
+      [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: nextScopedEntries,
+    });
+    analysisTocState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(nextScopedEntries);
+    return nextEntries;
+  }
+
+  async function saveHighlightSelectionEditorTocPattern(options = {}) {
+    const targetText = getHighlightSelectionEditorTocTargetText();
+    if (!targetText) {
+      setHighlightSelectionEditorStatus("Add text before saving a TOC pattern.");
+      getHighlightSelectionEditorInput()?.focus();
+      return;
+    }
+
+    const mode = options.mode === "existing" ? "existing" : "new";
+    const labelInput = getHighlightSelectionEditorTocLabelInput();
+    const requestedLabel = sanitizeAnalysisTocButtonLabel(
+      labelInput?.value,
+      getDefaultTocLabelForSelectedText(targetText),
+    );
+    const selectedEntryKey = getHighlightSelectionEditorTocSelect()?.value
+      || highlightSelectionEditorState.selectedTocEntryKey;
+    let savedEntryKey = selectedEntryKey;
+    let statusMessage = "";
+
+    try {
+      const nextEntries = await updateCurrentTaskTypeAnalysisTocEntries((entries) => {
+        if (mode === "existing") {
+          if (!selectedEntryKey) {
+            return entries;
+          }
+
+          return entries.map((entry) => {
+            if (entry.key !== selectedEntryKey) {
+              return entry;
+            }
+
+            const beforeTargets = getAnalysisTocEntryTargetTexts(entry);
+            const targetTexts = normalizeStringList([...beforeTargets, targetText]);
+            statusMessage = targetTexts.length === beforeTargets.length
+              ? `That pattern is already saved for ${entry.label}.`
+              : `Added TOC pattern to ${entry.label}.`;
+            return {
+              ...entry,
+              targetText: targetTexts[0] ?? entry.targetText,
+              targetTexts,
+            };
+          });
+        }
+
+        const usedKeys = new Set([
+          ...getBuiltInAnalysisTocEntryKeys(),
+          ...entries.map((entry) => entry.key),
+        ]);
+        savedEntryKey = makeUniqueServerControlConfigKey(
+          createServerControlConfigKey(requestedLabel || targetText, "toc"),
+          usedKeys,
+        );
+        statusMessage = `Created TOC button ${requestedLabel}.`;
+        return [
+          ...entries,
+          {
+            key: savedEntryKey,
+            label: requestedLabel,
+            targetText,
+            targetTexts: [targetText],
+            type: ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT,
+          },
+        ];
+      });
+
+      if (mode === "existing" && !nextEntries.some((entry) => entry.key === selectedEntryKey)) {
+        setHighlightSelectionEditorStatus("Choose an existing custom TOC button first.");
+        return;
+      }
+
+      highlightSelectionEditorState.selectedTocEntryKey = savedEntryKey;
+      await loadHighlightRules();
+      renderHighlightSelectionEditorTocControls(ensureHighlightSelectionEditor());
+      syncAnalysisTocButtonsForAssistantElement(getPreferredAnalysisTocAssistantElement());
+      setHighlightSelectionEditorStatus(statusMessage || "TOC pattern saved.");
+    } catch (error) {
+      console.error("Local Query Bridge failed to save selected TOC string", error);
+      setHighlightSelectionEditorStatus("Saving TOC pattern failed. Try again or use the options page.");
     }
   }
 
@@ -7043,6 +7329,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     analysisTocState.detectedHeadingKeys = new Set();
     analysisTocState.highlightRefreshAllowed = false;
     analysisTocState.responseCompletedRunId = 0;
+    analysisTocState.textTargetCycles = {};
     ensureAnalysisTocButtons();
     resetAnalysisTocButtonStates();
     setAnalysisTocButtonActive(LATEST_USER_PROMPT_TOC_KEY, getLatestUserMessage() instanceof HTMLElement);
@@ -7193,8 +7480,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const normalizeOptions = { caseSensitive: settings.caseSensitive === true };
 
     if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT) {
-      const targetText = normalizeAnalysisTargetText(entry.targetText ?? entry.heading, normalizeOptions);
-      return Boolean(targetText) && normalizeAnalysisTargetText(element.textContent ?? "", normalizeOptions).includes(targetText);
+      const elementText = normalizeAnalysisTargetText(element.textContent ?? "", normalizeOptions);
+      return getAnalysisTocEntryTargetTexts(entry).some((targetText) => {
+        const normalizedTargetText = normalizeAnalysisTargetText(targetText, normalizeOptions);
+        return Boolean(normalizedTargetText) && elementText.includes(normalizedTargetText);
+      });
     }
 
     if (entry.type === ANALYSIS_TOC_ENTRY_TYPE_HEADING) {
@@ -7223,6 +7513,136 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     return getAllAnalysisHeadingElements();
+  }
+
+  function getPreferredAnalysisTocAssistantElement() {
+    return analysisTocState.currentAssistantElement instanceof HTMLElement
+      ? analysisTocState.currentAssistantElement
+      : getLatestAssistantMessage();
+  }
+
+  function isAnalysisTocSkippedTextParent(parentElement) {
+    if (!(parentElement instanceof Element)) {
+      return true;
+    }
+
+    return Boolean(parentElement.closest([
+      `.${ANALYSIS_TOC_BUTTON_CLASS}`,
+      `.${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`,
+      `#${SERVER_CONTROL_MENU_ID}`,
+      `#${HIGHLIGHT_SELECTION_EDITOR_ID}`,
+      "script",
+      "style",
+      "noscript",
+      "textarea",
+      "input",
+      "select",
+      "option",
+      "svg",
+      "canvas",
+      "button",
+      "nav",
+      "aside",
+      "header",
+      "footer",
+      "[contenteditable]",
+      PROMPT_TEXTAREA_SELECTOR,
+    ].join(",")));
+  }
+
+  function getRangeViewportTop(range) {
+    if (!(range instanceof Range)) {
+      return null;
+    }
+
+    const rects = Array.from(range.getClientRects())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    const rect = rects[0] ?? range.getBoundingClientRect();
+    return rect && rect.height >= 0 ? rect.top : null;
+  }
+
+  function getAnalysisTocTextMatchRanges(entry, assistantElement) {
+    if (entry.type !== ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT || !(assistantElement instanceof HTMLElement)) {
+      return [];
+    }
+
+    const settings = getAnalysisTocButtonSettings(entry.key);
+    const caseSensitive = settings.caseSensitive === true;
+    const targets = getAnalysisTocEntryTargetTexts(entry)
+      .map((targetText) => {
+        const normalizedTargetText = normalizeAnalysisTargetText(targetText, { caseSensitive });
+        return normalizedTargetText
+          ? {
+            rawText: targetText,
+            needle: caseSensitive ? targetText : targetText.toLocaleLowerCase(),
+          }
+          : null;
+      })
+      .filter(Boolean);
+    if (targets.length === 0) {
+      return [];
+    }
+
+    const walker = document.createTreeWalker(assistantElement, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (isAnalysisTocSkippedTextParent(node.parentElement)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const matches = [];
+    let currentNode = walker.nextNode();
+
+    while (currentNode) {
+      const rawText = currentNode.nodeValue ?? "";
+      const haystack = caseSensitive ? rawText : rawText.toLocaleLowerCase();
+      const seenNodeRanges = new Set();
+      for (const target of targets) {
+        const needle = target.needle;
+        let searchIndex = 0;
+        while (needle && searchIndex <= haystack.length - needle.length) {
+          const matchIndex = haystack.indexOf(needle, searchIndex);
+          if (matchIndex < 0) {
+            break;
+          }
+
+          const matchKey = `${matches.length}:${matchIndex}:${matchIndex + needle.length}`;
+          const rangeKey = `${matchIndex}:${matchIndex + needle.length}`;
+          searchIndex = matchIndex + Math.max(needle.length, 1);
+          if (seenNodeRanges.has(rangeKey)) {
+            continue;
+          }
+          seenNodeRanges.add(rangeKey);
+
+          const range = document.createRange();
+          range.setStart(currentNode, matchIndex);
+          range.setEnd(currentNode, matchIndex + needle.length);
+          const viewportTop = getRangeViewportTop(range);
+          if (!Number.isFinite(viewportTop)) {
+            continue;
+          }
+
+          matches.push({
+            key: matchKey,
+            range,
+            viewportTop,
+            text: rawText.slice(matchIndex, matchIndex + needle.length),
+          });
+        }
+      }
+
+      currentNode = walker.nextNode();
+    }
+
+    return matches.sort((left, right) => (
+      left.viewportTop - right.viewportTop || left.range.startOffset - right.range.startOffset
+    ));
   }
 
   function getAnalysisHeadingCounts() {
@@ -7334,18 +7754,44 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getScrollTarget();
   }
 
+  function getScrollTargetForRange(range) {
+    if (!(range instanceof Range)) {
+      return getScrollTarget();
+    }
+
+    return getScrollTargetForElement(getElementFromSelectionNode(range.commonAncestorContainer));
+  }
+
+  function getAnalysisTocTargetScrollDeltaForViewportTop(viewportTop, headingKey, scrollTarget) {
+    if (!Number.isFinite(viewportTop)) {
+      return null;
+    }
+
+    const containerTop = getScrollTargetViewportTop(scrollTarget);
+    return viewportTop - containerTop + getAnalysisTocButtonOffset(headingKey);
+  }
+
   function getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey, scrollTarget = getScrollTargetForElement(targetElement)) {
     if (!(targetElement instanceof HTMLElement)) {
       return null;
     }
 
-    const targetRect = targetElement.getBoundingClientRect();
-    const containerTop = getScrollTargetViewportTop(scrollTarget);
-    return targetRect.top - containerTop + getAnalysisTocButtonOffset(headingKey);
+    return getAnalysisTocTargetScrollDeltaForViewportTop(
+      targetElement.getBoundingClientRect().top,
+      headingKey,
+      scrollTarget,
+    );
   }
 
-  function applyAnalysisTocTargetScrollPosition(targetElement, headingKey, scrollTarget = getScrollTargetForElement(targetElement)) {
-    const deltaPx = getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey, scrollTarget);
+  function getAnalysisTocTargetScrollDeltaForRange(range, headingKey, scrollTarget = getScrollTargetForRange(range)) {
+    return getAnalysisTocTargetScrollDeltaForViewportTop(
+      getRangeViewportTop(range),
+      headingKey,
+      scrollTarget,
+    );
+  }
+
+  function applyAnalysisTocScrollDelta(deltaPx, scrollTarget) {
     if (!Number.isFinite(deltaPx)) {
       return false;
     }
@@ -7370,6 +7816,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return true;
   }
 
+  function applyAnalysisTocTargetScrollPosition(targetElement, headingKey, scrollTarget = getScrollTargetForElement(targetElement)) {
+    return applyAnalysisTocScrollDelta(
+      getAnalysisTocTargetScrollDeltaForElement(targetElement, headingKey, scrollTarget),
+      scrollTarget,
+    );
+  }
+
+  function applyAnalysisTocRangeScrollPosition(range, headingKey, scrollTarget = getScrollTargetForRange(range)) {
+    return applyAnalysisTocScrollDelta(
+      getAnalysisTocTargetScrollDeltaForRange(range, headingKey, scrollTarget),
+      scrollTarget,
+    );
+  }
+
   function scheduleAnalysisTocScrollPositionCorrection(targetElement, headingKey, scrollTarget) {
     let remainingFrames = 2;
     const correctPosition = () => {
@@ -7387,7 +7847,63 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     window.requestAnimationFrame(correctPosition);
   }
 
+  function scheduleAnalysisTocRangeScrollPositionCorrection(range, headingKey, scrollTarget) {
+    const targetRange = range instanceof Range ? range.cloneRange() : null;
+    if (!(targetRange instanceof Range)) {
+      return;
+    }
+
+    let remainingFrames = 2;
+    const correctPosition = () => {
+      if (!document.contains(targetRange.startContainer)) {
+        return;
+      }
+
+      applyAnalysisTocRangeScrollPosition(targetRange, headingKey, scrollTarget);
+      remainingFrames -= 1;
+      if (remainingFrames > 0) {
+        window.requestAnimationFrame(correctPosition);
+      }
+    };
+
+    window.requestAnimationFrame(correctPosition);
+  }
+
+  function scrollToAnalysisTocTextTarget(entry) {
+    const assistantElement = getPreferredAnalysisTocAssistantElement();
+    if (!(assistantElement instanceof HTMLElement)) {
+      return false;
+    }
+
+    const matches = getAnalysisTocTextMatchRanges(entry, assistantElement);
+    if (matches.length === 0) {
+      return false;
+    }
+
+    const signature = `${entry.key}:${matches.length}:${assistantElement.textContent?.length ?? 0}`;
+    const previousCycle = analysisTocState.textTargetCycles[entry.key];
+    const nextIndex = previousCycle?.assistantElement === assistantElement && previousCycle.signature === signature
+      ? (previousCycle.index + 1) % matches.length
+      : 0;
+    const match = matches[nextIndex];
+    analysisTocState.textTargetCycles[entry.key] = {
+      assistantElement,
+      signature,
+      index: nextIndex,
+    };
+
+    const scrollTarget = getScrollTargetForRange(match.range);
+    const didScroll = applyAnalysisTocRangeScrollPosition(match.range, entry.key, scrollTarget);
+    scheduleAnalysisTocRangeScrollPositionCorrection(match.range, entry.key, scrollTarget);
+    return didScroll;
+  }
+
   function scrollToAnalysisTocTarget(headingKey) {
+    const entry = getAnalysisTocEntries().find((candidate) => candidate.key === headingKey);
+    if (entry?.type === ANALYSIS_TOC_ENTRY_TYPE_CUSTOM_TEXT && scrollToAnalysisTocTextTarget(entry)) {
+      return true;
+    }
+
     const targetElement = findLatestAnalysisTocElement(headingKey);
     if (!(targetElement instanceof HTMLElement)) {
       return false;
@@ -7492,6 +8008,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     analysisTocState.detectedHeadingKeys = new Set();
     analysisTocState.highlightRefreshAllowed = false;
     analysisTocState.responseCompletedRunId = 0;
+    analysisTocState.textTargetCycles = {};
     syncAnalysisTocButtonsForAssistantElement(latestAssistantElement);
     refreshHighlightsNow();
 
