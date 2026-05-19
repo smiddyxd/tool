@@ -3,6 +3,7 @@ const BRIDGE_BASE_URL = "http://192.168.0.34:62041";
 const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
 const REPEAT_CAPTURE_URL = `${BRIDGE_BASE_URL}/b`;
 const CONTROL_COMMAND_URL = `${BRIDGE_BASE_URL}/c`;
+const TASK_TYPE_COUNTS_URL = `${BRIDGE_BASE_URL}/d`;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
@@ -92,6 +93,7 @@ const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE = "activateCurrentChat";
 const CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE = "serverControlMenuCommand";
 const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
+const CONTENT_SCRIPT_TASK_TYPE_COUNTS_TYPE = "getBridgeTaskTypeCounts";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -159,6 +161,11 @@ function forgetControlRunTab(runId) {
 
 function isTerminalControlStatusType(statusType) {
   return statusType === "response-complete" || statusType === "cancel" || statusType === "error";
+}
+
+function sanitizeTaskTypeCountSpan(value) {
+  const span = typeof value === "string" ? value.trim() : "";
+  return ["day", "week", "month"].includes(span) ? span : "day";
 }
 
 function maybeLogHandshake() {
@@ -1634,6 +1641,38 @@ async function fetchRepeatCapturePayload() {
   }
 }
 
+async function fetchTaskTypeCounts(span = "day") {
+  const normalizedSpan = sanitizeTaskTypeCountSpan(span);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${TASK_TYPE_COUNTS_URL}?span=${encodeURIComponent(normalizedSpan)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Task count response not ok: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return {
+      ok: payload?.ok !== false,
+      span: sanitizeTaskTypeCountSpan(payload?.span ?? normalizedSpan),
+      counts: payload?.counts && typeof payload.counts === "object" && !Array.isArray(payload.counts)
+        ? payload.counts
+        : {},
+      since: typeof payload?.since === "string" ? payload.since : "",
+      until: typeof payload?.until === "string" ? payload.until : "",
+      skippedRows: Number.isFinite(payload?.skippedRows) ? payload.skippedRows : 0,
+      error: typeof payload?.error === "string" ? payload.error : "",
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function decodeOptionalEventTaskType(payload, field = "e") {
   const taskType = xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
   return taskType ? sanitizeBridgeTaskType(taskType) : "";
@@ -2482,6 +2521,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((error) => {
         console.warn("Local Query Bridge server control command failed", error);
         sendResponse({ ok: false, error: `${error}` });
+      });
+    return true;
+  }
+
+  if (message?.type === CONTENT_SCRIPT_TASK_TYPE_COUNTS_TYPE) {
+    void fetchTaskTypeCounts(message.span)
+      .then((result) => sendResponse(result))
+      .catch((error) => {
+        console.warn("Local Query Bridge task type count fetch failed", error);
+        sendResponse({
+          ok: false,
+          span: sanitizeTaskTypeCountSpan(message.span),
+          counts: {},
+          error: `${error}`,
+        });
       });
     return true;
   }

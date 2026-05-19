@@ -8,7 +8,7 @@ import time
 from collections import deque
 from ctypes import wintypes
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ HTTP_PORT = 62041
 EVENT_ENDPOINT_PATH = "/a"
 REPEAT_CAPTURE_ENDPOINT_PATH = "/b"
 CONTROL_COMMAND_ENDPOINT_PATH = "/c"
+TASK_TYPE_COUNTS_ENDPOINT_PATH = "/d"
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -240,6 +241,52 @@ class TaskTypeCounterStore:
             with self.history_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(event, ensure_ascii=False) + "\n")
         return total
+
+    def get_counts(self, span: str) -> dict[str, Any]:
+        normalized_span = span if span in {"day", "week", "month"} else "day"
+        now = datetime.now()
+        if normalized_span == "day":
+            since = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif normalized_span == "week":
+            since = now - timedelta(days=7)
+        else:
+            since = now - timedelta(days=30)
+
+        counts: dict[str, int] = {}
+        skipped = 0
+        with self.lock:
+            if self.history_path.exists():
+                try:
+                    with self.history_path.open("r", encoding="utf-8") as handle:
+                        for line in handle:
+                            try:
+                                event = json.loads(line)
+                                timestamp = datetime.fromisoformat(str(event.get("timestamp", "")))
+                                if timestamp.tzinfo is not None:
+                                    timestamp = timestamp.astimezone().replace(tzinfo=None)
+                                task_type = clean_ocr_text(str(event.get("task_type", ""))) or "Unknown"
+                            except (TypeError, ValueError, json.JSONDecodeError):
+                                skipped += 1
+                                continue
+
+                            if timestamp >= since:
+                                counts[task_type] = counts.get(task_type, 0) + 1
+                except OSError as exc:
+                    return {
+                        "ok": False,
+                        "span": normalized_span,
+                        "error": str(exc),
+                        "counts": {},
+                    }
+
+        return {
+            "ok": True,
+            "span": normalized_span,
+            "since": since.isoformat(timespec="seconds"),
+            "until": now.isoformat(timespec="seconds"),
+            "counts": counts,
+            "skippedRows": skipped,
+        }
 
 
 TASK_TYPE_COUNTERS = TaskTypeCounterStore(TASK_TYPE_COUNTS_PATH, TASK_TYPE_HISTORY_PATH)
@@ -701,6 +748,12 @@ def add_cors_headers(response: Response) -> Response:
 def get_pending_task() -> Any:
     maybe_log_handshake()
     return jsonify(STATE.consume_event())
+
+
+@app.get(TASK_TYPE_COUNTS_ENDPOINT_PATH)
+def get_task_type_counts() -> Any:
+    span = sanitize_control_command_field(request.args.get("span") or "day", 20)
+    return jsonify(TASK_TYPE_COUNTERS.get_counts(span))
 
 
 @app.get(REPEAT_CAPTURE_ENDPOINT_PATH)

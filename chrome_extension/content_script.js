@@ -119,6 +119,7 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_MENU_STYLE_ID = "local-query-bridge-server-control-menu-styles";
   const SERVER_CONTROL_MENU_OPEN_CLASS = "local-query-bridge-server-control-menu-open";
   const SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS = "local-query-bridge-server-control-button-active";
+  const SERVER_CONTROL_TASK_COUNT_SPAN_ACTIVE_CLASS = "local-query-bridge-server-control-count-span-active";
   const SERVER_CONTROL_STATUS_LOG_ID = "local-query-bridge-server-control-status-log";
   const SERVER_CONTROL_STATUS_LOG_STYLE_ID = "local-query-bridge-server-control-status-log-styles";
   const SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS = "local-query-bridge-server-control-status-log-expanded";
@@ -147,6 +148,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
+  const STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN = "serverControlTaskCountTimespan";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -157,6 +159,14 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_REGION_SAVE_DEBOUNCE_MS = 250;
   const SERVER_CONTROL_REGION_COORDINATE_MIN = -100000;
   const SERVER_CONTROL_REGION_COORDINATE_MAX = 100000;
+  const SERVER_CONTROL_TASK_COUNT_MESSAGE_TYPE = "getBridgeTaskTypeCounts";
+  const SERVER_CONTROL_TASK_COUNT_DEFAULT_TIMESPAN = "day";
+  const SERVER_CONTROL_TASK_COUNT_REFRESH_MS = 15000;
+  const SERVER_CONTROL_TASK_COUNT_TIMESPANS = [
+    { key: "week", label: "W", title: "Past week" },
+    { key: "day", label: "D", title: "Today" },
+    { key: "month", label: "M", title: "Past month" },
+  ];
   const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
   const SERVER_CONTROL_PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
   const SERVER_CONTROL_PROJECT_ACCOUNT_DEFINITIONS = [
@@ -509,6 +519,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
     statusLogWidthPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
     statusLogLeftPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
+    taskCountTimespan: SERVER_CONTROL_TASK_COUNT_DEFAULT_TIMESPAN,
+    taskCounts: {},
+    taskCountsLoading: false,
+    taskCountsLoadedAt: 0,
+    taskCountsError: "",
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -4434,6 +4449,54 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         gap: 8px;
       }
 
+      .local-query-bridge-server-control-task-type-header {
+        display: grid;
+        grid-template-columns: minmax(4ch, max-content) minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .local-query-bridge-server-control-count-header {
+        min-width: 4ch;
+        color: #64748b;
+        font: 800 11px/1 "Segoe UI", system-ui, sans-serif;
+        text-align: right;
+        text-transform: uppercase;
+      }
+
+      .local-query-bridge-server-control-count-span-bar {
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .local-query-bridge-server-control-count-span-button {
+        min-width: 28px;
+        min-height: 30px;
+        border: 0;
+        border-right: 1px solid rgba(51, 65, 85, 0.16);
+        background: #ffffff;
+        color: #334155;
+        cursor: pointer;
+        font: 800 11px/1 "Segoe UI", system-ui, sans-serif;
+        padding: 7px 8px;
+      }
+
+      .local-query-bridge-server-control-count-span-button:last-child {
+        border-right: 0;
+      }
+
+      .local-query-bridge-server-control-count-span-button:hover {
+        background: #eff6ff;
+      }
+
+      .local-query-bridge-server-control-count-span-button.${SERVER_CONTROL_TASK_COUNT_SPAN_ACTIVE_CLASS} {
+        background: #1d4ed8;
+        color: #ffffff;
+      }
+
       .local-query-bridge-server-control-project-toggle {
         min-width: 42px;
         min-height: 30px;
@@ -4630,6 +4693,36 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .local-query-bridge-server-control-column-button {
         width: 100%;
         min-width: 0;
+      }
+
+      .local-query-bridge-server-control-task-type-button {
+        display: grid;
+        grid-template-columns: minmax(4ch, max-content) minmax(0, 1fr);
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+      }
+
+      .local-query-bridge-server-control-task-count {
+        min-width: 4ch;
+        display: grid;
+        place-items: center end;
+        padding: 8px 8px 8px 6px;
+        border-right: 1px solid rgba(51, 65, 85, 0.12);
+        color: #475569;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-server-control-task-label {
+        min-width: 0;
+        display: grid;
+        align-items: center;
+        padding: 8px 11px;
+        overflow-wrap: anywhere;
       }
 
       .local-query-bridge-server-control-action-column {
@@ -5220,6 +5313,67 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return text || fallback;
   }
 
+  function sanitizeServerControlTaskCountTimespan(value) {
+    const timespan = typeof value === "string" ? value.trim() : "";
+    return SERVER_CONTROL_TASK_COUNT_TIMESPANS.some((entry) => entry.key === timespan)
+      ? timespan
+      : SERVER_CONTROL_TASK_COUNT_DEFAULT_TIMESPAN;
+  }
+
+  function normalizeServerControlTaskCountKey(value) {
+    return (typeof value === "string" ? value : "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function getDefaultServerControlTaskTypeDefinition(taskTypeKey) {
+    return DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS.find((definition) => definition.key === taskTypeKey) ?? null;
+  }
+
+  function getServerControlTaskCountMap() {
+    const counts = serverControlMenuState.taskCounts
+      && typeof serverControlMenuState.taskCounts === "object"
+      && !Array.isArray(serverControlMenuState.taskCounts)
+      ? serverControlMenuState.taskCounts
+      : {};
+    const countMap = new Map();
+    for (const [rawKey, rawValue] of Object.entries(counts)) {
+      const key = normalizeServerControlTaskCountKey(rawKey);
+      const value = Number.parseInt(`${rawValue}`, 10);
+      if (key && Number.isFinite(value)) {
+        countMap.set(key, value);
+      }
+    }
+    return countMap;
+  }
+
+  function getServerControlTaskCount(taskDefinition, countMap = getServerControlTaskCountMap()) {
+    if (!taskDefinition) {
+      return 0;
+    }
+
+    const defaultDefinition = getDefaultServerControlTaskTypeDefinition(taskDefinition.key);
+    const candidateKeys = [
+      taskDefinition.label,
+      defaultDefinition?.label,
+      taskDefinition.key,
+    ]
+      .map(normalizeServerControlTaskCountKey)
+      .filter(Boolean);
+
+    for (const key of candidateKeys) {
+      if (countMap.has(key)) {
+        return countMap.get(key);
+      }
+    }
+
+    return 0;
+  }
+
   function createServerControlConfigKey(value, fallbackPrefix = "task") {
     const rawValue = typeof value === "string" ? value : "";
     const normalized = rawValue
@@ -5801,6 +5955,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: sanitizeServerControlZoneDividerLength(
           serverControlMenuState.zoneDividerBottomLengthPx,
         ),
+        [STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN]: sanitizeServerControlTaskCountTimespan(
+          serverControlMenuState.taskCountTimespan,
+        ),
       });
     } catch (error) {
       console.warn("Local Query Bridge failed to persist server control menu settings", error);
@@ -5819,6 +5976,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
         STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH,
         STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
+        STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN,
       ]);
       applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]);
 
@@ -5846,6 +6004,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       serverControlMenuState.zoneDividerBottomLengthPx = sanitizeServerControlZoneDividerLength(
         stored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH],
       );
+      serverControlMenuState.taskCountTimespan = sanitizeServerControlTaskCountTimespan(
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN],
+      );
       syncServerControlTaskTypeControls();
       syncServerControlActionControls();
       syncServerControlRegionControls();
@@ -5853,6 +6014,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       void loadHighlightRules().catch((error) => {
         console.error("Local Query Bridge scoped highlight/TOC setting load failed", error);
       });
+      void refreshServerControlTaskCounts(true);
     } catch (error) {
       console.warn("Local Query Bridge failed to load server control menu settings", error);
     }
@@ -6005,6 +6167,62 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     setServerControlMenuStatus(getServerControlMenuStatusText());
   }
 
+  async function refreshServerControlTaskCounts(force = false) {
+    const now = Date.now();
+    if (
+      serverControlMenuState.taskCountsLoading
+      || (
+        !force
+        && serverControlMenuState.taskCountsLoadedAt > 0
+        && now - serverControlMenuState.taskCountsLoadedAt < SERVER_CONTROL_TASK_COUNT_REFRESH_MS
+      )
+    ) {
+      return;
+    }
+
+    serverControlMenuState.taskCountsLoading = true;
+    serverControlMenuState.taskCountsError = "";
+    syncServerControlTaskTypeControls();
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: SERVER_CONTROL_TASK_COUNT_MESSAGE_TYPE,
+        span: serverControlMenuState.taskCountTimespan,
+      });
+      if (response?.ok !== true) {
+        throw new Error(response?.error || "Task counts were not available");
+      }
+
+      serverControlMenuState.taskCountTimespan = sanitizeServerControlTaskCountTimespan(response.span);
+      serverControlMenuState.taskCounts = response.counts
+        && typeof response.counts === "object"
+        && !Array.isArray(response.counts)
+        ? response.counts
+        : {};
+      serverControlMenuState.taskCountsLoadedAt = Date.now();
+    } catch (error) {
+      serverControlMenuState.taskCountsError = `${error}`;
+      console.warn("Local Query Bridge failed to refresh task type counts", error);
+    } finally {
+      serverControlMenuState.taskCountsLoading = false;
+      syncServerControlTaskTypeControls();
+    }
+  }
+
+  function setServerControlTaskCountTimespan(timespan) {
+    const nextTimespan = sanitizeServerControlTaskCountTimespan(timespan);
+    if (serverControlMenuState.taskCountTimespan === nextTimespan) {
+      void refreshServerControlTaskCounts(true);
+      return;
+    }
+
+    serverControlMenuState.taskCountTimespan = nextTimespan;
+    serverControlMenuState.taskCountsLoadedAt = 0;
+    scheduleServerControlMenuSettingsPersist();
+    syncServerControlTaskTypeControls();
+    void refreshServerControlTaskCounts(true);
+  }
+
   function syncServerControlMenuButtonStates() {
     syncServerControlTaskTypeControls();
     syncServerControlActionControls();
@@ -6022,14 +6240,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const taskBar = menu.querySelector("[data-control-task-type-bar]");
     if (taskBar instanceof HTMLElement) {
       taskBar.replaceChildren();
+      const countMap = getServerControlTaskCountMap();
       for (const taskDefinition of SERVER_CONTROL_TASK_TYPE_DEFINITIONS) {
         const button = document.createElement("button");
-        button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button";
+        button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-column-button local-query-bridge-server-control-task-type-button";
         button.type = "button";
-        button.textContent = taskDefinition.label;
         button.dataset.command = "set_task_type";
         button.dataset.value = taskDefinition.key;
         button.dataset.controlTaskTypeKey = taskDefinition.key;
+
+        const count = document.createElement("span");
+        count.className = "local-query-bridge-server-control-task-count";
+        count.dataset.controlTaskTypeCount = taskDefinition.key;
+        count.textContent = serverControlMenuState.taskCountsLoading
+          ? "..."
+          : `${getServerControlTaskCount(taskDefinition, countMap)}`;
+        count.title = serverControlMenuState.taskCountsError
+          ? `Count unavailable: ${serverControlMenuState.taskCountsError}`
+          : `${taskDefinition.label} count`;
+
+        const label = document.createElement("span");
+        label.className = "local-query-bridge-server-control-task-label";
+        label.textContent = taskDefinition.label;
+
         button.addEventListener("click", () => {
           void sendServerControlMenuCommand(
             {
@@ -6041,8 +6274,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
             button,
           );
         });
+        button.append(count, label);
         taskBar.append(button);
       }
+    }
+
+    for (const button of menu.querySelectorAll("[data-control-task-count-timespan]")) {
+      if (!(button instanceof HTMLButtonElement)) {
+        continue;
+      }
+
+      const isActive = button.dataset.controlTaskCountTimespan === serverControlMenuState.taskCountTimespan;
+      button.classList.toggle(SERVER_CONTROL_TASK_COUNT_SPAN_ACTIVE_CLASS, isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      button.disabled = serverControlMenuState.taskCountsLoading && isActive;
     }
 
     for (const button of menu.querySelectorAll("[data-control-task-type-key]")) {
@@ -6478,7 +6723,40 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function createServerControlTaskTypeColumn() {
-    const column = createServerControlColumn("Task types", createServerControlProjectControls());
+    const column = document.createElement("section");
+    column.className = "local-query-bridge-server-control-column";
+
+    const header = document.createElement("div");
+    header.className = "local-query-bridge-server-control-column-header local-query-bridge-server-control-task-type-header";
+
+    const countHeader = document.createElement("span");
+    countHeader.className = "local-query-bridge-server-control-count-header";
+    countHeader.textContent = "Nr";
+
+    const title = document.createElement("h2");
+    title.className = "local-query-bridge-server-control-group-title";
+    title.textContent = "Task types";
+
+    const timespanBar = document.createElement("div");
+    timespanBar.className = "local-query-bridge-server-control-count-span-bar";
+    timespanBar.dataset.controlTaskCountTimespanBar = "true";
+
+    for (const timespan of SERVER_CONTROL_TASK_COUNT_TIMESPANS) {
+      const button = document.createElement("button");
+      button.className = "local-query-bridge-server-control-count-span-button";
+      button.type = "button";
+      button.textContent = timespan.label;
+      button.title = `${timespan.title} task counts`;
+      button.dataset.controlTaskCountTimespan = timespan.key;
+      button.addEventListener("click", () => {
+        setServerControlTaskCountTimespan(timespan.key);
+      });
+      timespanBar.append(button);
+    }
+
+    header.append(countHeader, title, timespanBar, createServerControlProjectControls());
+    column.append(header);
+
     const bar = createServerControlSegmentBar();
     bar.dataset.controlTaskTypeBar = "true";
 
@@ -6644,6 +6922,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     menu.classList.add(SERVER_CONTROL_MENU_OPEN_CLASS);
     menu.setAttribute("aria-hidden", "false");
     updateServerControlStatusLogPosition();
+    void refreshServerControlTaskCounts();
   }
 
   function hideServerControlMenu(reason) {
@@ -6689,6 +6968,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]
       || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]
       || changes[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]
+      || changes[STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN]
     )) {
       void loadServerControlMenuSettings().then(loadServerControlProjectSettings);
       return;

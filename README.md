@@ -73,14 +73,19 @@ Current primary-PC LAN endpoint:
 - `http://192.168.0.34:62041/a`
 - `http://192.168.0.34:62041/b`
 - `http://192.168.0.34:62041/c`
+- `http://192.168.0.34:62041/d`
 
 Local endpoint on the same PC:
 - `http://127.0.0.1:62041/a`
 - `http://127.0.0.1:62041/b`
 - `http://127.0.0.1:62041/c`
+- `http://127.0.0.1:62041/d`
 
 Current JSON contract:
 - `GET /a`: extension polling endpoint
+- `GET /b`: repeat screenshot capture endpoint
+- `POST /c`: bridge-control command endpoint
+- `GET /d?span=day|week|month`: task-type count endpoint for bridge-control `D`/`W`/`M` counters
 - `d`: XOR+hex event type (`task`, `text_task`, `alert_task`, or `scroll`)
 - task events:
   - `a`: XOR+hex task counter string
