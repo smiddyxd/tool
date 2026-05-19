@@ -58,8 +58,14 @@ Base everything strictly on the screenshot attachment.`;
   const ANALYSIS_TOC_BUTTON_ACTIVE_CLASS = "local-query-bridge-analysis-toc-button-active";
   const ANALYSIS_TOC_TOGGLE_BUTTON_CLASS = "local-query-bridge-analysis-toc-toggle-button";
   const ANALYSIS_TOC_TOGGLE_BUTTON_ID_PREFIX = "local-query-bridge-analysis-toc-toggle";
+  const ANALYSIS_TOC_COLUMN_SHIELD_CLASS = "local-query-bridge-analysis-toc-column-shield";
+  const ANALYSIS_TOC_COLUMN_SHIELD_ID_PREFIX = "local-query-bridge-analysis-toc-shield";
   const ANALYSIS_TOC_STYLE_ID = "local-query-bridge-analysis-toc-styles";
   const ANALYSIS_TOC_GAP_PX = 30;
+  const ANALYSIS_TOC_COLUMN_SHIELD_WIDTH_PX = 252;
+  const ANALYSIS_TOC_COLUMN_SHIELD_HORIZONTAL_PADDING_PX = 10;
+  const ANALYSIS_TOC_COLUMN_SHIELD_VERTICAL_PADDING_PX = 18;
+  const ANALYSIS_TOC_COLUMN_SHIELD_CONTROL_HEIGHT_PX = 28;
   const ANALYSIS_TOC_DEFAULT_LEFT_X_PX = 224;
   const ANALYSIS_TOC_DEFAULT_RIGHT_INSET_PX = 18;
   const ANALYSIS_TOC_MIN_COLUMN_POSITION_PX = 0;
@@ -3738,6 +3744,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         outline: 3px solid rgba(15, 23, 42, 0.18);
         outline-offset: 2px;
       }
+
+      .${ANALYSIS_TOC_COLUMN_SHIELD_CLASS} {
+        position: fixed;
+        z-index: 2147483646;
+        display: block;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.08);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(1px);
+        pointer-events: auto;
+        transition: opacity 120ms ease, background-color 120ms ease;
+      }
     `;
     document.documentElement.append(style);
   }
@@ -3756,9 +3775,56 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return button instanceof HTMLButtonElement ? button : null;
   }
 
+  function getAnalysisTocColumnShieldId(side) {
+    return `${ANALYSIS_TOC_COLUMN_SHIELD_ID_PREFIX}-${side}`;
+  }
+
+  function getAnalysisTocColumnShield(side) {
+    const element = document.getElementById(getAnalysisTocColumnShieldId(side));
+    return element instanceof HTMLElement ? element : null;
+  }
+
+  function handleAnalysisTocColumnShieldPointerEvent(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function bindAnalysisTocColumnShieldPointerCapture(element) {
+    if (element.dataset.tocShieldCaptureBound === "true") {
+      return;
+    }
+
+    element.dataset.tocShieldCaptureBound = "true";
+    for (const eventName of ["pointerdown", "mousedown", "mouseup", "click", "dblclick", "contextmenu"]) {
+      element.addEventListener(eventName, handleAnalysisTocColumnShieldPointerEvent, true);
+    }
+  }
+
+  function ensureAnalysisTocColumnShield(side) {
+    let element = getAnalysisTocColumnShield(side);
+    if (element instanceof HTMLElement) {
+      return element;
+    }
+
+    element = document.createElement("div");
+    element.id = getAnalysisTocColumnShieldId(side);
+    element.className = ANALYSIS_TOC_COLUMN_SHIELD_CLASS;
+    element.dataset.tocSide = side;
+    element.hidden = true;
+    element.setAttribute("aria-hidden", "true");
+    bindAnalysisTocColumnShieldPointerCapture(element);
+    bindAnalysisTocColumnHover(element);
+    document.body.append(element);
+    return element;
+  }
+
+  function ensureAnalysisTocColumnShields() {
+    ensureAnalysisTocColumnShield(ANALYSIS_TOC_SIDE_LEFT);
+  }
+
   function getAnalysisTocColumnElements(side) {
     return Array.from(document.querySelectorAll(
-      `.${ANALYSIS_TOC_BUTTON_CLASS}[data-toc-side="${side}"], .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}[data-toc-side="${side}"]`,
+      `.${ANALYSIS_TOC_BUTTON_CLASS}[data-toc-side="${side}"], .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}[data-toc-side="${side}"], .${ANALYSIS_TOC_COLUMN_SHIELD_CLASS}[data-toc-side="${side}"]`,
     )).filter((element) => element instanceof HTMLElement);
   }
 
@@ -3767,7 +3833,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return null;
     }
 
-    const element = target.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}`);
+    const element = target.closest(`.${ANALYSIS_TOC_BUTTON_CLASS}, .${ANALYSIS_TOC_TOGGLE_BUTTON_CLASS}, .${ANALYSIS_TOC_COLUMN_SHIELD_CLASS}`);
     return element instanceof HTMLElement ? element : null;
   }
 
@@ -3896,6 +3962,52 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     applyAnalysisTocColumnSidePosition(button, side);
   }
 
+  function applyAnalysisTocLeftColumnShield(entries, buttonMidpoint, scaledGapPx, isCollapsed) {
+    const shield = getAnalysisTocColumnShield(ANALYSIS_TOC_SIDE_LEFT);
+    if (!(shield instanceof HTMLElement)) {
+      return;
+    }
+
+    const shouldShow = entries.length > 0 && !isCollapsed;
+    shield.hidden = !shouldShow;
+    if (!shouldShow) {
+      return;
+    }
+
+    const columnPositions = getAnalysisTocColumnPositions();
+    const scale = getAnalysisTocColumnScale(ANALYSIS_TOC_SIDE_LEFT);
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const centerY = viewportHeight / 2;
+    const toggleOffsetPx = -(buttonMidpoint + 1) * scaledGapPx;
+    const firstButtonOffsetPx = entries.length > 0 ? -buttonMidpoint * scaledGapPx : 0;
+    const lastButtonOffsetPx = entries.length > 0 ? (entries.length - 1 - buttonMidpoint) * scaledGapPx : 0;
+    const topCenterPx = Math.min(toggleOffsetPx, firstButtonOffsetPx, lastButtonOffsetPx);
+    const bottomCenterPx = Math.max(toggleOffsetPx, firstButtonOffsetPx, lastButtonOffsetPx);
+    const topPx = Math.max(
+      0,
+      centerY + topCenterPx - ANALYSIS_TOC_COLUMN_SHIELD_CONTROL_HEIGHT_PX - ANALYSIS_TOC_COLUMN_SHIELD_VERTICAL_PADDING_PX,
+    );
+    const bottomPx = Math.min(
+      viewportHeight,
+      centerY + bottomCenterPx + ANALYSIS_TOC_COLUMN_SHIELD_CONTROL_HEIGHT_PX + ANALYSIS_TOC_COLUMN_SHIELD_VERTICAL_PADDING_PX,
+    );
+    const leftPx = Math.max(0, columnPositions.leftPx - ANALYSIS_TOC_COLUMN_SHIELD_HORIZONTAL_PADDING_PX);
+    const maxWidthPx = Math.max(0, viewportWidth - leftPx);
+    const widthPx = Math.min(
+      maxWidthPx,
+      Math.max(44, ANALYSIS_TOC_COLUMN_SHIELD_WIDTH_PX * scale),
+    );
+
+    shield.style.left = `${leftPx}px`;
+    shield.style.right = "auto";
+    shield.style.top = `${topPx}px`;
+    shield.style.width = `${widthPx}px`;
+    shield.style.height = `${Math.max(0, bottomPx - topPx)}px`;
+    shield.style.setProperty("--local-query-bridge-analysis-toc-scale", String(scale));
+    shield.dataset.tocSide = ANALYSIS_TOC_SIDE_LEFT;
+  }
+
   function applyAnalysisTocButtonLabel(button, headingKey) {
     const label = getAnalysisTocButtonLabel(headingKey);
     button.textContent = label;
@@ -3949,6 +4061,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         );
       }
 
+      if (side === ANALYSIS_TOC_SIDE_LEFT) {
+        applyAnalysisTocLeftColumnShield(entries, buttonMidpoint, scaledGapPx, isCollapsed);
+      }
+
       entries.forEach((headingEntry, groupIndex) => {
         const button = getAnalysisTocButton(headingEntry.key);
         if (button instanceof HTMLButtonElement) {
@@ -3989,6 +4105,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     ensureAnalysisTocStyles();
     ensureAnalysisTocToggleButtons();
+    ensureAnalysisTocColumnShields();
     const orderedEntries = getOrderedAnalysisHeadingEntries();
     const allowedKeys = new Set(orderedEntries.map((entry) => entry.key));
     Array.from(document.querySelectorAll(`.${ANALYSIS_TOC_BUTTON_CLASS}`)).forEach((button) => {
@@ -4026,10 +4143,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function initializeAnalysisTocButtons() {
     if (document.body) {
       ensureAnalysisTocButtons();
+      window.addEventListener("resize", applyAnalysisTocButtonSettings, { passive: true });
       return;
     }
 
-    document.addEventListener("DOMContentLoaded", ensureAnalysisTocButtons, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      ensureAnalysisTocButtons();
+      window.addEventListener("resize", applyAnalysisTocButtonSettings, { passive: true });
+    }, { once: true });
   }
 
   function createServerControlRunId() {
