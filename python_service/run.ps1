@@ -4,6 +4,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pythonExe = Join-Path $scriptDir ".venv\Scripts\python.exe"
 $requirements = Join-Path $scriptDir "requirements.txt"
 $bridgeScript = Join-Path $scriptDir "screen_bridge.py"
+$ipUpdateScript = Join-Path $scriptDir "update_bridge_ip.py"
 
 function Get-BridgePort {
     param([string]$Path)
@@ -53,6 +54,9 @@ if (-not (Test-Path $pythonExe)) {
     Write-Host "Creating virtual environment..."
     python -m venv (Join-Path $scriptDir ".venv")
 }
+
+Write-Host "Checking bridge LAN IP..."
+& $pythonExe -B $ipUpdateScript | Out-Host
 
 Write-Host "Ensuring dependencies are installed..."
 & $pythonExe -m pip install -r $requirements | Out-Host

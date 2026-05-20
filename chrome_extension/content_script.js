@@ -35,6 +35,8 @@ Base everything strictly on the screenshot attachment.`;
   const SCROLL_MESSAGE_TYPE = "scrollChatGpt";
   const SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE = "serverControlMenuCommand";
   const SERVER_CONTROL_STATUS_LOG_MESSAGE_TYPE = "serverControlStatusLog";
+  const SERVER_CONTROL_TRAFFIC_LOG_MESSAGE_TYPE = "bridgeTrafficLog";
+  const SERVER_CONTROL_TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
   const PING_MESSAGE_TYPE = "localQueryBridgePing";
   const ELEMENT_WAIT_TIMEOUT_MS = 10000;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
@@ -130,6 +132,9 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_STATUS_LOG_STYLE_ID = "local-query-bridge-server-control-status-log-styles";
   const SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS = "local-query-bridge-server-control-status-log-expanded";
   const SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS = "local-query-bridge-server-control-status-log-active";
+  const SERVER_CONTROL_STATUS_LOG_TAB_ACTIVE_CLASS = "local-query-bridge-status-log-tab-active";
+  const SERVER_CONTROL_TRAFFIC_BAR_ACTUAL_CLASS = "local-query-bridge-traffic-bar-actual";
+  const SERVER_CONTROL_TRAFFIC_BAR_COVER_CLASS = "local-query-bridge-traffic-bar-cover";
   const TASK_COUNTER_BADGE_ID = "local-query-bridge-task-counter-badge";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
   const SERVER_CONTROL_ZONE_OVERLAY_ID = "local-query-bridge-server-control-zone-overlay";
@@ -563,11 +568,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   const serverControlStatusLogState = {
     entries: [],
+    trafficEntries: [],
     currentRunId: "",
     active: false,
     expanded: false,
+    activeTab: "status",
     nextEntryId: 1,
+    nextTrafficEntryId: 1,
     maxEntries: 240,
+    maxTrafficEntries: 180,
+    trafficHistoryRequested: false,
     completedRunIds: new Set(),
     cancelledRunIds: new Set(),
     elapsedTimerId: null,
@@ -4228,7 +4238,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         max-width: max(160px, calc(100vw - var(--local-query-bridge-status-log-left, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX}px) - 12px));
         box-sizing: border-box;
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr);
         border: 1px solid rgba(15, 23, 42, 0.2);
         border-radius: 8px;
         background: rgba(248, 250, 252, 0.62);
@@ -4309,6 +4319,35 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .local-query-bridge-status-log-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        padding: 4px 6px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.12);
+        background: rgba(248, 250, 252, 0.74);
+      }
+
+      .local-query-bridge-status-log-tab {
+        min-width: 0;
+        min-height: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.18);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #334155;
+        cursor: pointer;
+        font: 800 11px/1 "Segoe UI", system-ui, sans-serif;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-status-log-tab.${SERVER_CONTROL_STATUS_LOG_TAB_ACTIVE_CLASS} {
+        border-color: rgba(37, 99, 235, 0.36);
+        background: rgba(219, 234, 254, 0.9);
+        color: #1d4ed8;
       }
 
       .local-query-bridge-status-log-body {
@@ -4408,6 +4447,79 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         padding: 10px;
         color: #64748b;
         font-weight: 650;
+      }
+
+      .local-query-bridge-traffic-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px;
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.1);
+        background: rgba(241, 245, 249, 0.72);
+      }
+
+      .local-query-bridge-traffic-summary-item {
+        min-width: 0;
+        overflow: hidden;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-traffic-chart {
+        display: grid;
+        gap: 4px;
+        padding: 6px 8px 8px;
+      }
+
+      .local-query-bridge-traffic-entry {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr) 58px;
+        gap: 6px;
+        align-items: center;
+        min-height: 22px;
+      }
+
+      .local-query-bridge-traffic-label,
+      .local-query-bridge-traffic-size {
+        min-width: 0;
+        overflow: hidden;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-traffic-size {
+        color: #0f172a;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .local-query-bridge-traffic-bar-track {
+        min-width: 0;
+        height: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.14);
+        border-radius: 5px;
+        background: rgba(226, 232, 240, 0.82);
+      }
+
+      .local-query-bridge-traffic-bar {
+        height: 100%;
+        min-width: 2px;
+        border-radius: 4px;
+      }
+
+      .local-query-bridge-traffic-bar.${SERVER_CONTROL_TRAFFIC_BAR_ACTUAL_CLASS} {
+        background: linear-gradient(90deg, #2563eb, #0891b2);
+      }
+
+      .local-query-bridge-traffic-bar.${SERVER_CONTROL_TRAFFIC_BAR_COVER_CLASS} {
+        background: linear-gradient(90deg, #94a3b8, #64748b);
       }
 
       #${TASK_COUNTER_BADGE_ID} {
@@ -4787,6 +4899,163 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return row;
   }
 
+  function formatBridgeTrafficBytes(value) {
+    const bytes = Math.max(0, Number.parseInt(`${value ?? 0}`, 10) || 0);
+    if (bytes >= 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    }
+    if (bytes >= 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    }
+    return `${bytes} B`;
+  }
+
+  function formatBridgeTrafficTime(timestamp) {
+    const parsed = Date.parse(timestamp);
+    if (!Number.isFinite(parsed)) {
+      return "--:--";
+    }
+    const date = new Date(parsed);
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+  }
+
+  function normalizeBridgeTrafficSample(sample) {
+    const id = Number.isFinite(sample?.id) ? sample.id : serverControlStatusLogState.nextTrafficEntryId++;
+    return {
+      id,
+      timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
+      action: typeof sample?.action === "string" ? sample.action : "",
+      kind: sample?.kind === "cover" ? "cover" : "actual",
+      path: typeof sample?.path === "string" ? sample.path : "",
+      method: typeof sample?.method === "string" ? sample.method : "POST",
+      requestBytes: Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0),
+      responseBytes: Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0),
+      totalBytes: Math.max(0, Number.parseInt(`${sample?.totalBytes ?? 0}`, 10) || 0),
+      durationMs: Math.max(0, Number.parseInt(`${sample?.durationMs ?? 0}`, 10) || 0),
+      status: Math.max(0, Number.parseInt(`${sample?.status ?? 0}`, 10) || 0),
+      ok: sample?.ok === true,
+      error: typeof sample?.error === "string" ? sample.error : "",
+    };
+  }
+
+  function appendBridgeTrafficLog(sample, options = {}) {
+    const entry = normalizeBridgeTrafficSample(sample);
+    if (!entry.totalBytes) {
+      entry.totalBytes = entry.requestBytes + entry.responseBytes;
+    }
+
+    const existingIndex = serverControlStatusLogState.trafficEntries.findIndex((candidate) => candidate.id === entry.id);
+    if (existingIndex >= 0) {
+      serverControlStatusLogState.trafficEntries[existingIndex] = entry;
+    } else {
+      serverControlStatusLogState.trafficEntries.push(entry);
+    }
+    serverControlStatusLogState.trafficEntries.sort((left, right) => (
+      Date.parse(left.timestamp) - Date.parse(right.timestamp)
+    ));
+
+    if (serverControlStatusLogState.trafficEntries.length > serverControlStatusLogState.maxTrafficEntries) {
+      serverControlStatusLogState.trafficEntries.splice(
+        0,
+        serverControlStatusLogState.trafficEntries.length - serverControlStatusLogState.maxTrafficEntries,
+      );
+    }
+
+    if (options.sync !== false) {
+      syncServerControlStatusLog();
+    }
+  }
+
+  function createBridgeTrafficEntryElement(entry, maxBytes) {
+    const row = document.createElement("div");
+    row.className = "local-query-bridge-traffic-entry";
+    row.title = [
+      `${entry.kind === "cover" ? "Cover" : "Actual"} ${entry.action || "operation"}`,
+      `${entry.method} ${entry.path}`,
+      `Request: ${formatBridgeTrafficBytes(entry.requestBytes)}`,
+      `Response: ${formatBridgeTrafficBytes(entry.responseBytes)}`,
+      `Duration: ${entry.durationMs}ms`,
+      entry.status ? `Status: ${entry.status}` : "",
+      entry.error ? `Error: ${entry.error}` : "",
+    ].filter(Boolean).join("\n");
+
+    const label = document.createElement("div");
+    label.className = "local-query-bridge-traffic-label";
+    label.textContent = `${entry.kind === "cover" ? "cover" : "REAL"} ${formatBridgeTrafficTime(entry.timestamp)}`;
+
+    const track = document.createElement("div");
+    track.className = "local-query-bridge-traffic-bar-track";
+
+    const bar = document.createElement("div");
+    bar.className = `local-query-bridge-traffic-bar ${entry.kind === "cover" ? SERVER_CONTROL_TRAFFIC_BAR_COVER_CLASS : SERVER_CONTROL_TRAFFIC_BAR_ACTUAL_CLASS}`;
+    const width = maxBytes > 0 ? Math.max(2, Math.min(100, (entry.totalBytes / maxBytes) * 100)) : 2;
+    bar.style.width = `${width}%`;
+    track.append(bar);
+
+    const size = document.createElement("div");
+    size.className = "local-query-bridge-traffic-size";
+    size.textContent = formatBridgeTrafficBytes(entry.totalBytes);
+
+    row.append(label, track, size);
+    return row;
+  }
+
+  function renderBridgeTrafficLogBody(body) {
+    const entries = serverControlStatusLogState.trafficEntries;
+    if (entries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "local-query-bridge-status-log-empty";
+      empty.textContent = "No bridge traffic yet.";
+      body.append(empty);
+      return;
+    }
+
+    const latestEntries = entries.slice(-80);
+    const maxBytes = latestEntries.reduce((largest, entry) => Math.max(largest, entry.totalBytes), 1);
+    const actualCount = entries.filter((entry) => entry.kind !== "cover").length;
+    const coverCount = entries.length - actualCount;
+    const latest = entries[entries.length - 1];
+
+    const summary = document.createElement("div");
+    summary.className = "local-query-bridge-traffic-summary";
+    for (const text of [
+      `Real ${actualCount}`,
+      `Cover ${coverCount}`,
+      `Latest ${formatBridgeTrafficBytes(latest.totalBytes)}`,
+    ]) {
+      const item = document.createElement("div");
+      item.className = "local-query-bridge-traffic-summary-item";
+      item.textContent = text;
+      summary.append(item);
+    }
+
+    const chart = document.createElement("div");
+    chart.className = "local-query-bridge-traffic-chart";
+    for (const entry of latestEntries) {
+      chart.append(createBridgeTrafficEntryElement(entry, maxBytes));
+    }
+
+    body.append(summary, chart);
+  }
+
+  async function requestBridgeTrafficHistory() {
+    if (serverControlStatusLogState.trafficHistoryRequested) {
+      return;
+    }
+    serverControlStatusLogState.trafficHistoryRequested = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({ type: SERVER_CONTROL_TRAFFIC_HISTORY_MESSAGE_TYPE });
+      const samples = Array.isArray(response?.samples) ? response.samples : [];
+      for (const sample of samples) {
+        appendBridgeTrafficLog(sample, { sync: false });
+      }
+      syncServerControlStatusLog();
+    } catch (_error) {
+      // Traffic history is diagnostic UI only.
+    }
+  }
+
   function isServerControlTerminalStatusType(type) {
     return type === "response-complete" || type === "cancel" || type === "error";
   }
@@ -4838,7 +5107,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const title = panel.querySelector("[data-status-log-title]");
     if (title instanceof HTMLElement) {
-      title.textContent = serverControlStatusLogState.active ? "Bridge processing" : "Bridge log";
+      title.textContent = serverControlStatusLogState.activeTab === "traffic"
+        ? "Bridge traffic"
+        : (serverControlStatusLogState.active ? "Bridge processing" : "Bridge log");
     }
 
     const cancel = panel.querySelector("[data-status-log-cancel]");
@@ -4852,7 +5123,23 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
+    for (const tab of panel.querySelectorAll("[data-status-log-tab]")) {
+      if (!(tab instanceof HTMLButtonElement)) {
+        continue;
+      }
+      const isActive = tab.dataset.statusLogTab === serverControlStatusLogState.activeTab;
+      tab.classList.toggle(SERVER_CONTROL_STATUS_LOG_TAB_ACTIVE_CLASS, isActive);
+      tab.setAttribute("aria-selected", isActive ? "true" : "false");
+      tab.tabIndex = isActive ? 0 : -1;
+    }
+
     body.replaceChildren();
+    if (serverControlStatusLogState.activeTab === "traffic") {
+      renderBridgeTrafficLogBody(body);
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
+
     if (serverControlStatusLogState.entries.length === 0) {
       const empty = document.createElement("div");
       empty.className = "local-query-bridge-status-log-empty";
@@ -4909,13 +5196,35 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       void requestServerControlProcessingCancel();
     });
 
+    const tabs = document.createElement("div");
+    tabs.className = "local-query-bridge-status-log-tabs";
+    tabs.setAttribute("role", "tablist");
+    tabs.setAttribute("aria-label", "Bridge log views");
+    for (const [tabKey, tabLabel] of [["status", "Status"], ["traffic", "Traffic"]]) {
+      const tab = document.createElement("button");
+      tab.className = "local-query-bridge-status-log-tab";
+      tab.type = "button";
+      tab.dataset.statusLogTab = tabKey;
+      tab.setAttribute("role", "tab");
+      tab.textContent = tabLabel;
+      tab.addEventListener("click", () => {
+        serverControlStatusLogState.activeTab = tabKey;
+        if (tabKey === "traffic") {
+          void requestBridgeTrafficHistory();
+        }
+        syncServerControlStatusLog();
+      });
+      tabs.append(tab);
+    }
+
     const body = document.createElement("div");
     body.className = "local-query-bridge-status-log-body";
     body.dataset.statusLogBody = "true";
 
     header.append(toggle, title, cancel);
-    panel.append(header, body);
+    panel.append(header, tabs, body);
     document.body.append(panel);
+    void requestBridgeTrafficHistory();
     syncServerControlStatusLog();
     return panel;
   }
@@ -8959,6 +9268,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (message?.type === SERVER_CONTROL_STATUS_LOG_MESSAGE_TYPE) {
       appendServerControlStatusLog(message.status ?? {});
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message?.type === SERVER_CONTROL_TRAFFIC_LOG_MESSAGE_TYPE) {
+      appendBridgeTrafficLog(message.sample ?? {});
       sendResponse({ ok: true });
       return false;
     }

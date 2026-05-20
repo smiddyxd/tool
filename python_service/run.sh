@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_EXE="$SCRIPT_DIR/.venv/Scripts/python.exe"
 BRIDGE_SCRIPT="$SCRIPT_DIR/screen_bridge.py"
+IP_UPDATE_SCRIPT="$SCRIPT_DIR/update_bridge_ip.py"
 
 get_bridge_port() {
   grep -E 'HTTP_PORT\s*=\s*[0-9]+' "$BRIDGE_SCRIPT" | sed -E 's/.*=\s*([0-9]+).*/\1/' | head -n 1
@@ -27,6 +28,9 @@ if [[ ! -f "$PYTHON_EXE" ]]; then
   echo "Creating virtual environment..."
   python -m venv "$SCRIPT_DIR/.venv"
 fi
+
+echo "Checking bridge LAN IP..."
+"$PYTHON_EXE" -B "$IP_UPDATE_SCRIPT"
 
 echo "Ensuring dependencies are installed..."
 "$PYTHON_EXE" -m pip install -r "$SCRIPT_DIR/requirements.txt"

@@ -1,9 +1,31 @@
 // Bridge endpoint exposed by the Python service. Set this to the LAN IP of the PC running the Python bridge.
 const BRIDGE_BASE_URL = "http://192.168.0.34:62041";
-const LOCAL_EVENT_URL = `${BRIDGE_BASE_URL}/a`;
-const REPEAT_CAPTURE_URL = `${BRIDGE_BASE_URL}/b`;
-const CONTROL_COMMAND_URL = `${BRIDGE_BASE_URL}/c`;
-const TASK_TYPE_COUNTS_URL = `${BRIDGE_BASE_URL}/d`;
+const BRIDGE_OPERATION_PATHS = [
+  "/api/v1/sync/session",
+  "/api/v1/sync/events",
+  "/api/v1/sync/batches",
+  "/api/v1/sync/checkpoints",
+  "/api/v1/cache/entries",
+  "/api/v1/cache/segments",
+  "/api/v1/library/index",
+  "/api/v1/library/metadata",
+];
+const BRIDGE_ACTION_POLL = "poll";
+const BRIDGE_ACTION_REPEAT = "repeat";
+const BRIDGE_ACTION_COUNTS = "counts";
+const BRIDGE_ACTION_CONTROL = "control";
+const BRIDGE_ACTION_COVER = "cover";
+const BRIDGE_PADDING_RANDOM_CHUNK_BYTES = 65536;
+const BRIDGE_PADDING_MAX_EXTRA_BYTES = 262144;
+const BRIDGE_COVER_TRAFFIC_ENABLED = true;
+const BRIDGE_COVER_MIN_INTERVAL_MS = 45000;
+const BRIDGE_COVER_MAX_INTERVAL_MS = 180000;
+const BRIDGE_COVER_REQUEST_MIN_BYTES = 65536;
+const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
+const BRIDGE_COVER_RESPONSE_MIN_BYTES = 786432;
+const BRIDGE_COVER_RESPONSE_MAX_BYTES = 3145728;
+const BRIDGE_COVER_TIMEOUT_MS = 30000;
+const BRIDGE_TRAFFIC_HISTORY_LIMIT = 180;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
@@ -93,7 +115,9 @@ const CONTENT_SCRIPT_SUBMIT_REPEAT_TYPE = "submitRepeatDraft";
 const CONTENT_SCRIPT_ACTIVATE_CURRENT_CHAT_TYPE = "activateCurrentChat";
 const CONTENT_SCRIPT_SERVER_CONTROL_COMMAND_TYPE = "serverControlMenuCommand";
 const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
+const CONTENT_SCRIPT_TRAFFIC_LOG_TYPE = "bridgeTrafficLog";
 const CONTENT_SCRIPT_TASK_TYPE_COUNTS_TYPE = "getBridgeTaskTypeCounts";
+const CONTENT_SCRIPT_TRAFFIC_HISTORY_TYPE = "getBridgeTrafficHistory";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -123,6 +147,10 @@ const state = {
   lastQueuedControlStatus: null,
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
+  nextCoverTrafficAt: 0,
+  isSendingCoverTraffic: false,
+  trafficHistory: [],
+  nextTrafficSampleId: 1,
 };
 
 function createPollingAlarm() {
@@ -295,6 +323,15 @@ function xorDecryptHex(hexValue, key) {
   return output;
 }
 
+function xorEncryptStringToHex(value, key) {
+  const text = typeof value === "string" ? value : String(value ?? "");
+  let output = "";
+  for (let index = 0; index < text.length; index += 1) {
+    output += (text.charCodeAt(index) ^ key).toString(16).padStart(2, "0");
+  }
+  return output;
+}
+
 function base64ToBytes(base64Value) {
   const binaryString = atob(base64Value);
   const bytes = new Uint8Array(binaryString.length);
@@ -314,6 +351,19 @@ function bytesToBase64(bytes) {
   }
 
   return btoa(binaryString);
+}
+
+function xorEncryptBytesToBase64(bytes, key) {
+  const encryptedBytes = new Uint8Array(bytes.length);
+  for (let index = 0; index < bytes.length; index += 1) {
+    encryptedBytes[index] = bytes[index] ^ key;
+  }
+  return bytesToBase64(encryptedBytes);
+}
+
+function xorEncryptStringToBase64(value, key) {
+  const text = typeof value === "string" ? value : String(value ?? "");
+  return xorEncryptBytesToBase64(new TextEncoder().encode(text), key);
 }
 
 function xorDecryptBase64(base64Value, key) {
@@ -346,6 +396,226 @@ function xorDecryptBase64ToString(base64Value, key) {
 
   const decryptedBytes = xorDecryptBase64(base64Value, key);
   return new TextDecoder().decode(decryptedBytes);
+}
+
+function getRandomBridgeOperationEndpoint() {
+  const randomBytes = new Uint32Array(1);
+  crypto.getRandomValues(randomBytes);
+  const path = BRIDGE_OPERATION_PATHS[randomBytes[0] % BRIDGE_OPERATION_PATHS.length];
+  return {
+    path,
+    url: `${BRIDGE_BASE_URL}${path}`,
+  };
+}
+
+function createBridgeNonce() {
+  const randomBytes = new Uint32Array(2);
+  crypto.getRandomValues(randomBytes);
+  return `${Date.now().toString(36)}-${randomBytes[0].toString(36)}-${randomBytes[1].toString(36)}`;
+}
+
+function getRandomIntInclusive(minimum, maximum) {
+  const min = Math.ceil(minimum);
+  const max = Math.floor(maximum);
+  if (max <= min) {
+    return min;
+  }
+
+  const range = max - min + 1;
+  const randomBytes = new Uint32Array(1);
+  crypto.getRandomValues(randomBytes);
+  return min + (randomBytes[0] % range);
+}
+
+function createRandomBytes(length) {
+  const byteLength = Math.max(0, Math.floor(length));
+  const bytes = new Uint8Array(byteLength);
+  for (let offset = 0; offset < byteLength; offset += BRIDGE_PADDING_RANDOM_CHUNK_BYTES) {
+    crypto.getRandomValues(bytes.subarray(offset, Math.min(offset + BRIDGE_PADDING_RANDOM_CHUNK_BYTES, byteLength)));
+  }
+  return bytes;
+}
+
+function getJsonByteLength(value) {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+function getStringByteLength(value) {
+  return new TextEncoder().encode(String(value ?? "")).length;
+}
+
+function choosePaddedEnvelopeTargetSize(baseSize, targetSize = null) {
+  const requestedTargetSize = Number.parseInt(`${targetSize ?? ""}`, 10);
+  if (Number.isFinite(requestedTargetSize) && requestedTargetSize > baseSize) {
+    return requestedTargetSize;
+  }
+
+  let minimumExtra = 1024;
+  let maximumExtra = 4096;
+
+  if (baseSize >= 65536) {
+    minimumExtra = Math.ceil(baseSize * 0.08);
+    maximumExtra = Math.ceil(baseSize * 0.35);
+  } else if (baseSize >= 8192) {
+    minimumExtra = Math.ceil(baseSize * 0.25);
+    maximumExtra = Math.ceil(baseSize * 0.9);
+  } else if (baseSize >= 1024) {
+    minimumExtra = Math.ceil(baseSize * 0.5);
+    maximumExtra = Math.ceil(baseSize * 2);
+  }
+
+  maximumExtra = Math.max(minimumExtra, Math.min(maximumExtra, BRIDGE_PADDING_MAX_EXTRA_BYTES));
+  return baseSize + getRandomIntInclusive(minimumExtra, maximumExtra);
+}
+
+function padBridgeOperationEnvelope(envelope, targetSize = null) {
+  const paddedEnvelope = {
+    ...envelope,
+    d: "",
+  };
+  const baseSize = getJsonByteLength(paddedEnvelope);
+  const effectiveTargetSize = choosePaddedEnvelopeTargetSize(baseSize, targetSize);
+  let paddingBytes = Math.max(0, Math.floor((effectiveTargetSize - baseSize) * 0.72));
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    paddedEnvelope.d = xorEncryptBytesToBase64(createRandomBytes(paddingBytes), XOR_KEY);
+    const currentSize = getJsonByteLength(paddedEnvelope);
+    if (currentSize >= effectiveTargetSize) {
+      return paddedEnvelope;
+    }
+    paddingBytes += Math.ceil((effectiveTargetSize - currentSize) * 0.72);
+  }
+
+  return paddedEnvelope;
+}
+
+function buildBridgeOperationEnvelope(action, params = {}, options = {}) {
+  const requestParams = params && typeof params === "object" && !Array.isArray(params) ? params : {};
+  return padBridgeOperationEnvelope({
+    a: xorEncryptStringToHex(action, XOR_KEY),
+    b: xorEncryptStringToBase64(JSON.stringify(requestParams), XOR_KEY),
+    c: xorEncryptStringToHex(createBridgeNonce(), XOR_KEY),
+  }, options.requestTargetSize);
+}
+
+function decodeBridgeOperationEnvelope(payload) {
+  const responseText = xorDecryptBase64ToString(payload?.b ?? "", XOR_KEY);
+  if (!responseText) {
+    return {};
+  }
+
+  try {
+    const decoded = JSON.parse(responseText);
+    return decoded && typeof decoded === "object" && !Array.isArray(decoded) ? decoded : {};
+  } catch (error) {
+    console.warn("Local Query Bridge could not decode bridge operation response", error);
+    return {};
+  }
+}
+
+function rememberBridgeTrafficSample(sample) {
+  const normalizedSample = {
+    id: state.nextTrafficSampleId++,
+    timestamp: new Date().toISOString(),
+    action: typeof sample.action === "string" ? sample.action : "",
+    kind: sample.action === BRIDGE_ACTION_COVER ? "cover" : "actual",
+    path: typeof sample.path === "string" ? sample.path : "",
+    method: "POST",
+    requestBytes: Number.isFinite(sample.requestBytes) ? sample.requestBytes : 0,
+    responseBytes: Number.isFinite(sample.responseBytes) ? sample.responseBytes : 0,
+    durationMs: Number.isFinite(sample.durationMs) ? sample.durationMs : 0,
+    status: Number.isFinite(sample.status) ? sample.status : 0,
+    ok: sample.ok === true,
+    error: typeof sample.error === "string" ? sample.error : "",
+  };
+  normalizedSample.totalBytes = normalizedSample.requestBytes + normalizedSample.responseBytes;
+
+  state.trafficHistory.push(normalizedSample);
+  if (state.trafficHistory.length > BRIDGE_TRAFFIC_HISTORY_LIMIT) {
+    state.trafficHistory.splice(0, state.trafficHistory.length - BRIDGE_TRAFFIC_HISTORY_LIMIT);
+  }
+
+  void broadcastBridgeTrafficSample(normalizedSample);
+}
+
+async function broadcastBridgeTrafficSample(sample) {
+  const tabs = await chrome.tabs.query({ url: CHATGPT_URL_PATTERNS });
+  const candidateTabs = [];
+  if (Number.isInteger(state.lastChatGptTabId)) {
+    const preferredTab = tabs.find((tab) => tab.id === state.lastChatGptTabId);
+    if (preferredTab) {
+      candidateTabs.push(preferredTab);
+    }
+  }
+  for (const tab of tabs) {
+    if (tab?.id && !candidateTabs.some((candidate) => candidate.id === tab.id)) {
+      candidateTabs.push(tab);
+    }
+  }
+
+  for (const tab of candidateTabs) {
+    if (!tab?.id || !isChatGptUrl(tab.url)) {
+      continue;
+    }
+
+    try {
+      await ensureContentScript(tab.id);
+      await chrome.tabs.sendMessage(tab.id, {
+        type: CONTENT_SCRIPT_TRAFFIC_LOG_TYPE,
+        sample,
+      });
+    } catch (_error) {
+      // Traffic history is best-effort UI telemetry.
+    }
+  }
+}
+
+async function fetchBridgeOperation(action, params = {}, signal = undefined, options = {}) {
+  const endpoint = getRandomBridgeOperationEndpoint();
+  const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, params, options));
+  const requestBytes = getStringByteLength(requestBody);
+  const startedAt = Date.now();
+  let responseBytes = 0;
+  let status = 0;
+  let ok = false;
+  let errorText = "";
+
+  try {
+    const response = await fetch(endpoint.url, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: requestBody,
+      signal,
+    });
+
+    status = response.status;
+    ok = response.ok;
+    const responseText = await response.text();
+    responseBytes = getStringByteLength(responseText);
+
+    if (!response.ok) {
+      throw new Error(`Bridge operation response not ok: ${response.status}`);
+    }
+
+    return decodeBridgeOperationEnvelope(JSON.parse(responseText));
+  } catch (error) {
+    errorText = `${error}`;
+    throw error;
+  } finally {
+    rememberBridgeTrafficSample({
+      action,
+      path: endpoint.path,
+      requestBytes,
+      responseBytes,
+      durationMs: Date.now() - startedAt,
+      status,
+      ok: ok && !errorText,
+      error: errorText,
+    });
+  }
 }
 
 function normalizeImageDataUrls(rawValue) {
@@ -1616,17 +1886,7 @@ async function fetchBridgePayload(timeoutMs = REQUEST_TIMEOUT_MS) {
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(LOCAL_EVENT_URL, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.warn("Local Query Bridge poll response not ok", response.status);
-      return null;
-    }
-
-    const payload = await response.json();
+    const payload = await fetchBridgeOperation(BRIDGE_ACTION_POLL, {}, controller.signal);
     maybeLogHandshake();
     const payloadChars = ["a", "b", "c", "d", "e", "f"].reduce((total, key) => (
       total + (typeof payload?.[key] === "string" ? payload[key].length : 0)
@@ -1650,17 +1910,7 @@ async function fetchRepeatCapturePayload() {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(REPEAT_CAPTURE_URL, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.warn("Local Query Bridge repeat capture response not ok", response.status);
-      return null;
-    }
-
-    const payload = await response.json();
+    const payload = await fetchBridgeOperation(BRIDGE_ACTION_REPEAT, {}, controller.signal);
     maybeLogHandshake();
     return payload;
   } finally {
@@ -1674,16 +1924,11 @@ async function fetchTaskTypeCounts(span = "day") {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${TASK_TYPE_COUNTS_URL}?span=${encodeURIComponent(normalizedSpan)}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Task count response not ok: ${response.status}`);
-    }
-
-    const payload = await response.json();
+    const payload = await fetchBridgeOperation(
+      BRIDGE_ACTION_COUNTS,
+      { span: normalizedSpan },
+      controller.signal,
+    );
     return {
       ok: payload?.ok !== false,
       span: sanitizeTaskTypeCountSpan(payload?.span ?? normalizedSpan),
@@ -1697,6 +1942,65 @@ async function fetchTaskTypeCounts(span = "day") {
     };
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+function isIdleForCoverTraffic() {
+  return (
+    !state.isPolling
+    && !state.isDelivering
+    && !state.pendingSubmission
+    && !state.pendingRepeatDraft
+    && !state.lastQueuedControlStatus
+  );
+}
+
+function scheduleNextCoverTraffic(now = Date.now()) {
+  state.nextCoverTrafficAt = now + getRandomIntInclusive(
+    BRIDGE_COVER_MIN_INTERVAL_MS,
+    BRIDGE_COVER_MAX_INTERVAL_MS,
+  );
+}
+
+async function maybeSendIdleCoverTraffic() {
+  if (!BRIDGE_COVER_TRAFFIC_ENABLED) {
+    return;
+  }
+
+  if (!state.nextCoverTrafficAt) {
+    scheduleNextCoverTraffic();
+    return;
+  }
+
+  if (state.isSendingCoverTraffic || Date.now() < state.nextCoverTrafficAt || !isIdleForCoverTraffic()) {
+    return;
+  }
+
+  state.isSendingCoverTraffic = true;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), BRIDGE_COVER_TIMEOUT_MS);
+  const requestTargetSize = getRandomIntInclusive(
+    BRIDGE_COVER_REQUEST_MIN_BYTES,
+    BRIDGE_COVER_REQUEST_MAX_BYTES,
+  );
+  const responseTargetBytes = getRandomIntInclusive(
+    BRIDGE_COVER_RESPONSE_MIN_BYTES,
+    BRIDGE_COVER_RESPONSE_MAX_BYTES,
+  );
+
+  try {
+    await fetchBridgeOperation(
+      BRIDGE_ACTION_COVER,
+      { responseTargetBytes },
+      controller.signal,
+      { requestTargetSize },
+    );
+  } catch (error) {
+    console.warn("Local Query Bridge cover traffic failed", error);
+  } finally {
+    clearTimeout(timeoutId);
+    state.isSendingCoverTraffic = false;
+    scheduleNextCoverTraffic();
   }
 }
 
@@ -1962,20 +2266,7 @@ async function sendServerControlCommand(command, sender) {
   }
 
   try {
-    const response = await fetch(CONTROL_COMMAND_URL, {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.warn("Local Query Bridge server control response not ok", response.status);
-      return isProjectSwitchCommand(command) ? navigationPromise : false;
-    }
+    await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal);
 
     console.log("Local Query Bridge forwarded server control command", {
       command: payload.command,
@@ -2509,16 +2800,23 @@ async function pollLocalBridge() {
   }
 }
 
+async function runBridgeAlarmTick() {
+  await pollLocalBridge();
+  await maybeSendIdleCoverTraffic();
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
-  void pollLocalBridge();
+  scheduleNextCoverTraffic();
+  void runBridgeAlarmTick();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
-  void pollLocalBridge();
+  scheduleNextCoverTraffic();
+  void runBridgeAlarmTick();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -2526,7 +2824,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     return;
   }
 
-  void pollLocalBridge();
+  void runBridgeAlarmTick();
 });
 
 chrome.action.onClicked.addListener((tab) => {
@@ -2566,6 +2864,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
       });
     return true;
+  }
+
+  if (message?.type === CONTENT_SCRIPT_TRAFFIC_HISTORY_TYPE) {
+    sendResponse({
+      ok: true,
+      samples: state.trafficHistory,
+    });
+    return false;
   }
 
   if (message?.type === REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE) {

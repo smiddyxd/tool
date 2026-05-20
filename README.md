@@ -5,7 +5,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
 ## Current flow
 
 1. `python_service/screen_bridge.py`
-   Captures the primary monitor every 0.5 seconds, detects the task-counter icon in a fixed screen band, OCRs the blue counter digits to the right of that icon, and treats every new counter value as a new task.
+   Captures the primary monitor every 0.5 seconds, scans a fixed screen band for blue task-counter digits, OCRs the detected digit cluster, and treats every new counter value as a new task.
 2. For each new task, the bridge uses the active task type selected in the ChatGPT bridge control menu. The older task-type icon/OCR path remains in the code for debugging, but normal task counting and task registration no longer depend on it.
 3. `python_service/task_type_config.json`
    Maps task-type text to behavior. By default the bridge does nothing unless a rule matches.
@@ -17,7 +17,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `python_service/task_type_counts.json`: running totals per bridge-control task type
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
-   Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
+   Posts encrypted operation envelopes to a random neutral bridge path, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
 6. The ChatGPT content script also exposes a top-edge bridge control menu. Moving the mouse out of the page through the top of the viewport opens the menu; its task type selection and large processing buttons are relayed through the service worker and logged by the Python bridge.
 
 ## Project layout
@@ -48,7 +48,6 @@ This project watches a task counter on screen, captures a screenshot for each ne
 Requirements:
 - Python 3.10+
 - Tesseract OCR installed
-- `python_service/assets/task-counter-icon.png` present
 - `python_service/assets/task-type-icon.png` present
 
 PowerShell:
@@ -67,26 +66,68 @@ cd python_service
 
 Both launchers stop any process already listening on the configured bridge port before starting a fresh instance.
 
-The bridge now listens on LAN as well as locally (`HTTP_HOST = 0.0.0.0`).
+The bridge now listens on LAN as well as locally (`HTTP_HOST = 0.0.0.0`). The server itself does not need its LAN IP hardcoded. The IP is hardcoded only on the Chrome extension side:
+- `chrome_extension/service_worker.js`, where the worker fetches the bridge
+- `chrome_extension/manifest.json`, where Chrome grants host permission for that LAN host
 
-Current primary-PC LAN endpoint:
-- `http://192.168.0.34:62041/a`
-- `http://192.168.0.34:62041/b`
-- `http://192.168.0.34:62041/c`
-- `http://192.168.0.34:62041/d`
+`run.ps1` and `run.sh` run `update_bridge_ip.py` before starting the bridge. The updater runs `ipconfig`, finds the IPv4 address in the adapter section that has a default gateway, and updates the extension files if the router assigned a new IP. If it changed files, reload the unpacked Chrome extension on the laptop.
 
-Local endpoint on the same PC:
-- `http://127.0.0.1:62041/a`
-- `http://127.0.0.1:62041/b`
-- `http://127.0.0.1:62041/c`
-- `http://127.0.0.1:62041/d`
+After a router restart or Wi-Fi change, update the extension bridge IP from PowerShell:
 
-Current JSON contract:
-- `GET /a`: extension polling endpoint
+```powershell
+cd python_service
+python update_bridge_ip.py
+```
+
+You can also pass the IP explicitly:
+
+```powershell
+python update_bridge_ip.py 192.168.0.34
+```
+
+Then reload the unpacked Chrome extension on the laptop so `service_worker.js` and `manifest.json` are re-read.
+
+Current primary-PC LAN bridge base:
+- `http://192.168.0.34:62041`
+
+Current extension request paths:
+- `POST /api/v1/sync/session`
+- `POST /api/v1/sync/events`
+- `POST /api/v1/sync/batches`
+- `POST /api/v1/sync/checkpoints`
+- `POST /api/v1/cache/entries`
+- `POST /api/v1/cache/segments`
+- `POST /api/v1/library/index`
+- `POST /api/v1/library/metadata`
+
+The extension chooses one of those paths randomly for every bridge request. The path does not determine the operation. The encrypted request envelope determines whether the request is a poll, repeat capture, count lookup, control-menu command, or idle cover-traffic request.
+
+Obfuscated request envelope:
+- `a`: XOR+hex operation name (`poll`, `repeat`, `counts`, `control`, or `cover`)
+- `b`: XOR+base64 JSON operation payload
+- `c`: XOR+hex nonce
+- `d`: XOR+base64 random padding
+
+Obfuscated response envelope:
+- `a`: XOR+hex status marker
+- `b`: XOR+base64 JSON response payload
+- `c`: XOR+hex response timestamp
+- `d`: XOR+base64 random padding
+
+Padding is size-aware. The sender first measures the envelope without padding, randomly picks a target body size, then fills `d` until the JSON body is near that target. Small messages receive roughly 1-4 KB of extra padding, medium messages receive a larger percentage-based padding range, and large screenshot payloads receive percentage-based padding capped at 256 KB so normal traffic is masked without unbounded bandwidth growth.
+
+When the extension is idle, it also emits cover traffic at randomized intervals. A cover request uses the same random neutral endpoint pool and encrypted envelope format, but its operation is `cover` and its payload only asks the Python bridge for a dummy response of a random screenshot-like size. The extension pads the outgoing cover request to roughly 64-384 KB, and the Python bridge pads the dummy response to roughly 768 KB-3 MB, capped server-side at 4 MB.
+
+The ChatGPT-side floating bridge log and the extension Options page both have a `Traffic` tab. It shows recent bridge requests as a continuous payload-size bar chart, with real operations marked `REAL` and idle cover traffic marked `cover`. Each bar uses total request+response bytes, and hover details include request size, response size, operation, path, status, and duration.
+
+The legacy direct endpoints remain available for manual testing and compatibility:
+- `GET /a`: polling endpoint
 - `GET /b`: repeat screenshot capture endpoint
 - `POST /c`: bridge-control command endpoint
 - `GET /d?span=day|week|month`: task-type count endpoint for bridge-control `D`/`W`/`M` counters
-- `d`: XOR+hex event type (`task`, `text_task`, `alert_task`, or `scroll`)
+
+Event payload contract inside the encrypted response:
+- `d`: XOR+hex event type (`task`, `text_task`, `alert_task`, `control_status`, `repeat`, or `scroll`)
 - task events:
   - `a`: XOR+hex task counter string
   - `b`: XOR+base64 PNG bytes
@@ -100,11 +141,9 @@ Current JSON contract:
 - scroll events:
   - `a`: XOR+hex direction (`up` or `down`)
   - `b`: XOR+hex step count
-- repeat events from `GET /b`:
+- repeat events:
   - `e`: XOR+base64 base screenshot PNG bytes
   - `f`: optional XOR+hex task type key used for task-specific project routing
-- `GET /b`: repeat-capture endpoint for the active repeatable task
-- `POST /c`: control-menu test endpoint; accepts plain JSON and logs `command`, `value`, `group`, `label`, `currentTaskType`, `processingMode`, selected region bounds, project URL details, and the full region map
 
 ## Bridge control menu
 
@@ -114,7 +153,7 @@ The ChatGPT content script creates a half-viewport control menu when the pointer
 
 The processing legend is a toggle. When enabled, the ChatGPT main area is divided into one horizontal zone per processing action, with translucent vertical divider lines. Left-clicking a zone sends the corresponding processing command. Right-clicking inside a zone turns zone-click mode off and suppresses the browser context menu. When disabled, those zones do not capture clicks.
 
-Task type switching sends a `/c` command, updates the active project settings in the service worker, updates the Python bridge's active task type for task counting/registration, and navigates the current ChatGPT tab to that task type's project URL. On content-script load, the current bridge-control task type is also synced to the Python bridge. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
+Task type switching sends an encrypted `control` operation through a randomly selected neutral bridge path, updates the active project settings in the service worker, updates the Python bridge's active task type for task counting/registration, and navigates the current ChatGPT tab to that task type's project URL. On content-script load, the current bridge-control task type is also synced to the Python bridge. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
 The options page also edits the control-menu task type definitions stored in Chrome local storage under `serverControlTaskTypeDefinitions`. For each task type, you can:
 - add or delete task types
@@ -133,7 +172,7 @@ Prompt placeholder behavior:
 - If a placeholder starts with `!`, for example `[!query]`, it is required and submission is stopped when no value is available.
 - If the current processing button is `Screenshot`, all placeholders are treated as optional.
 
-The `Screenshot` processing button queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `Comment` processing button OCRs the configured `Rating comment` region and queues a text-only feedback prompt that references `rating_comment_style_guide.md` from project context, so you can iterate on rating-comment phrasing after the main task has already been sent. Comment feedback prompts do not increment the per-tab task reset counter. The `/c` endpoint still logs each control-menu command before dispatching those actions.
+The `Screenshot` processing button queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `Comment` processing button OCRs the configured `Rating comment` region and queues a text-only feedback prompt that references `rating_comment_style_guide.md` from project context, so you can iterate on rating-comment phrasing after the main task has already been sent. Comment feedback prompts do not increment the per-tab task reset counter. The Python bridge still logs each decrypted control-menu command before dispatching those actions.
 
 The Python monitor also emits passive `Counter` status events when it reads the on-screen task counter, misses the counter, accepts a new task, ignores a task, or sends a periodic same-count heartbeat. ChatGPT shows the latest parsed screen counter in a small bottom-right badge, and the bottom-left bridge log includes the OCR raw text, parsed count, last accepted count, and whether the read became a new-task signal.
 
@@ -156,10 +195,10 @@ Region coordinates are stored in Chrome extension local storage as side coordina
 ## Task detection
 
 Task counter:
-- scan region: full screen width at `top=135, height=24`
-- icon template: `python_service/assets/task-counter-icon.png`
-- digit OCR band: the next `64px` immediately to the right of the matched icon
-- digit color target: hex `4487F6`
+- scan region: right half of the primary screen at `top=135, height=24`, capped at `x=2300`
+- digit grouping: blue digit-color components are grouped when the next component is no more than `5px` away; a single digit is allowed
+- digit color target: hex `4486F5`
+- icon handling: a nearby gray `BDBDBD` icon-like component to the left is detected only as a diagnostic anchor; it is not required and is not OCRed
 
 Task type OCR fallback/debug path:
 - icon search region: `left=20, top=127, width=40, height=40`
@@ -274,16 +313,16 @@ The extension now requests:
 
 Python logs only state changes:
 - bridge startup
-- handshake every 10 seconds when `/a` is being reached successfully
+- handshake every 10 seconds when the extension polling operation is being reached successfully
 - new task detected
 - manual test hotkey triggered
 - task released from the left-edge gate
 - payload served to the extension
-- control-menu command received on `/c`
+- decrypted control-menu command received
 - monitor/config errors
 
 Extension logs only state changes:
-- handshake every 10 seconds when `/a` responds successfully
+- handshake every 10 seconds when bridge polling responds successfully
 - non-200 poll failures
 - fetch failures
 - new screenshot payload retrieved

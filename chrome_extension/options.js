@@ -102,6 +102,7 @@ const OPTIONS_TAB_KEYS = [
   "general",
   "ocr-regions",
   "ui",
+  "traffic",
   "status-colors",
   "status-messages",
   "boilerplate-prompt",
@@ -109,6 +110,8 @@ const OPTIONS_TAB_KEYS = [
   "toc-buttons",
 ];
 const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
+const TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
+const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
@@ -386,6 +389,11 @@ const highlightState = {
     [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
   },
   latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+};
+
+const trafficHistoryState = {
+  samples: [],
+  refreshTimerId: null,
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -2053,6 +2061,13 @@ function setActiveOptionsTab(tabKey, options = {}) {
     panel.hidden = panel.dataset.optionsTabPanel !== activeTabKey;
   }
 
+  if (activeTabKey === "traffic") {
+    void loadTrafficHistory();
+    startTrafficHistoryRefresh();
+  } else {
+    stopTrafficHistoryRefresh();
+  }
+
   if (options.updateHash) {
     history.replaceState(null, "", `#${activeTabKey}`);
   }
@@ -2111,6 +2126,162 @@ function initializeOptionsTabs() {
     setActiveOptionsTab(getOptionsTabKeyFromHash());
   });
   setActiveOptionsTab(getOptionsTabKeyFromHash());
+}
+
+function formatTrafficBytes(value) {
+  const bytes = Math.max(0, Number.parseInt(`${value ?? 0}`, 10) || 0);
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${bytes} B`;
+}
+
+function formatTrafficTimestamp(timestamp) {
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) {
+    return "--:--:--";
+  }
+  const date = new Date(parsed);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+}
+
+function normalizeTrafficSample(sample) {
+  const requestBytes = Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0);
+  const responseBytes = Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0);
+  const totalBytes = Math.max(
+    requestBytes + responseBytes,
+    Number.parseInt(`${sample?.totalBytes ?? 0}`, 10) || 0,
+  );
+  return {
+    id: Number.isFinite(sample?.id) ? sample.id : 0,
+    timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : "",
+    action: typeof sample?.action === "string" ? sample.action : "",
+    kind: sample?.kind === "cover" ? "cover" : "actual",
+    path: typeof sample?.path === "string" ? sample.path : "",
+    method: typeof sample?.method === "string" ? sample.method : "POST",
+    requestBytes,
+    responseBytes,
+    totalBytes,
+    durationMs: Math.max(0, Number.parseInt(`${sample?.durationMs ?? 0}`, 10) || 0),
+    status: Math.max(0, Number.parseInt(`${sample?.status ?? 0}`, 10) || 0),
+    ok: sample?.ok === true,
+    error: typeof sample?.error === "string" ? sample.error : "",
+  };
+}
+
+function createTrafficSummaryItem(text) {
+  const item = document.createElement("div");
+  item.className = "traffic-summary-item";
+  item.textContent = text;
+  return item;
+}
+
+function createTrafficChartRow(sample, maxBytes) {
+  const row = document.createElement("div");
+  row.className = "traffic-chart-row";
+  row.title = [
+    `${sample.kind === "cover" ? "Cover" : "Actual"} ${sample.action || "operation"}`,
+    `${sample.method} ${sample.path}`,
+    `Request: ${formatTrafficBytes(sample.requestBytes)}`,
+    `Response: ${formatTrafficBytes(sample.responseBytes)}`,
+    `Duration: ${sample.durationMs}ms`,
+    sample.status ? `Status: ${sample.status}` : "",
+    sample.error ? `Error: ${sample.error}` : "",
+  ].filter(Boolean).join("\n");
+
+  const label = document.createElement("div");
+  label.className = "traffic-chart-label";
+  label.textContent = `${sample.kind === "cover" ? "cover" : "REAL"} ${formatTrafficTimestamp(sample.timestamp)}`;
+
+  const track = document.createElement("div");
+  track.className = "traffic-chart-track";
+
+  const bar = document.createElement("div");
+  bar.className = `traffic-chart-bar ${sample.kind === "cover" ? "cover" : "actual"}`;
+  const width = maxBytes > 0 ? Math.max(2, Math.min(100, (sample.totalBytes / maxBytes) * 100)) : 2;
+  bar.style.width = `${width}%`;
+  track.append(bar);
+
+  const size = document.createElement("div");
+  size.className = "traffic-chart-size";
+  size.textContent = formatTrafficBytes(sample.totalBytes);
+
+  row.append(label, track, size);
+  return row;
+}
+
+function renderTrafficHistory() {
+  const summary = document.querySelector("#traffic-history-summary");
+  const chart = document.querySelector("#traffic-history-chart");
+  if (!(summary instanceof HTMLElement) || !(chart instanceof HTMLElement)) {
+    return;
+  }
+
+  summary.replaceChildren();
+  chart.replaceChildren();
+
+  const samples = trafficHistoryState.samples;
+  const actualCount = samples.filter((sample) => sample.kind !== "cover").length;
+  const coverCount = samples.length - actualCount;
+  const latest = samples[samples.length - 1];
+  summary.append(
+    createTrafficSummaryItem(`Real ${actualCount}`),
+    createTrafficSummaryItem(`Cover ${coverCount}`),
+    createTrafficSummaryItem(`Latest ${latest ? formatTrafficBytes(latest.totalBytes) : "--"}`),
+  );
+
+  if (samples.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No bridge traffic has been recorded yet.";
+    chart.append(empty);
+    return;
+  }
+
+  const visibleSamples = samples.slice(-120);
+  const maxBytes = visibleSamples.reduce((largest, sample) => Math.max(largest, sample.totalBytes), 1);
+  for (const sample of visibleSamples) {
+    chart.append(createTrafficChartRow(sample, maxBytes));
+  }
+}
+
+async function loadTrafficHistory() {
+  const chart = document.querySelector("#traffic-history-chart");
+  try {
+    const response = await chrome.runtime.sendMessage({ type: TRAFFIC_HISTORY_MESSAGE_TYPE });
+    const samples = Array.isArray(response?.samples) ? response.samples : [];
+    trafficHistoryState.samples = samples.map(normalizeTrafficSample);
+    renderTrafficHistory();
+  } catch (error) {
+    trafficHistoryState.samples = [];
+    renderTrafficHistory();
+    if (chart instanceof HTMLElement) {
+      const errorMessage = document.createElement("p");
+      errorMessage.className = "empty-state";
+      errorMessage.textContent = `Could not load traffic history: ${error}`;
+      chart.replaceChildren(errorMessage);
+    }
+  }
+}
+
+function startTrafficHistoryRefresh() {
+  if (trafficHistoryState.refreshTimerId !== null) {
+    return;
+  }
+  trafficHistoryState.refreshTimerId = window.setInterval(() => {
+    void loadTrafficHistory();
+  }, TRAFFIC_HISTORY_REFRESH_INTERVAL_MS);
+}
+
+function stopTrafficHistoryRefresh() {
+  if (trafficHistoryState.refreshTimerId === null) {
+    return;
+  }
+  window.clearInterval(trafficHistoryState.refreshTimerId);
+  trafficHistoryState.refreshTimerId = null;
 }
 
 function setStatus(message) {
@@ -4311,6 +4482,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusLogLeftInput = document.querySelector("#server-control-status-log-left");
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
+  const refreshTrafficButton = document.querySelector("#refresh-traffic-history");
 
   initializeOptionsTabs();
   void loadOptions();
@@ -4320,6 +4492,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   resetButton.addEventListener("click", () => {
     void resetChanges();
+  });
+  refreshTrafficButton?.addEventListener("click", () => {
+    void loadTrafficHistory();
   });
   for (const input of document.querySelectorAll("[data-project-account-input]")) {
     input.addEventListener("input", () => {

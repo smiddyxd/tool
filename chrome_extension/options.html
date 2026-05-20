@@ -212,6 +212,83 @@
       font-weight: 700;
     }
 
+    .traffic-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .traffic-summary-item {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--muted);
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .traffic-chart {
+      display: grid;
+      gap: 6px;
+      max-height: 560px;
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .traffic-chart-row {
+      display: grid;
+      grid-template-columns: minmax(118px, 0.28fr) minmax(0, 1fr) minmax(64px, 0.16fr);
+      gap: 10px;
+      align-items: center;
+      min-height: 26px;
+    }
+
+    .traffic-chart-label,
+    .traffic-chart-size {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .traffic-chart-size {
+      color: var(--ink);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .traffic-chart-track {
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #eef2f7;
+    }
+
+    .traffic-chart-bar {
+      height: 100%;
+      min-width: 2px;
+      border-radius: 4px;
+    }
+
+    .traffic-chart-bar.actual {
+      background: linear-gradient(90deg, #2563eb, #0891b2);
+    }
+
+    .traffic-chart-bar.cover {
+      background: linear-gradient(90deg, #94a3b8, #64748b);
+    }
+
     .hint {
       margin: 0;
       color: var(--muted);
@@ -786,6 +863,8 @@
       .toc-copy-row,
       .toc-column-copy-row,
       .rule-copy-row,
+      .traffic-summary,
+      .traffic-chart-row,
       .toc-column-position-grid,
       .toc-settings-row,
       .toc-settings-controls,
@@ -817,6 +896,7 @@
           <button id="options-tab-general" class="options-tab-button" type="button" role="tab" data-options-tab="general" aria-controls="options-panel-general">General</button>
           <button id="options-tab-ocr-regions" class="options-tab-button" type="button" role="tab" data-options-tab="ocr-regions" aria-controls="options-panel-ocr-regions">OCR regions</button>
           <button id="options-tab-ui" class="options-tab-button" type="button" role="tab" data-options-tab="ui" aria-controls="options-panel-ui">UI</button>
+          <button id="options-tab-traffic" class="options-tab-button" type="button" role="tab" data-options-tab="traffic" aria-controls="options-panel-traffic">Traffic</button>
           <button id="options-tab-status-colors" class="options-tab-button" type="button" role="tab" data-options-tab="status-colors" aria-controls="options-panel-status-colors">Status colors</button>
           <button id="options-tab-status-messages" class="options-tab-button" type="button" role="tab" data-options-tab="status-messages" aria-controls="options-panel-status-messages">Status messages</button>
           <button id="options-tab-boilerplate-prompt" class="options-tab-button" type="button" role="tab" data-options-tab="boilerplate-prompt" aria-controls="options-panel-boilerplate-prompt">Boilerplate prompt</button>
@@ -1050,6 +1130,20 @@
               <p class="hint">Percent size for the right TOC column.</p>
             </label>
           </div>
+        </section>
+
+        <section id="options-panel-traffic" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="traffic" aria-labelledby="options-tab-traffic" hidden>
+          <div class="section-heading">
+            <h2 id="traffic-settings-heading">Traffic</h2>
+            <p class="hint">Recent bridge request sizes. Real operations are marked REAL, and idle cover traffic is marked cover.</p>
+          </div>
+
+          <div class="actions">
+            <button id="refresh-traffic-history" type="button">Refresh</button>
+          </div>
+
+          <div id="traffic-history-summary" class="traffic-summary" aria-label="Traffic summary"></div>
+          <div id="traffic-history-chart" class="traffic-chart" aria-label="Traffic payload size chart"></div>
         </section>
 
         <section id="options-panel-status-colors" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="status-colors" aria-labelledby="options-tab-status-colors" hidden>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import ctypes
 import json
+import secrets
 import threading
 import time
 from collections import deque
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import cv2
+import bridge_ip_config
 import mss
 import numpy as np
 import paddleocr_manual_test
@@ -30,6 +32,24 @@ EVENT_ENDPOINT_PATH = "/a"
 REPEAT_CAPTURE_ENDPOINT_PATH = "/b"
 CONTROL_COMMAND_ENDPOINT_PATH = "/c"
 TASK_TYPE_COUNTS_ENDPOINT_PATH = "/d"
+OBFUSCATED_ENDPOINT_PATHS = (
+    "/api/v1/sync/session",
+    "/api/v1/sync/events",
+    "/api/v1/sync/batches",
+    "/api/v1/sync/checkpoints",
+    "/api/v1/cache/entries",
+    "/api/v1/cache/segments",
+    "/api/v1/library/index",
+    "/api/v1/library/metadata",
+)
+BRIDGE_ACTION_POLL = "poll"
+BRIDGE_ACTION_REPEAT = "repeat"
+BRIDGE_ACTION_COUNTS = "counts"
+BRIDGE_ACTION_CONTROL = "control"
+BRIDGE_ACTION_COVER = "cover"
+BRIDGE_PADDING_MAX_EXTRA_BYTES = 262_144
+BRIDGE_COVER_RESPONSE_MIN_BYTES = 524_288
+BRIDGE_COVER_RESPONSE_MAX_BYTES = 4_194_304
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -132,10 +152,17 @@ class SentTaskReference:
 # Task-counter detection settings.
 TASK_COUNTER_SCAN_TOP = 135
 TASK_COUNTER_SCAN_HEIGHT = 24
-TASK_COUNTER_ICON_TEMPLATE_PATH = Path(__file__).resolve().parent / "assets" / "task-counter-icon.png"
-TASK_COUNTER_ICON_MATCH_THRESHOLD = 0.82
-TASK_COUNTER_TEXT_REGION_WIDTH = 64
-TASK_COUNTER_TEXT_COLOR_BGR = (246, 135, 68)  # Hex 4487F6 in BGR order for OpenCV.
+TASK_COUNTER_SCAN_LEFT_RATIO = 0.5
+TASK_COUNTER_SCAN_RIGHT_MAX_X = 2300
+TASK_COUNTER_DIGIT_MAX_GAP = 5
+TASK_COUNTER_DIGIT_MIN_AREA = 4
+TASK_COUNTER_DIGIT_MIN_HEIGHT = 6
+TASK_COUNTER_ICON_COLOR_BGR = (189, 189, 189)  # Hex BDBDBD in BGR order for OpenCV.
+TASK_COUNTER_ICON_COLOR_TOLERANCE = 24
+TASK_COUNTER_ICON_ANCHOR_MAX_GAP = 36
+TASK_COUNTER_ICON_MIN_AREA = 8
+TASK_COUNTER_ICON_MIN_HEIGHT = 8
+TASK_COUNTER_TEXT_COLOR_BGR = (245, 134, 68)  # Hex 4486F5 in BGR order for OpenCV.
 TASK_COUNTER_TEXT_COLOR_TOLERANCE = 40
 TASK_COUNTER_OCR_SCALE_FACTOR = 5.0
 TASK_COUNTER_OCR_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789"
@@ -901,17 +928,20 @@ def get_pending_task() -> Any:
     return jsonify(STATE.consume_event())
 
 
+def build_task_type_counts_payload(span_value: Any = "day") -> dict[str, Any]:
+    span = sanitize_control_command_field(span_value or "day", 20)
+    return TASK_TYPE_COUNTERS.get_counts(span)
+
+
 @app.get(TASK_TYPE_COUNTS_ENDPOINT_PATH)
 def get_task_type_counts() -> Any:
-    span = sanitize_control_command_field(request.args.get("span") or "day", 20)
-    return jsonify(TASK_TYPE_COUNTERS.get_counts(span))
+    return jsonify(build_task_type_counts_payload(request.args.get("span") or "day"))
 
 
-@app.get(REPEAT_CAPTURE_ENDPOINT_PATH)
-def capture_repeat_screenshot() -> Any:
+def build_repeat_capture_payload() -> dict[str, str]:
     repeatable_task = STATE.get_repeatable_task()
     if repeatable_task is None:
-        return jsonify({"a": "", "b": "", "c": "", "d": "", "e": "", "f": ""})
+        return {"a": "", "b": "", "c": "", "d": "", "e": "", "f": ""}
 
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
@@ -937,16 +967,19 @@ def capture_repeat_screenshot() -> Any:
         f"[repeat {timestamp_now()}] counter={repeatable_task.task_count} type={repeatable_task.task_type} captured-by-request",
         flush=True,
     )
-    return jsonify(
-        {
-            "a": xor_encrypt_to_hex(str(repeatable_task.task_count), XOR_KEY),
-            "b": xor_encrypt_bytes_to_base64(captured_screenshot_png, XOR_KEY),
-            "c": xor_encrypt_string_to_base64(json.dumps(list(repeat_prompts), ensure_ascii=False), XOR_KEY),
-            "d": xor_encrypt_to_hex("repeat", XOR_KEY),
-            "e": xor_encrypt_bytes_to_base64(repeatable_task.base_screenshot_png, XOR_KEY),
-            "f": xor_encrypt_to_hex(repeatable_task.task_type, XOR_KEY),
-        }
-    )
+    return {
+        "a": xor_encrypt_to_hex(str(repeatable_task.task_count), XOR_KEY),
+        "b": xor_encrypt_bytes_to_base64(captured_screenshot_png, XOR_KEY),
+        "c": xor_encrypt_string_to_base64(json.dumps(list(repeat_prompts), ensure_ascii=False), XOR_KEY),
+        "d": xor_encrypt_to_hex("repeat", XOR_KEY),
+        "e": xor_encrypt_bytes_to_base64(repeatable_task.base_screenshot_png, XOR_KEY),
+        "f": xor_encrypt_to_hex(repeatable_task.task_type, XOR_KEY),
+    }
+
+
+@app.get(REPEAT_CAPTURE_ENDPOINT_PATH)
+def capture_repeat_screenshot() -> Any:
+    return jsonify(build_repeat_capture_payload())
 
 
 @app.post(CONTROL_COMMAND_ENDPOINT_PATH)
@@ -954,7 +987,10 @@ def receive_control_command() -> Any:
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         payload = {}
+    return jsonify(handle_control_command_payload(payload))
 
+
+def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
     command = sanitize_control_command_field(payload.get("command"), 80)
     label = sanitize_control_command_field(payload.get("label"), 120)
     group = sanitize_control_command_field(payload.get("group"), 80)
@@ -1016,7 +1052,7 @@ def receive_control_command() -> Any:
             "Cancel requested.",
             task_type=current_task_type,
         )
-        return jsonify({"ok": True, "queued": False, "cancelled": True})
+        return {"ok": True, "queued": False, "cancelled": True}
 
     if control_run_id:
         STATE.clear_control_run_cancel(control_run_id)
@@ -1043,10 +1079,47 @@ def receive_control_command() -> Any:
             daemon=True,
         )
         thread.start()
-        return jsonify({"ok": True, "queued": True, "runId": control_run_id})
+        return {"ok": True, "queued": True, "runId": control_run_id}
 
     queued = handle_control_processing_command(command, payload)
-    return jsonify({"ok": True, "queued": queued, "runId": control_run_id})
+    return {"ok": True, "queued": queued, "runId": control_run_id}
+
+
+def receive_obfuscated_bridge_request() -> Any:
+    envelope = request.get_json(silent=True)
+    if not isinstance(envelope, dict):
+        envelope = {}
+
+    try:
+        action, params = decode_bridge_operation_envelope(envelope)
+    except ValueError as exc:
+        response = encode_bridge_operation_response({"ok": False, "error": str(exc)})
+        return jsonify(response), 400
+
+    if action == BRIDGE_ACTION_POLL:
+        maybe_log_handshake()
+        return jsonify(encode_bridge_operation_response(STATE.consume_event()))
+    if action == BRIDGE_ACTION_REPEAT:
+        return jsonify(encode_bridge_operation_response(build_repeat_capture_payload()))
+    if action == BRIDGE_ACTION_COUNTS:
+        return jsonify(encode_bridge_operation_response(build_task_type_counts_payload(params.get("span") or "day")))
+    if action == BRIDGE_ACTION_CONTROL:
+        return jsonify(encode_bridge_operation_response(handle_control_command_payload(params)))
+    if action == BRIDGE_ACTION_COVER:
+        response_target_size = sanitize_cover_response_target_size(params.get("responseTargetBytes"))
+        return jsonify(encode_bridge_operation_response({"ok": True}, target_size=response_target_size))
+
+    response = encode_bridge_operation_response({"ok": False, "error": "Unknown bridge operation."})
+    return jsonify(response), 400
+
+
+for endpoint_index, endpoint_path in enumerate(OBFUSCATED_ENDPOINT_PATHS):
+    app.add_url_rule(
+        endpoint_path,
+        f"obfuscated_bridge_operation_{endpoint_index}",
+        receive_obfuscated_bridge_request,
+        methods=["POST"],
+    )
 
 
 def timestamp_now() -> str:
@@ -1150,8 +1223,7 @@ def capture_control_frame() -> tuple[np.ndarray, int | None]:
 
     task_count: int | None = None
     try:
-        counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
-        task_count = extract_task_counter(frame_bgr, counter_icon_template)
+        task_count = extract_task_counter(frame_bgr)
     except Exception as exc:
         print(f"[control {timestamp_now()}] counter-read-error: {exc}", flush=True)
 
@@ -1252,6 +1324,42 @@ def publish_task_counter_status(
         f"reason={counter_read.reason or '-'}",
         flush=True,
     )
+
+
+def check_bridge_ip_configuration() -> None:
+    detected = bridge_ip_config.detect_lan_ipv4_from_ipconfig()
+    configured = bridge_ip_config.read_service_worker_bridge_endpoint()
+    configured_host = configured.host if configured is not None else ""
+    configured_port = configured.port if configured is not None else None
+
+    if detected is None:
+        print(
+            "[bridge-ip] Could not detect a LAN IPv4 address from ipconfig. "
+            "If the laptop cannot reach the bridge, run python_service/update_bridge_ip.py with the current IPv4.",
+            flush=True,
+        )
+        return
+
+    endpoint_text = f"http://{configured_host}:{configured_port}" if configured_host and configured_port else "-"
+    print(
+        f"[bridge-ip] detected={detected.ipv4} adapter={detected.adapter_name!r} "
+        f"gateway={detected.gateway} configured={endpoint_text}",
+        flush=True,
+    )
+
+    if configured_host == detected.ipv4 and (configured_port in {None, HTTP_PORT}):
+        return
+
+    print(
+        f"[bridge-ip] WARNING: extension bridge IP is {configured_host or '-'}, "
+        f"but ipconfig default-gateway adapter IPv4 is {detected.ipv4}.",
+        flush=True,
+    )
+    print(
+        f"[bridge-ip] Run from python_service: python update_bridge_ip.py {detected.ipv4}",
+        flush=True,
+    )
+    print("[bridge-ip] Then reload the unpacked Chrome extension on the laptop.", flush=True)
 
 
 def queue_control_screenshot(payload: dict[str, Any]) -> bool:
@@ -1671,13 +1779,124 @@ def xor_encrypt_to_hex(value: str, key: int) -> str:
     return "".join(f"{ord(char) ^ key:02x}" for char in value)
 
 
+def xor_decrypt_from_hex(value: Any, key: int) -> str:
+    text = str(value or "")
+    if not text or len(text) % 2 != 0:
+        return ""
+
+    try:
+        decoded = bytes(int(text[index : index + 2], 16) ^ key for index in range(0, len(text), 2))
+    except ValueError:
+        return ""
+    return decoded.decode("utf-8", errors="replace")
+
+
 def xor_encrypt_bytes_to_base64(value: bytes, key: int) -> str:
     encrypted = bytes(byte ^ key for byte in value)
     return base64.b64encode(encrypted).decode("ascii")
 
 
+def xor_decrypt_bytes_from_base64(value: Any, key: int) -> bytes:
+    text = str(value or "")
+    if not text:
+        return b""
+    try:
+        encrypted = base64.b64decode(text.encode("ascii"), validate=True)
+    except Exception:
+        return b""
+    return bytes(byte ^ key for byte in encrypted)
+
+
 def xor_encrypt_string_to_base64(value: str, key: int) -> str:
     return xor_encrypt_bytes_to_base64(value.encode("utf-8"), key)
+
+
+def xor_decrypt_string_from_base64(value: Any, key: int) -> str:
+    return xor_decrypt_bytes_from_base64(value, key).decode("utf-8", errors="replace")
+
+
+def decode_bridge_operation_envelope(envelope: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    action = sanitize_control_command_field(xor_decrypt_from_hex(envelope.get("a"), XOR_KEY), 80)
+    if not action:
+        raise ValueError("Missing bridge operation.")
+
+    params_text = xor_decrypt_string_from_base64(envelope.get("b"), XOR_KEY)
+    if not params_text.strip():
+        return action, {}
+
+    try:
+        params = json.loads(params_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Invalid bridge operation payload.") from exc
+
+    if not isinstance(params, dict):
+        raise ValueError("Bridge operation payload must be an object.")
+    return action, params
+
+
+def get_json_payload_size(payload: dict[str, Any]) -> int:
+    return len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def get_random_int_inclusive(minimum: int, maximum: int) -> int:
+    if maximum <= minimum:
+        return minimum
+    return minimum + secrets.randbelow(maximum - minimum + 1)
+
+
+def choose_padded_envelope_target_size(base_size: int) -> int:
+    minimum_extra = 1024
+    maximum_extra = 4096
+
+    if base_size >= 65_536:
+        minimum_extra = int(base_size * 0.08)
+        maximum_extra = int(base_size * 0.35)
+    elif base_size >= 8192:
+        minimum_extra = int(base_size * 0.25)
+        maximum_extra = int(base_size * 0.9)
+    elif base_size >= 1024:
+        minimum_extra = int(base_size * 0.5)
+        maximum_extra = int(base_size * 2)
+
+    maximum_extra = max(minimum_extra, min(maximum_extra, BRIDGE_PADDING_MAX_EXTRA_BYTES))
+    return base_size + get_random_int_inclusive(minimum_extra, maximum_extra)
+
+
+def sanitize_cover_response_target_size(value: Any) -> int:
+    try:
+        requested_size = int(value)
+    except (TypeError, ValueError):
+        requested_size = get_random_int_inclusive(BRIDGE_COVER_RESPONSE_MIN_BYTES, BRIDGE_COVER_RESPONSE_MAX_BYTES)
+
+    return max(BRIDGE_COVER_RESPONSE_MIN_BYTES, min(requested_size, BRIDGE_COVER_RESPONSE_MAX_BYTES))
+
+
+def pad_bridge_operation_envelope(envelope: dict[str, str], target_size: int | None = None) -> dict[str, str]:
+    padded = dict(envelope)
+    padded["d"] = ""
+    base_size = get_json_payload_size(padded)
+    effective_target_size = max(base_size, target_size) if target_size is not None else choose_padded_envelope_target_size(base_size)
+    padding_bytes = max(0, int((effective_target_size - base_size) * 0.72))
+
+    for _attempt in range(4):
+        padded["d"] = xor_encrypt_bytes_to_base64(secrets.token_bytes(padding_bytes), XOR_KEY)
+        current_size = get_json_payload_size(padded)
+        if current_size >= effective_target_size:
+            return padded
+        padding_bytes += int((effective_target_size - current_size) * 0.72) + 1
+
+    return padded
+
+
+def encode_bridge_operation_response(payload: dict[str, Any], target_size: int | None = None) -> dict[str, str]:
+    return pad_bridge_operation_envelope({
+        "a": xor_encrypt_to_hex("ok", XOR_KEY),
+        "b": xor_encrypt_string_to_base64(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            XOR_KEY,
+        ),
+        "c": xor_encrypt_to_hex(timestamp_now(), XOR_KEY),
+    }, target_size=target_size)
 
 
 def ensure_task_type_config(path: Path) -> None:
@@ -2257,39 +2476,192 @@ def ocr_single_line(image: np.ndarray, *, language: str, config: str) -> str:
     return pytesseract.image_to_string(image, lang=language, config=config)
 
 
-def preprocess_counter_digits(region_bgr: np.ndarray) -> np.ndarray:
-    target = np.array(TASK_COUNTER_TEXT_COLOR_BGR, dtype=np.int16)
-    tolerance = TASK_COUNTER_TEXT_COLOR_TOLERANCE
+def color_mask(region_bgr: np.ndarray, color_bgr: tuple[int, int, int], tolerance: int) -> np.ndarray:
+    target = np.array(color_bgr, dtype=np.int16)
     lower = np.clip(target - tolerance, 0, 255).astype(np.uint8)
     upper = np.clip(target + tolerance, 0, 255).astype(np.uint8)
+    return cv2.inRange(region_bgr, lower, upper)
 
-    mask = cv2.inRange(region_bgr, lower, upper)
+
+def build_counter_digit_mask(region_bgr: np.ndarray) -> np.ndarray:
+    mask = color_mask(region_bgr, TASK_COUNTER_TEXT_COLOR_BGR, TASK_COUNTER_TEXT_COLOR_TOLERANCE)
     kernel = np.ones((2, 2), dtype=np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.dilate(mask, kernel, iterations=1)
+    return mask
+
+
+def build_counter_icon_mask(region_bgr: np.ndarray) -> np.ndarray:
+    mask = color_mask(region_bgr, TASK_COUNTER_ICON_COLOR_BGR, TASK_COUNTER_ICON_COLOR_TOLERANCE)
+    kernel = np.ones((2, 2), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    return mask
+
+
+def preprocess_counter_digits(region_bgr: np.ndarray) -> np.ndarray:
+    mask = build_counter_digit_mask(region_bgr)
     processed = 255 - mask
     return upscale_image(processed, TASK_COUNTER_OCR_SCALE_FACTOR, cv2.INTER_NEAREST)
 
 
-def read_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> TaskCounterRead:
-    scan_region = extract_region(
-        frame_bgr,
-        Region(left=0, top=TASK_COUNTER_SCAN_TOP, width=frame_bgr.shape[1], height=TASK_COUNTER_SCAN_HEIGHT),
+def get_mask_components(mask: np.ndarray, *, min_area: int, min_height: int) -> list[dict[str, int]]:
+    if mask.size == 0:
+        return []
+
+    component_count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    components: list[dict[str, int]] = []
+    for component_index in range(1, component_count):
+        left = int(stats[component_index, cv2.CC_STAT_LEFT])
+        top = int(stats[component_index, cv2.CC_STAT_TOP])
+        width = int(stats[component_index, cv2.CC_STAT_WIDTH])
+        height = int(stats[component_index, cv2.CC_STAT_HEIGHT])
+        area = int(stats[component_index, cv2.CC_STAT_AREA])
+        if area < min_area or height < min_height:
+            continue
+        components.append(
+            {
+                "left": left,
+                "top": top,
+                "right": left + width,
+                "bottom": top + height,
+                "width": width,
+                "height": height,
+                "area": area,
+            }
+        )
+    return sorted(components, key=lambda component: (component["left"], component["top"]))
+
+
+def cluster_counter_digit_components(components: list[dict[str, int]]) -> list[dict[str, int]]:
+    clusters: list[dict[str, int]] = []
+    current: dict[str, int] | None = None
+
+    for component in components:
+        if current is None or component["left"] - current["right"] > TASK_COUNTER_DIGIT_MAX_GAP:
+            if current is not None:
+                clusters.append(current)
+            current = {
+                "left": component["left"],
+                "top": component["top"],
+                "right": component["right"],
+                "bottom": component["bottom"],
+                "area": component["area"],
+                "component_count": 1,
+            }
+            continue
+
+        current["top"] = min(current["top"], component["top"])
+        current["right"] = max(current["right"], component["right"])
+        current["bottom"] = max(current["bottom"], component["bottom"])
+        current["area"] += component["area"]
+        current["component_count"] += 1
+
+    if current is not None:
+        clusters.append(current)
+
+    return [
+        {
+            **cluster,
+            "width": cluster["right"] - cluster["left"],
+            "height": cluster["bottom"] - cluster["top"],
+        }
+        for cluster in clusters
+        if cluster["area"] >= TASK_COUNTER_DIGIT_MIN_AREA and cluster["bottom"] - cluster["top"] >= TASK_COUNTER_DIGIT_MIN_HEIGHT
+    ]
+
+
+def counter_cluster_has_left_icon_anchor(cluster: dict[str, int], icon_components: list[dict[str, int]]) -> bool:
+    for icon_component in icon_components:
+        if icon_component["right"] > cluster["left"]:
+            continue
+        if cluster["left"] - icon_component["right"] <= TASK_COUNTER_ICON_ANCHOR_MAX_GAP:
+            return True
+    return False
+
+
+def choose_counter_digit_cluster(
+    digit_components: list[dict[str, int]],
+    icon_components: list[dict[str, int]],
+) -> tuple[dict[str, int] | None, bool]:
+    clusters = cluster_counter_digit_components(digit_components)
+    if not clusters:
+        return None, bool(icon_components)
+
+    anchored_clusters = [
+        cluster for cluster in clusters
+        if counter_cluster_has_left_icon_anchor(cluster, icon_components)
+    ]
+    candidates = anchored_clusters or clusters
+    candidates = sorted(
+        candidates,
+        key=lambda cluster: (
+            cluster in anchored_clusters,
+            cluster["component_count"],
+            cluster["area"],
+            cluster["right"],
+        ),
+        reverse=True,
     )
-    icon_match = match_template(scan_region, icon_template_bgr, TASK_COUNTER_ICON_MATCH_THRESHOLD)
-    if icon_match is None:
+    return candidates[0], bool(anchored_clusters)
+
+
+def read_task_counter(frame_bgr: np.ndarray, _icon_template_bgr: np.ndarray | None = None) -> TaskCounterRead:
+    search_left = int(frame_bgr.shape[1] * TASK_COUNTER_SCAN_LEFT_RATIO)
+    search_right = min(frame_bgr.shape[1], TASK_COUNTER_SCAN_RIGHT_MAX_X)
+    if search_right <= search_left:
         return TaskCounterRead(
             task_count=None,
             icon_found=False,
-            reason="counter icon not found",
+            reason="counter search region empty",
         )
 
-    digits_left = icon_match.left + icon_match.width
-    digits_right = min(scan_region.shape[1], digits_left + TASK_COUNTER_TEXT_REGION_WIDTH)
+    scan_region = extract_region(
+        frame_bgr,
+        Region(
+            left=search_left,
+            top=TASK_COUNTER_SCAN_TOP,
+            width=search_right - search_left,
+            height=TASK_COUNTER_SCAN_HEIGHT,
+        ),
+    )
+    digit_mask = build_counter_digit_mask(scan_region)
+    icon_mask = build_counter_icon_mask(scan_region)
+    digit_components = get_mask_components(
+        digit_mask,
+        min_area=TASK_COUNTER_DIGIT_MIN_AREA,
+        min_height=TASK_COUNTER_DIGIT_MIN_HEIGHT,
+    )
+    icon_components = get_mask_components(
+        icon_mask,
+        min_area=TASK_COUNTER_ICON_MIN_AREA,
+        min_height=TASK_COUNTER_ICON_MIN_HEIGHT,
+    )
+    digit_cluster, icon_anchor_found = choose_counter_digit_cluster(digit_components, icon_components)
+    if digit_cluster is None:
+        save_debug_image("task_counter_scan_region.png", scan_region)
+        save_debug_image("task_counter_digits_processed.png", 255 - digit_mask)
+        save_debug_text(
+            "task_counter_ocr.txt",
+            (
+                "raw=''\nparsed=''\n"
+                f"search_left={search_left}\nsearch_right={search_right}\n"
+                f"digit_components={len(digit_components)}\nicon_components={len(icon_components)}\n"
+                "reason='counter digit color cluster not found'\n"
+            ),
+        )
+        return TaskCounterRead(
+            task_count=None,
+            icon_found=bool(icon_components),
+            reason="counter digit color cluster not found",
+        )
+
+    padding = 2
+    digits_left = max(0, digit_cluster["left"] - padding)
+    digits_right = min(scan_region.shape[1], digit_cluster["right"] + padding)
     if digits_right <= digits_left:
         return TaskCounterRead(
             task_count=None,
-            icon_found=True,
+            icon_found=icon_anchor_found,
             reason="counter digit region empty",
         )
 
@@ -2302,12 +2674,21 @@ def read_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> T
     save_debug_image("task_counter_scan_region.png", scan_region)
     save_debug_image("task_counter_digits_raw.png", digits_region)
     save_debug_image("task_counter_digits_processed.png", processed_digits)
-    save_debug_text("task_counter_ocr.txt", f"raw={raw_text!r}\nparsed={cleaned!r}\n")
+    save_debug_text(
+        "task_counter_ocr.txt",
+        (
+            f"raw={raw_text!r}\nparsed={cleaned!r}\n"
+            f"search_left={search_left}\nsearch_right={search_right}\n"
+            f"digits_left={search_left + digits_left}\ndigits_right={search_left + digits_right}\n"
+            f"digit_components={len(digit_components)}\nicon_components={len(icon_components)}\n"
+            f"icon_anchor_found={icon_anchor_found}\n"
+        ),
+    )
 
     if not cleaned:
         return TaskCounterRead(
             task_count=None,
-            icon_found=True,
+            icon_found=icon_anchor_found,
             raw_text=raw_text,
             parsed_text=cleaned,
             reason="counter OCR read no digits",
@@ -2316,7 +2697,7 @@ def read_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> T
     try:
         return TaskCounterRead(
             task_count=int(cleaned),
-            icon_found=True,
+            icon_found=icon_anchor_found,
             raw_text=raw_text,
             parsed_text=cleaned,
             reason="ok",
@@ -2324,14 +2705,14 @@ def read_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> T
     except ValueError:
         return TaskCounterRead(
             task_count=None,
-            icon_found=True,
+            icon_found=icon_anchor_found,
             raw_text=raw_text,
             parsed_text=cleaned,
             reason="counter OCR parsed invalid integer",
         )
 
 
-def extract_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> int | None:
+def extract_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray | None = None) -> int | None:
     return read_task_counter(frame_bgr, icon_template_bgr).task_count
 
 def preprocess_task_type_variants(region_bgr: np.ndarray) -> list[tuple[str, np.ndarray]]:
@@ -2551,8 +2932,6 @@ def monitor_scroll_signals() -> None:
 
 
 def monitor_screen() -> None:
-    counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
-
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
         last_edge_active = is_mouse_signal_active(monitor)
@@ -2563,7 +2942,7 @@ def monitor_screen() -> None:
         while True:
             try:
                 frame_bgr = capture_primary_monitor(screenshotter, monitor)
-                counter_read = read_task_counter(frame_bgr, counter_icon_template)
+                counter_read = read_task_counter(frame_bgr)
                 task_count = counter_read.task_count
                 counter_visible = task_count is not None
 
@@ -2853,6 +3232,7 @@ def monitor_screen() -> None:
 def main() -> None:
     ensure_tesseract()
     ensure_task_type_config(TASK_TYPE_CONFIG_PATH)
+    check_bridge_ip_configuration()
     if DEBUG_OUTPUT_ENABLED:
         ensure_debug_output_dir()
 
