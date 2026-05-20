@@ -131,7 +131,7 @@ const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
 const BRIDGE_EVENT_TIMEOUT_MS = 30000;
 const CONTROL_COMMAND_TIMEOUT_MS = 30000;
-const CONTROL_PROCESSING_FOLLOWUP_POLL_DELAYS_MS = [0, 250, 750, 1500, 3000, 6000, 10000, 15000, 20000, 30000];
+const CONTROL_PROCESSING_FOLLOWUP_POLL_DELAYS_MS = [0, 300, 1000, 2500, 5000];
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
 const MAX_DELIVERY_ATTEMPTS = 3;
@@ -624,6 +624,18 @@ function normalizeBridgeTrafficSample(sample) {
   return normalizedSample;
 }
 
+function isRoutineBridgeTrafficSample(sample) {
+  if (sample?.ok !== true || sample?.error) {
+    return false;
+  }
+
+  return (
+    sample.action === "task_queue_check"
+    || sample.action === BRIDGE_ACTION_POLL
+    || sample.action === "control_status"
+  );
+}
+
 function normalizeBridgeTrafficHistory(rawSamples) {
   if (!Array.isArray(rawSamples)) {
     return [];
@@ -660,6 +672,7 @@ function normalizeBridgeTrafficHistory(rawSamples) {
       };
     })
     .filter(Boolean)
+    .filter((sample) => !isRoutineBridgeTrafficSample(sample))
     .slice(-BRIDGE_TRAFFIC_HISTORY_LIMIT);
 }
 
@@ -682,6 +695,10 @@ function appendBridgeTrafficSampleToState(sample) {
 
 async function rememberBridgeTrafficSample(sample) {
   const normalizedSample = normalizeBridgeTrafficSample(sample);
+  if (isRoutineBridgeTrafficSample(normalizedSample)) {
+    return;
+  }
+
   state.trafficHistoryWritePromise = state.trafficHistoryWritePromise
     .catch(() => undefined)
     .then(async () => {

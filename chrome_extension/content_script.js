@@ -4483,7 +4483,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       .local-query-bridge-traffic-entry {
         display: grid;
-        grid-template-columns: 56px minmax(0, 1fr) 58px;
+        grid-template-columns: minmax(132px, 0.58fr) minmax(42px, 0.24fr) minmax(48px, 0.18fr);
         gap: 6px;
         align-items: center;
         min-height: 22px;
@@ -5012,8 +5012,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     };
   }
 
+  function shouldShowBridgeTrafficSample(sample) {
+    if (sample?.ok !== true || sample?.error) {
+      return true;
+    }
+
+    return !(
+      sample.action === "task_queue_check"
+      || sample.action === "poll"
+      || sample.action === "control_status"
+    );
+  }
+
   function appendBridgeTrafficLog(sample, options = {}) {
     const entry = normalizeBridgeTrafficSample(sample);
+    if (!shouldShowBridgeTrafficSample(entry)) {
+      return;
+    }
+
     if (!entry.totalBytes) {
       entry.totalBytes = entry.requestBytes + entry.responseBytes;
     }

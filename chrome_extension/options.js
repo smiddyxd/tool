@@ -2236,6 +2236,18 @@ function normalizeTrafficSample(sample) {
   };
 }
 
+function shouldShowTrafficSample(sample) {
+  if (sample?.ok !== true || sample?.error) {
+    return true;
+  }
+
+  return !(
+    sample.action === "task_queue_check"
+    || sample.action === "poll"
+    || sample.action === "control_status"
+  );
+}
+
 function createTrafficSummaryItem(text) {
   const item = document.createElement("div");
   item.className = "traffic-summary-item";
@@ -2339,7 +2351,7 @@ async function loadTrafficHistory() {
       trafficHistoryState.nextCoverTrafficAt,
     );
     const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
-    trafficHistoryState.samples = samples.map(normalizeTrafficSample);
+    trafficHistoryState.samples = samples.map(normalizeTrafficSample).filter(shouldShowTrafficSample);
     trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
     setStatus(`Traffic history refreshed: ${trafficHistoryState.samples.length} row(s).`);
@@ -4559,7 +4571,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   if (changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]) {
     const samples = changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY].newValue;
-    trafficHistoryState.samples = Array.isArray(samples) ? samples.map(normalizeTrafficSample) : [];
+    trafficHistoryState.samples = Array.isArray(samples)
+      ? samples.map(normalizeTrafficSample).filter(shouldShowTrafficSample)
+      : [];
     trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
   }
