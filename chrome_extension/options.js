@@ -113,6 +113,7 @@ const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
 const TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
+const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
@@ -395,7 +396,9 @@ const highlightState = {
 const trafficHistoryState = {
   samples: [],
   refreshTimerId: null,
+  countdownTimerId: null,
   loadedAt: 0,
+  nextCoverTrafficAt: 0,
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -2150,6 +2153,61 @@ function formatTrafficTimestamp(timestamp) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
 }
 
+function formatTrafficCountdown(timestampMs) {
+  const parsed = Number.parseInt(`${timestampMs ?? 0}`, 10) || 0;
+  if (!parsed) {
+    return "not scheduled";
+  }
+  const remainingSeconds = Math.max(0, Math.ceil((parsed - Date.now()) / 1000));
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getTrafficDisplayLabel(sample) {
+  if (sample.label) {
+    return sample.label;
+  }
+
+  switch (sample.action) {
+    case "task_queue_check":
+    case "poll":
+      return "task check";
+    case "task_screenshot":
+      return "new task screenshot";
+    case "text_task":
+      return "text task";
+    case "alert_task":
+      return "alert task";
+    case "control_status":
+      return "control status";
+    case "counts":
+      return "check count";
+    case "repeat":
+      return "repeat capture";
+    case "repeat_event":
+      return "repeat event";
+    case "scroll":
+      return "scroll event";
+    case "cover":
+      return "cover request";
+    case "sync_task_type":
+      return "sync task type";
+    case "control:start_task_ocr":
+      return "task OCR";
+    case "control:start_task_screenshot":
+      return "screenshot";
+    case "control:ocr_google_results":
+      return "Google results OCR";
+    case "control:draft_comment_feedback":
+      return "rating comment";
+    case "control:cancel_control_processing":
+      return "cancel processing";
+    default:
+      return sample.action || "operation";
+  }
+}
+
 function normalizeTrafficSample(sample) {
   const requestBytes = Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0);
   const responseBytes = Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0);
@@ -2163,6 +2221,7 @@ function normalizeTrafficSample(sample) {
     timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : "",
     action: typeof sample?.action === "string" ? sample.action : "",
     operation: typeof sample?.operation === "string" ? sample.operation : "",
+    label: typeof sample?.label === "string" ? sample.label : "",
     kind: sample?.kind === "cover" || sample?.action === "cover" || sample?.operation === "cover" ? "cover" : "actual",
     path: typeof sample?.path === "string" ? sample.path : "",
     method: typeof sample?.method === "string" ? sample.method : "POST",
@@ -2188,7 +2247,7 @@ function createTrafficChartRow(sample, maxBytes) {
   const row = document.createElement("div");
   row.className = "traffic-chart-row";
   row.title = [
-    `${sample.kind === "cover" ? "Cover" : "Actual"} ${sample.action || "operation"}`,
+    `${sample.kind === "cover" ? "Cover" : "Actual"} ${getTrafficDisplayLabel(sample)}`,
     sample.operation && sample.operation !== sample.action ? `Bridge operation: ${sample.operation}` : "",
     sample.source ? `Source: ${sample.source}` : "",
     `${sample.method} ${sample.path}`,
@@ -2201,9 +2260,7 @@ function createTrafficChartRow(sample, maxBytes) {
 
   const label = document.createElement("div");
   label.className = "traffic-chart-label";
-  label.textContent = sample.kind === "cover"
-    ? `cover ${formatTrafficTimestamp(sample.timestamp)}`
-    : `REAL ${sample.action || "operation"} ${formatTrafficTimestamp(sample.timestamp)}`;
+  label.textContent = `${sample.kind === "cover" ? "COVER" : "REAL"} ${formatTrafficTimestamp(sample.timestamp)} ${getTrafficDisplayLabel(sample)}`;
 
   const track = document.createElement("div");
   track.className = "traffic-chart-track";
@@ -2235,12 +2292,10 @@ function renderTrafficHistory() {
   const samples = trafficHistoryState.samples;
   const actualCount = samples.filter((sample) => sample.kind !== "cover").length;
   const coverCount = samples.length - actualCount;
-  const latest = samples[samples.length - 1];
   summary.append(
     createTrafficSummaryItem(`Real ${actualCount}`),
     createTrafficSummaryItem(`Cover ${coverCount}`),
-    createTrafficSummaryItem(`Latest ${latest ? formatTrafficBytes(latest.totalBytes) : "--"}`),
-    createTrafficSummaryItem(`Rows ${samples.length}`),
+    createTrafficSummaryItem(`Next cover ${formatTrafficCountdown(trafficHistoryState.nextCoverTrafficAt)}`),
   );
 
   if (samples.length === 0) {
@@ -2259,7 +2314,14 @@ function renderTrafficHistory() {
 }
 
 async function readStoredTrafficHistory() {
-  const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [] });
+  const stored = await chrome.storage.local.get({
+    [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [],
+    [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: 0,
+  });
+  trafficHistoryState.nextCoverTrafficAt = Math.max(
+    trafficHistoryState.nextCoverTrafficAt,
+    Number.parseInt(`${stored[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT] ?? 0}`, 10) || 0,
+  );
   const samples = stored[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY];
   return Array.isArray(samples) ? samples : [];
 }
@@ -2272,6 +2334,10 @@ async function loadTrafficHistory() {
       readStoredTrafficHistory().catch(() => []),
     ]);
     const responseSamples = Array.isArray(response?.samples) ? response.samples : [];
+    trafficHistoryState.nextCoverTrafficAt = Math.max(
+      Number.parseInt(`${response?.nextCoverTrafficAt ?? 0}`, 10) || 0,
+      trafficHistoryState.nextCoverTrafficAt,
+    );
     const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
     trafficHistoryState.samples = samples.map(normalizeTrafficSample);
     trafficHistoryState.loadedAt = Date.now();
@@ -2296,14 +2362,27 @@ function startTrafficHistoryRefresh() {
   trafficHistoryState.refreshTimerId = window.setInterval(() => {
     void loadTrafficHistory();
   }, TRAFFIC_HISTORY_REFRESH_INTERVAL_MS);
+  if (trafficHistoryState.countdownTimerId === null) {
+    trafficHistoryState.countdownTimerId = window.setInterval(() => {
+      renderTrafficHistory();
+    }, 1000);
+  }
 }
 
 function stopTrafficHistoryRefresh() {
   if (trafficHistoryState.refreshTimerId === null) {
+    if (trafficHistoryState.countdownTimerId !== null) {
+      window.clearInterval(trafficHistoryState.countdownTimerId);
+      trafficHistoryState.countdownTimerId = null;
+    }
     return;
   }
   window.clearInterval(trafficHistoryState.refreshTimerId);
   trafficHistoryState.refreshTimerId = null;
+  if (trafficHistoryState.countdownTimerId !== null) {
+    window.clearInterval(trafficHistoryState.countdownTimerId);
+    trafficHistoryState.countdownTimerId = null;
+  }
 }
 
 function setStatus(message) {
@@ -4464,6 +4543,27 @@ async function resetChanges() {
   await loadOptions();
   setStatus("Unsaved changes reset.");
 }
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") {
+    return;
+  }
+
+  if (changes[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]) {
+    trafficHistoryState.nextCoverTrafficAt = Number.parseInt(
+      `${changes[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT].newValue ?? 0}`,
+      10,
+    ) || 0;
+    renderTrafficHistory();
+  }
+
+  if (changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]) {
+    const samples = changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY].newValue;
+    trafficHistoryState.samples = Array.isArray(samples) ? samples.map(normalizeTrafficSample) : [];
+    trafficHistoryState.loadedAt = Date.now();
+    renderTrafficHistory();
+  }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");

@@ -20,8 +20,10 @@ const BRIDGE_PADDING_MAX_EXTRA_BYTES = 262144;
 const BRIDGE_COVER_TRAFFIC_ENABLED = true;
 const BRIDGE_COVER_INITIAL_MIN_INTERVAL_MS = 5000;
 const BRIDGE_COVER_INITIAL_MAX_INTERVAL_MS = 15000;
-const BRIDGE_COVER_MIN_INTERVAL_MS = 45000;
-const BRIDGE_COVER_MAX_INTERVAL_MS = 180000;
+const BRIDGE_COVER_MIN_INTERVAL_MS = 25000;
+const BRIDGE_COVER_MAX_INTERVAL_MS = 55000;
+const BRIDGE_COVER_RETRY_MIN_INTERVAL_MS = 10000;
+const BRIDGE_COVER_RETRY_MAX_INTERVAL_MS = 20000;
 const BRIDGE_COVER_REQUEST_MIN_BYTES = 65536;
 const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
 const BRIDGE_COVER_RESPONSE_MIN_BYTES = 786432;
@@ -166,7 +168,11 @@ function createPollingAlarm() {
 }
 
 function createCoverTrafficAlarm() {
-  chrome.alarms.create(COVER_TRAFFIC_ALARM_NAME, { periodInMinutes: BRIDGE_COVER_ALARM_PERIOD_MINUTES });
+  if (state.nextCoverTrafficAt > Date.now()) {
+    chrome.alarms.create(COVER_TRAFFIC_ALARM_NAME, { when: state.nextCoverTrafficAt });
+  } else {
+    chrome.alarms.create(COVER_TRAFFIC_ALARM_NAME, { delayInMinutes: BRIDGE_COVER_ALARM_PERIOD_MINUTES });
+  }
 }
 
 async function ensureBridgeAlarms() {
@@ -178,6 +184,7 @@ async function ensureBridgeAlarms() {
     createPollingAlarm();
   }
   if (!coverAlarm) {
+    await ensureCoverTrafficScheduleLoaded();
     createCoverTrafficAlarm();
   }
 }
@@ -548,6 +555,48 @@ function createTrafficSampleId() {
   return `${Date.now().toString(36)}-${randomBytes[0].toString(36)}-${randomBytes[1].toString(36)}`;
 }
 
+function getBridgeTrafficActionLabel(action) {
+  switch (action) {
+    case "task_queue_check":
+    case BRIDGE_ACTION_POLL:
+      return "task check";
+    case "task_screenshot":
+      return "new task screenshot";
+    case "text_task":
+      return "text task";
+    case "alert_task":
+      return "alert task";
+    case "control_status":
+      return "control status";
+    case BRIDGE_ACTION_COUNTS:
+      return "check count";
+    case BRIDGE_ACTION_REPEAT:
+      return "repeat capture";
+    case "repeat_event":
+      return "repeat event";
+    case "scroll":
+      return "scroll event";
+    case BRIDGE_ACTION_COVER:
+      return "cover request";
+    case "sync_task_type":
+      return "sync task type";
+    case "control:start_task_ocr":
+      return "task OCR";
+    case "control:start_task_screenshot":
+      return "screenshot";
+    case "control:ocr_google_results":
+      return "Google results OCR";
+    case "control:draft_comment_feedback":
+      return "rating comment";
+    case "control:cancel_control_processing":
+      return "cancel processing";
+    case BRIDGE_ACTION_CONTROL:
+      return "control";
+    default:
+      return action || "operation";
+  }
+}
+
 function normalizeBridgeTrafficSample(sample) {
   const requestBytes = Number.isFinite(sample?.requestBytes) ? sample.requestBytes : 0;
   const responseBytes = Number.isFinite(sample?.responseBytes) ? sample.responseBytes : 0;
@@ -558,6 +607,7 @@ function normalizeBridgeTrafficSample(sample) {
     timestamp: new Date().toISOString(),
     action,
     operation,
+    label: typeof sample?.label === "string" && sample.label ? sample.label : getBridgeTrafficActionLabel(action),
     kind: action === BRIDGE_ACTION_COVER || operation === BRIDGE_ACTION_COVER ? "cover" : "actual",
     path: typeof sample?.path === "string" ? sample.path : "",
     method: "POST",
@@ -594,6 +644,7 @@ function normalizeBridgeTrafficHistory(rawSamples) {
         timestamp: typeof sample.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
         action: typeof sample.action === "string" ? sample.action : "",
         operation: typeof sample.operation === "string" ? sample.operation : (typeof sample.action === "string" ? sample.action : ""),
+        label: typeof sample.label === "string" && sample.label ? sample.label : getBridgeTrafficActionLabel(sample.action),
         kind: sample.kind === "cover" || sample.action === BRIDGE_ACTION_COVER || sample.operation === BRIDGE_ACTION_COVER ? "cover" : "actual",
         path: typeof sample.path === "string" ? sample.path : "",
         method: typeof sample.method === "string" ? sample.method : "POST",
@@ -682,8 +733,11 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
   const endpoint = getRandomBridgeOperationEndpoint();
   const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, params, options));
   const requestBytes = getStringByteLength(requestBody);
-  const logAction = typeof options.logAction === "string" && options.logAction ? options.logAction : action;
-  const logSource = typeof options.logSource === "string" ? options.logSource : "";
+  const trafficDetails = {
+    action: typeof options.logAction === "string" && options.logAction ? options.logAction : action,
+    label: typeof options.logLabel === "string" ? options.logLabel : "",
+    source: typeof options.logSource === "string" ? options.logSource : "",
+  };
   const startedAt = Date.now();
   let responseBytes = 0;
   let status = 0;
@@ -710,15 +764,31 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
       throw new Error(`Bridge operation response not ok: ${response.status}`);
     }
 
-    return decodeBridgeOperationEnvelope(JSON.parse(responseText));
+    const payload = decodeBridgeOperationEnvelope(JSON.parse(responseText));
+    if (typeof options.resolveTrafficDetails === "function") {
+      const resolvedDetails = options.resolveTrafficDetails(payload);
+      if (resolvedDetails && typeof resolvedDetails === "object" && !Array.isArray(resolvedDetails)) {
+        if (typeof resolvedDetails.action === "string" && resolvedDetails.action) {
+          trafficDetails.action = resolvedDetails.action;
+        }
+        if (typeof resolvedDetails.label === "string" && resolvedDetails.label) {
+          trafficDetails.label = resolvedDetails.label;
+        }
+        if (typeof resolvedDetails.source === "string" && resolvedDetails.source) {
+          trafficDetails.source = resolvedDetails.source;
+        }
+      }
+    }
+    return payload;
   } catch (error) {
     errorText = `${error}`;
     throw error;
   } finally {
     await rememberBridgeTrafficSample({
-      action: logAction,
+      action: trafficDetails.action,
       operation: action,
-      source: logSource,
+      label: trafficDetails.label,
+      source: trafficDetails.source,
       path: endpoint.path,
       requestBytes,
       responseBytes,
@@ -1992,13 +2062,40 @@ async function handleScrollEvent(direction, steps) {
   }
 }
 
+function getPollTrafficDetails(payload) {
+  if (isEmptyBridgePayload(payload)) {
+    return { action: "task_queue_check", label: "task check" };
+  }
+
+  const eventType = xorDecryptHex(payload?.d ?? "", XOR_KEY).trim();
+  switch (eventType) {
+    case EVENT_TYPE_TASK:
+      return { action: "task_screenshot", label: "new task screenshot" };
+    case EVENT_TYPE_TEXT_TASK:
+      return { action: "text_task", label: "text task" };
+    case EVENT_TYPE_ALERT_TASK:
+      return { action: "alert_task", label: "alert task" };
+    case EVENT_TYPE_CONTROL_STATUS:
+      return { action: "control_status", label: "control status" };
+    case EVENT_TYPE_SCROLL:
+      return { action: "scroll", label: "scroll event" };
+    case EVENT_TYPE_REPEAT:
+      return { action: "repeat_event", label: "repeat event" };
+    default:
+      return { action: BRIDGE_ACTION_POLL, label: "task check" };
+  }
+}
+
 async function fetchBridgePayload(timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
 
   try {
-    const payload = await fetchBridgeOperation(BRIDGE_ACTION_POLL, {}, controller.signal);
+    const payload = await fetchBridgeOperation(BRIDGE_ACTION_POLL, {}, controller.signal, {
+      logLabel: "task check",
+      resolveTrafficDetails: getPollTrafficDetails,
+    });
     maybeLogHandshake();
     const payloadChars = ["a", "b", "c", "d", "e", "f"].reduce((total, key) => (
       total + (typeof payload?.[key] === "string" ? payload[key].length : 0)
@@ -2022,7 +2119,9 @@ async function fetchRepeatCapturePayload() {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const payload = await fetchBridgeOperation(BRIDGE_ACTION_REPEAT, {}, controller.signal);
+    const payload = await fetchBridgeOperation(BRIDGE_ACTION_REPEAT, {}, controller.signal, {
+      logLabel: "repeat capture",
+    });
     maybeLogHandshake();
     return payload;
   } finally {
@@ -2040,6 +2139,7 @@ async function fetchTaskTypeCounts(span = "day") {
       BRIDGE_ACTION_COUNTS,
       { span: normalizedSpan },
       controller.signal,
+      { logLabel: "check count" },
     );
     return {
       ok: payload?.ok !== false,
@@ -2072,6 +2172,7 @@ function scheduleNextCoverTraffic(
   maxIntervalMs = BRIDGE_COVER_MAX_INTERVAL_MS,
 ) {
   state.nextCoverTrafficAt = now + getRandomIntInclusive(minIntervalMs, maxIntervalMs);
+  createCoverTrafficAlarm();
   void chrome.storage.local.set({
     [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: state.nextCoverTrafficAt,
   });
@@ -2109,7 +2210,17 @@ async function maybeSendIdleCoverTraffic() {
     return;
   }
 
-  if (state.isSendingCoverTraffic || Date.now() < state.nextCoverTrafficAt || !isIdleForCoverTraffic()) {
+  if (state.isSendingCoverTraffic) {
+    return;
+  }
+
+  if (Date.now() < state.nextCoverTrafficAt) {
+    createCoverTrafficAlarm();
+    return;
+  }
+
+  if (!isIdleForCoverTraffic()) {
+    scheduleNextCoverTraffic(Date.now(), BRIDGE_COVER_RETRY_MIN_INTERVAL_MS, BRIDGE_COVER_RETRY_MAX_INTERVAL_MS);
     return;
   }
 
@@ -2130,7 +2241,7 @@ async function maybeSendIdleCoverTraffic() {
       BRIDGE_ACTION_COVER,
       { responseTargetBytes },
       controller.signal,
-      { requestTargetSize },
+      { requestTargetSize, logLabel: "cover request" },
     );
   } catch (error) {
     console.warn("Local Query Bridge cover traffic failed", error);
@@ -2405,11 +2516,13 @@ async function sendServerControlCommand(command, sender) {
   const logAction = commandName === "sync_task_type"
     ? "sync_task_type"
     : (commandName ? `control:${commandName}` : BRIDGE_ACTION_CONTROL);
+  const logLabel = getBridgeTrafficActionLabel(logAction);
   const logSource = typeof payload.source === "string" ? payload.source : "";
 
   try {
     await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal, {
       logAction,
+      logLabel,
       logSource,
     });
 
@@ -2956,15 +3069,13 @@ async function runBridgeAlarmTick() {
 
 chrome.runtime.onInstalled.addListener(() => {
   void ensureDefaultOptions();
-  createPollingAlarm();
-  createCoverTrafficAlarm();
+  void ensureBridgeAlarms();
   void runBridgeAlarmTick();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureDefaultOptions();
-  createPollingAlarm();
-  createCoverTrafficAlarm();
+  void ensureBridgeAlarms();
   void runBridgeAlarmTick();
 });
 
@@ -3024,10 +3135,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     void state.trafficHistoryWritePromise
       .catch(() => undefined)
       .then(() => ensureBridgeTrafficHistoryLoaded())
+      .then(() => ensureCoverTrafficScheduleLoaded())
       .then(() => {
         sendResponse({
           ok: true,
           samples: state.trafficHistory,
+          nextCoverTrafficAt: state.nextCoverTrafficAt,
+          coverTrafficEnabled: BRIDGE_COVER_TRAFFIC_ENABLED,
+          coverTrafficSending: state.isSendingCoverTraffic,
         });
       })
       .catch((error) => {
