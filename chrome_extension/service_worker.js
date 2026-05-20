@@ -131,6 +131,7 @@ const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
 const BRIDGE_EVENT_TIMEOUT_MS = 30000;
 const CONTROL_COMMAND_TIMEOUT_MS = 30000;
+const CONTROL_PROCESSING_FOLLOWUP_POLL_DELAYS_MS = [0, 250, 750, 1500, 3000, 6000, 10000, 15000, 20000, 30000];
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
 const MAX_DELIVERY_ATTEMPTS = 3;
@@ -2188,9 +2189,8 @@ async function ensureCoverTrafficScheduleLoaded() {
   const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: 0 });
   const now = Date.now();
   const storedNextAt = Number.parseInt(`${stored[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT] ?? 0}`, 10) || 0;
-  const hasLoggedCoverTraffic = state.trafficHistory.some((sample) => sample.kind === "cover");
   state.coverTrafficScheduleLoaded = true;
-  if (hasLoggedCoverTraffic && storedNextAt > now && storedNextAt <= now + BRIDGE_COVER_MAX_INTERVAL_MS) {
+  if (storedNextAt > now && storedNextAt <= now + BRIDGE_COVER_MAX_INTERVAL_MS) {
     state.nextCoverTrafficAt = storedNextAt;
     return;
   }
@@ -2351,6 +2351,16 @@ function clearPendingDeliveryRetry() {
 
   clearTimeout(state.pendingDeliveryRetryTimer);
   state.pendingDeliveryRetryTimer = null;
+}
+
+function scheduleControlProcessingFollowupPolls() {
+  for (const delayMs of CONTROL_PROCESSING_FOLLOWUP_POLL_DELAYS_MS) {
+    setTimeout(() => {
+      void pollLocalBridge().catch((error) => {
+        console.warn("Local Query Bridge control follow-up poll failed", error);
+      });
+    }, delayMs);
+  }
 }
 
 async function switchBridgeTaskType(taskType, sender) {
@@ -2525,6 +2535,9 @@ async function sendServerControlCommand(command, sender) {
       logLabel,
       logSource,
     });
+    if (isProcessingCommand) {
+      scheduleControlProcessingFollowupPolls();
+    }
 
     console.log("Local Query Bridge forwarded server control command", {
       command: payload.command,
@@ -3143,6 +3156,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           nextCoverTrafficAt: state.nextCoverTrafficAt,
           coverTrafficEnabled: BRIDGE_COVER_TRAFFIC_ENABLED,
           coverTrafficSending: state.isSendingCoverTraffic,
+        });
+        void maybeSendIdleCoverTraffic().catch((error) => {
+          console.warn("Local Query Bridge traffic history cover kick failed", error);
         });
       })
       .catch((error) => {
