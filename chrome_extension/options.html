@@ -71,6 +71,42 @@
       gap: 18px;
     }
 
+    .options-tabs {
+      display: grid;
+      gap: 18px;
+    }
+
+    .options-tab-list {
+      position: sticky;
+      top: 18px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .options-tab-button {
+      border-color: var(--line);
+      background: #ffffff !important;
+      color: var(--muted) !important;
+    }
+
+    .options-tab-button.active {
+      border-color: var(--accent);
+      background: var(--accent-soft) !important;
+      color: var(--accent) !important;
+    }
+
+    .options-tab-panel[hidden] {
+      display: none;
+    }
+
     .settings-section {
       display: grid;
       gap: 18px;
@@ -772,57 +808,85 @@
 <body>
   <main>
     <h1>Local Query Bridge</h1>
-    <p class="lead">Configure the ChatGPT target, reset behavior, and response keyword highlighting.</p>
+    <p class="lead">Configure bridge targets, task behavior, OCR regions, overlay UI, prompts, highlighting, and TOC buttons.</p>
 
     <form id="options-form">
-      <section class="settings-section" aria-labelledby="bridge-settings-heading">
-        <div class="section-heading">
-          <h2 id="bridge-settings-heading">Bridge Settings</h2>
+      <div class="options-tabs">
+        <div class="options-tab-list" role="tablist" aria-label="Options sections">
+          <button id="options-tab-bridge-settings" class="options-tab-button" type="button" role="tab" data-options-tab="bridge-settings" aria-controls="options-panel-bridge-settings">Bridge settings</button>
+          <button id="options-tab-general" class="options-tab-button" type="button" role="tab" data-options-tab="general" aria-controls="options-panel-general">General</button>
+          <button id="options-tab-ocr-regions" class="options-tab-button" type="button" role="tab" data-options-tab="ocr-regions" aria-controls="options-panel-ocr-regions">OCR regions</button>
+          <button id="options-tab-ui" class="options-tab-button" type="button" role="tab" data-options-tab="ui" aria-controls="options-panel-ui">UI</button>
+          <button id="options-tab-status-colors" class="options-tab-button" type="button" role="tab" data-options-tab="status-colors" aria-controls="options-panel-status-colors">Status colors</button>
+          <button id="options-tab-status-messages" class="options-tab-button" type="button" role="tab" data-options-tab="status-messages" aria-controls="options-panel-status-messages">Status messages</button>
+          <button id="options-tab-boilerplate-prompt" class="options-tab-button" type="button" role="tab" data-options-tab="boilerplate-prompt" aria-controls="options-panel-boilerplate-prompt">Boilerplate prompt</button>
+          <button id="options-tab-highlighting" class="options-tab-button" type="button" role="tab" data-options-tab="highlighting" aria-controls="options-panel-highlighting">Highlighting</button>
+          <button id="options-tab-toc-buttons" class="options-tab-button" type="button" role="tab" data-options-tab="toc-buttons" aria-controls="options-panel-toc-buttons">TOC buttons</button>
         </div>
 
-        <div>
-          <h3>Task type project IDs</h3>
-          <p class="hint">Each task type has two project IDs: the same project created in two ChatGPT accounts. Enter a raw 32-character ID, g-p- ID, or full project URL for each account. The selected account is opened when you switch task type from the bridge control menu.</p>
-        </div>
-
-        <div class="task-project-editor" aria-label="Task type ChatGPT project IDs">
-          <div id="task-project-task-bar" class="task-project-task-bar" aria-label="Task types"></div>
-
-          <div class="task-project-fields">
-            <div class="task-project-account-inputs">
-              <label for="project-account-ascasdqwe">
-                ascasdqwe
-                <input id="project-account-ascasdqwe" data-project-account-input="ascasdqwe" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
-              </label>
-
-              <label for="project-account-aoizxcaoi">
-                aoizxcaoi
-                <input id="project-account-aoizxcaoi" data-project-account-input="aoizxcaoi" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
-              </label>
-            </div>
-
-            <div id="task-project-account-choices" class="task-project-account-choices" aria-label="Active project account"></div>
+        <section id="options-panel-bridge-settings" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="bridge-settings" aria-labelledby="options-tab-bridge-settings">
+          <div class="section-heading">
+            <h2 id="bridge-settings-heading">Bridge Settings</h2>
+            <p class="hint">Pick the task type being edited, set its bridge-control label, and choose the ChatGPT project IDs used by each account.</p>
           </div>
-        </div>
-
-        <div class="task-type-config-editor" aria-label="Task type regions and prompt editor">
-          <div class="task-type-config-header">
-            <label for="task-type-label">
-              Bridge control label
-              <input id="task-type-label" type="text" autocomplete="off" spellcheck="false">
-              <p class="hint">This is the label shown for the task type in bridge control.</p>
-            </label>
-
-            <div class="actions">
-              <button id="add-task-type" type="button">Add task type</button>
-              <button id="delete-task-type" class="danger-button" type="button">Delete task type</button>
-            </div>
-          </div>
-
-          <p class="task-type-key">Key: <span id="task-type-key"></span></p>
 
           <div>
-            <h3>Processing and regions</h3>
+            <h3>Task type project IDs</h3>
+            <p class="hint">Each task type has two project IDs: the same project created in two ChatGPT accounts. Enter a raw 32-character ID, g-p- ID, or full project URL for each account. The selected account is opened when you switch task type from the bridge control menu.</p>
+          </div>
+
+          <div class="task-project-editor" aria-label="Task type ChatGPT project IDs">
+            <div id="task-project-task-bar" class="task-project-task-bar" aria-label="Task types"></div>
+
+            <div class="task-project-fields">
+              <div class="task-project-account-inputs">
+                <label for="project-account-ascasdqwe">
+                  ascasdqwe
+                  <input id="project-account-ascasdqwe" data-project-account-input="ascasdqwe" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
+                </label>
+
+                <label for="project-account-aoizxcaoi">
+                  aoizxcaoi
+                  <input id="project-account-aoizxcaoi" data-project-account-input="aoizxcaoi" type="text" autocomplete="off" spellcheck="false" placeholder="69bc1388b0588191bd1c176e83f018e4">
+                </label>
+              </div>
+
+              <div id="task-project-account-choices" class="task-project-account-choices" aria-label="Active project account"></div>
+            </div>
+          </div>
+
+          <div class="task-type-config-editor" aria-label="Task type label editor">
+            <div class="task-type-config-header">
+              <label for="task-type-label">
+                Bridge control label
+                <input id="task-type-label" type="text" autocomplete="off" spellcheck="false">
+                <p class="hint">This is the label shown for the task type in bridge control.</p>
+              </label>
+
+              <div class="actions">
+                <button id="add-task-type" type="button">Add task type</button>
+                <button id="delete-task-type" class="danger-button" type="button">Delete task type</button>
+              </div>
+            </div>
+
+            <p class="task-type-key">Key: <span id="task-type-key"></span></p>
+          </div>
+        </section>
+
+        <section id="options-panel-general" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="general" aria-labelledby="options-tab-general" hidden>
+          <div class="section-heading">
+            <h2 id="general-settings-heading">General</h2>
+            <p class="hint">Task submission behavior and other non-visual settings for the selected task type.</p>
+          </div>
+
+          <label for="reset-limit">
+            Reset limit
+            <input id="reset-limit" name="resetLimit" type="number" min="0" step="1" inputmode="numeric">
+            <p class="hint">Use 0 to disable auto-reset. Positive values open a fresh chat after that many extension submissions.</p>
+          </label>
+
+          <div>
+            <h3>Processing buttons</h3>
             <p class="hint">Google search results adds the Google search processing button and Google results region. Comment feedback adds the Comment processing button and Rating comment OCR region. Full task screenshot adds the Screenshot button and Full task screenshot region. OCR enables the OCR button and any OCR regions below. Require Search chip makes submission wait for ChatGPT's Search chip before prompt insertion.</p>
           </div>
 
@@ -853,6 +917,19 @@
             </label>
           </div>
 
+          <label for="latest-prompt-scroll-hold-seconds">
+            Latest prompt re-check seconds
+            <input id="latest-prompt-scroll-hold-seconds" type="number" min="0" max="60" step="1" inputmode="numeric">
+            <p class="hint">For OCR/text-only submissions, re-check once per second after the generation-start jump. Screenshot submissions do the first jump only.</p>
+          </label>
+        </section>
+
+        <section id="options-panel-ocr-regions" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="ocr-regions" aria-labelledby="options-tab-ocr-regions" hidden>
+          <div class="section-heading">
+            <h2 id="ocr-region-settings-heading">OCR Regions</h2>
+            <p class="hint">OCR region definitions and coordinate bounds for the selected task type.</p>
+          </div>
+
           <div>
             <div class="actions">
               <h3>OCR regions</h3>
@@ -863,8 +940,15 @@
 
           <div>
             <h3>Region coordinates</h3>
-            <p class="hint">These bounds are used by the bridge control commands. Google results is shared across task types; other regions are saved for the selected task type.</p>
+            <p class="hint">These bounds are used by the bridge control commands. Google results is shared across task types; other regions are saved for the selected task type. Each region can copy matching coordinate settings from another task type.</p>
             <div id="task-type-region-coordinates" class="region-coordinate-list"></div>
+          </div>
+        </section>
+
+        <section id="options-panel-ui" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="ui" aria-labelledby="options-tab-ui" hidden>
+          <div class="section-heading">
+            <h2 id="ui-settings-heading">UI</h2>
+            <p class="hint">Visual placement and opacity controls for bridge control overlays, the processing log, and TOC columns.</p>
           </div>
 
           <label for="server-control-zone-divider-opacity">
@@ -921,16 +1005,75 @@
             <p class="hint">Horizontal distance from the left edge of the viewport. The default places the log at bottom left.</p>
           </label>
 
-          <div>
-            <h3>Processing status log colors</h3>
+          <div class="toc-column-position-grid" aria-label="TOC column position, opacity, and scale">
+            <div class="toc-column-copy-row">
+              <label for="analysis-toc-column-settings-copy-source">
+                Copy TOC column UI from
+                <select id="analysis-toc-column-settings-copy-source"></select>
+              </label>
+              <button id="copy-analysis-toc-column-settings" type="button">Copy</button>
+            </div>
+
+            <label for="analysis-toc-left-x">
+              Left column x
+              <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">
+              <p class="hint">Pixels from the left edge of the ChatGPT viewport.</p>
+            </label>
+
+            <label for="analysis-toc-right-inset">
+              Right column inset
+              <input id="analysis-toc-right-inset" type="number" min="0" max="5000" step="1" inputmode="numeric">
+              <p class="hint">Pixels from the right edge of the ChatGPT viewport.</p>
+            </label>
+
+            <label for="analysis-toc-left-opacity">
+              Left idle opacity
+              <input id="analysis-toc-left-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
+              <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
+            </label>
+
+            <label for="analysis-toc-right-opacity">
+              Right idle opacity
+              <input id="analysis-toc-right-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
+              <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
+            </label>
+
+            <label for="analysis-toc-left-scale">
+              Left scale
+              <input id="analysis-toc-left-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
+              <p class="hint">Percent size for the left TOC column.</p>
+            </label>
+
+            <label for="analysis-toc-right-scale">
+              Right scale
+              <input id="analysis-toc-right-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
+              <p class="hint">Percent size for the right TOC column.</p>
+            </label>
+          </div>
+        </section>
+
+        <section id="options-panel-status-colors" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="status-colors" aria-labelledby="options-tab-status-colors" hidden>
+          <div class="section-heading">
+            <h2 id="status-color-settings-heading">Status Colors</h2>
             <p class="hint">These colors are used by the bottom-left ChatGPT processing log for OCR, queueing, prompt insertion, cancellation, and error messages.</p>
-            <div id="server-control-status-log-colors" class="status-log-color-grid"></div>
           </div>
 
-          <div>
-            <h3>Processing status log messages</h3>
+          <div id="server-control-status-log-colors" class="status-log-color-grid"></div>
+        </section>
+
+        <section id="options-panel-status-messages" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="status-messages" aria-labelledby="options-tab-status-messages" hidden>
+          <div class="section-heading">
+            <h2 id="status-message-settings-heading">Status Messages</h2>
             <p class="hint">Leave a message blank to use the live bridge message. Templates can include {message}, {attempt}, {attemptTotal}, {variant}, {query}, {product}, {taskCount}, {promptCount}, and {selectedRegionLabel}.</p>
-            <div id="server-control-status-log-messages" class="status-log-message-grid"></div>
+          </div>
+
+          <div id="server-control-status-log-messages" class="status-log-message-grid"></div>
+        </section>
+
+        <section id="options-panel-boilerplate-prompt" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="boilerplate-prompt" aria-labelledby="options-tab-boilerplate-prompt" hidden>
+          <div class="section-heading">
+            <h2 id="boilerplate-prompt-settings-heading">Boilerplate Prompt</h2>
+            <p class="hint">Prompt text and placeholder shortcuts for the selected task type.</p>
           </div>
 
           <label for="task-type-boilerplate-prompt">
@@ -940,16 +1083,9 @@
           </label>
 
           <div id="task-type-placeholder-buttons" class="placeholder-buttons" aria-label="Prompt placeholders"></div>
-        </div>
+        </section>
 
-        <label for="reset-limit">
-          Reset limit
-          <input id="reset-limit" name="resetLimit" type="number" min="0" step="1" inputmode="numeric">
-          <p class="hint">Use 0 to disable auto-reset. Positive values open a fresh chat after that many extension submissions.</p>
-        </label>
-      </section>
-
-      <section class="settings-section" aria-labelledby="highlight-settings-heading">
+        <section id="options-panel-highlighting" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="highlighting" aria-labelledby="options-tab-highlighting" hidden>
         <div class="section-heading">
           <h2 id="highlight-settings-heading">Keyword Highlights</h2>
           <p class="hint">These rules are saved for the selected task type above. Matched strings are highlighted in ChatGPT messages. Adjacent terms are included before or after the match within the selected range. Normal strings ignore punctuation and hyphens; r- regex lines run against the raw text so symbols, commas, and decimals still work. Prefix a matched-string line with -- to exclude it from that rule.</p>
@@ -1036,10 +1172,10 @@
         <div id="highlight-rules-list" class="rules-list" aria-live="polite"></div>
       </section>
 
-      <section class="settings-section" aria-labelledby="analysis-toc-settings-heading">
+        <section id="options-panel-toc-buttons" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="toc-buttons" aria-labelledby="options-tab-toc-buttons" hidden>
         <div class="section-heading">
           <h2 id="analysis-toc-settings-heading">Analysis TOC Buttons</h2>
-          <p class="hint">These buttons and column controls are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, case sensitivity, column position, idle opacity, scale, and OCR-only latest prompt re-check window.</p>
+          <p class="hint">These buttons are saved for the selected task type above. Edit each jump button's order, name, active color, screen side, scroll offset, and case sensitivity. Column placement and opacity are in the UI tab.</p>
         </div>
 
         <div id="custom-toc-editor" class="custom-toc-editor">
@@ -1051,60 +1187,9 @@
           <div id="custom-toc-entry-list" class="custom-toc-entry-list"></div>
         </div>
 
-        <div class="toc-column-position-grid" aria-label="TOC column position, opacity, and scale">
-          <div class="toc-column-copy-row">
-            <label for="analysis-toc-column-settings-copy-source">
-              Copy column controls from
-              <select id="analysis-toc-column-settings-copy-source"></select>
-            </label>
-            <button id="copy-analysis-toc-column-settings" type="button">Copy</button>
-          </div>
-
-          <label for="analysis-toc-left-x">
-            Left column x
-            <input id="analysis-toc-left-x" type="number" min="0" max="5000" step="1" inputmode="numeric">
-            <p class="hint">Pixels from the left edge of the ChatGPT viewport.</p>
-          </label>
-
-          <label for="analysis-toc-right-inset">
-            Right column inset
-            <input id="analysis-toc-right-inset" type="number" min="0" max="5000" step="1" inputmode="numeric">
-            <p class="hint">Pixels from the right edge of the ChatGPT viewport.</p>
-          </label>
-
-          <label for="analysis-toc-left-opacity">
-            Left idle opacity
-            <input id="analysis-toc-left-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
-            <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
-          </label>
-
-          <label for="analysis-toc-right-opacity">
-            Right idle opacity
-            <input id="analysis-toc-right-opacity" type="number" min="5" max="100" step="1" inputmode="numeric">
-            <p class="hint">Percent opacity while not hovering. Hover is always 100%.</p>
-          </label>
-
-          <label for="analysis-toc-left-scale">
-            Left scale
-            <input id="analysis-toc-left-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
-            <p class="hint">Percent size for the left TOC column.</p>
-          </label>
-
-          <label for="analysis-toc-right-scale">
-            Right scale
-            <input id="analysis-toc-right-scale" type="number" min="50" max="250" step="5" inputmode="numeric">
-            <p class="hint">Percent size for the right TOC column.</p>
-          </label>
-
-          <label for="latest-prompt-scroll-hold-seconds">
-            Latest prompt re-check seconds
-            <input id="latest-prompt-scroll-hold-seconds" type="number" min="0" max="60" step="1" inputmode="numeric">
-            <p class="hint">For OCR/text-only submissions, re-check once per second after the generation-start jump. Screenshot submissions do the first jump only.</p>
-          </label>
-        </div>
-
         <div id="analysis-toc-settings-list" class="toc-settings-list"></div>
       </section>
+      </div>
 
       <div class="actions floating-form-actions">
         <button type="submit">Save settings</button>

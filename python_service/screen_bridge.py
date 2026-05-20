@@ -103,6 +103,32 @@ class RepeatableTask:
     base_screenshot_png: bytes
 
 
+@dataclass(frozen=True)
+class SentTaskReference:
+    reference_type: str
+    record_id: str
+    task_count: int
+    task_type: str
+    sent_at: str
+    source: str
+    control_run_id: str = ""
+    screenshot_paths: tuple[str, ...] = ()
+    record_path: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "referenceType": self.reference_type,
+            "recordId": self.record_id,
+            "taskCount": self.task_count,
+            "taskType": self.task_type,
+            "sentAt": self.sent_at,
+            "source": self.source,
+            "controlRunId": self.control_run_id,
+            "screenshotPaths": list(self.screenshot_paths),
+            "recordPath": self.record_path,
+        }
+
+
 # Task-counter detection settings.
 TASK_COUNTER_SCAN_TOP = 135
 TASK_COUNTER_SCAN_HEIGHT = 24
@@ -157,6 +183,9 @@ DEBUG_OUTPUT_DIR = Path(__file__).resolve().parent / "debug"
 TASK_TYPE_CONFIG_PATH = Path(__file__).resolve().parent / "task_type_config.json"
 TASK_TYPE_COUNTS_PATH = Path(__file__).resolve().parent / "task_type_counts.json"
 TASK_TYPE_HISTORY_PATH = Path(__file__).resolve().parent / "task_type_history.jsonl"
+TASK_SENT_SCREENSHOT_DIR = Path(__file__).resolve().parent / "task_screenshots"
+TASK_OCR_TEXT_HISTORY_PATH = Path(__file__).resolve().parent / "task_ocr_text_history.jsonl"
+RATING_COMMENT_DRAFT_HISTORY_PATH = Path(__file__).resolve().parent / "rating_comment_drafts.jsonl"
 DEFAULT_CONTROL_TASK_TYPE_KEY = "search-experience-to-product-usefulness"
 DEFAULT_CONTROL_TASK_TYPE_LABEL = "Search Experience to Product Usefulness"
 
@@ -350,6 +379,7 @@ class SharedState:
     cancelled_control_run_ids: set[str] = field(default_factory=set)
     armed_task: ArmedTask | None = None
     repeatable_task: RepeatableTask | None = None
+    last_sent_task_reference: SentTaskReference | None = None
     active_task_type_key: str = DEFAULT_CONTROL_TASK_TYPE_KEY
     active_task_type_label: str = DEFAULT_CONTROL_TASK_TYPE_LABEL
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -432,6 +462,14 @@ class SharedState:
     def get_repeatable_task(self) -> RepeatableTask | None:
         with self.lock:
             return self.repeatable_task
+
+    def remember_sent_task_reference(self, reference: SentTaskReference) -> None:
+        with self.lock:
+            self.last_sent_task_reference = reference
+
+    def get_last_sent_task_reference(self) -> SentTaskReference | None:
+        with self.lock:
+            return self.last_sent_task_reference
 
     def cancel_control_run(self, run_id: str) -> None:
         normalized_run_id = sanitize_control_command_field(run_id, 120)
@@ -586,17 +624,20 @@ class SharedState:
         prompts: list[str] | tuple[str, ...],
         task_type: str = "",
         control_run_id: str = "",
+        task_text_record: dict[str, Any] | None = None,
     ) -> None:
+        event = {
+            "type": TEXT_TASK_EVENT_TYPE,
+            "task_count": task_count,
+            "prompts": list(prompts),
+            "task_type": str(task_type or ""),
+            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+        }
+        if task_text_record is not None:
+            event["task_text_record"] = task_text_record
+
         with self.lock:
-            self.pending_events.append(
-                {
-                    "type": TEXT_TASK_EVENT_TYPE,
-                    "task_count": task_count,
-                    "prompts": list(prompts),
-                    "task_type": str(task_type or ""),
-                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
-                }
-            )
+            self.pending_events.append(event)
 
     def publish_control_status_and_text_payload(
         self,
@@ -611,6 +652,8 @@ class SharedState:
         prompts: list[str] | tuple[str, ...],
         payload_task_type: str = "",
         control_run_id: str = "",
+        task_text_record: dict[str, Any] | None = None,
+        comment_draft_record: dict[str, Any] | None = None,
     ) -> None:
         status_event = self.build_control_status_event(
             run_id,
@@ -627,6 +670,11 @@ class SharedState:
             "task_type": str(payload_task_type or ""),
             "control_run_id": sanitize_control_command_field(control_run_id, 120),
         }
+        if task_text_record is not None:
+            payload_event["task_text_record"] = task_text_record
+        if comment_draft_record is not None:
+            payload_event["comment_draft_record"] = comment_draft_record
+
         with self.lock:
             if status_event is not None:
                 self.pending_events.append(status_event)
@@ -710,6 +758,21 @@ class SharedState:
             control_run_id = str(event.get("control_run_id", ""))
             encoded_screenshots = [base64.b64encode(screenshot_png).decode("ascii") for screenshot_png in screenshot_pngs]
             total_bytes = sum(len(screenshot_png) for screenshot_png in screenshot_pngs)
+            screenshot_paths = save_sent_screenshot_pngs(
+                task_count,
+                screenshot_pngs,
+                task_type=task_type,
+                source="task",
+            )
+            self.remember_sent_task_reference(
+                build_sent_screenshot_reference(
+                    task_count,
+                    task_type,
+                    source="task",
+                    screenshot_paths=screenshot_paths,
+                    control_run_id=control_run_id,
+                )
+            )
             print(
                 f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
@@ -728,6 +791,29 @@ class SharedState:
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
             task_type = str(event.get("task_type", ""))
             control_run_id = str(event.get("control_run_id", ""))
+            task_text_record = event.get("task_text_record")
+            if isinstance(task_text_record, dict):
+                reference = save_task_ocr_text_record(
+                    task_count,
+                    task_type,
+                    prompts,
+                    task_text_record,
+                    control_run_id=control_run_id,
+                )
+                if reference is not None:
+                    self.remember_sent_task_reference(reference)
+
+            comment_draft_record = event.get("comment_draft_record")
+            if isinstance(comment_draft_record, dict):
+                save_rating_comment_draft_record(
+                    task_count,
+                    task_type,
+                    prompts,
+                    comment_draft_record,
+                    linked_task_reference=self.get_last_sent_task_reference(),
+                    control_run_id=control_run_id,
+                )
+
             print(
                 f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
@@ -833,6 +919,20 @@ def capture_repeat_screenshot() -> Any:
 
     captured_screenshot_png = build_screenshot_payload(frame_bgr)
     repeat_prompts = build_repeat_prompts(repeatable_task)
+    screenshot_paths = save_sent_screenshot_pngs(
+        repeatable_task.task_count,
+        [captured_screenshot_png],
+        task_type=repeatable_task.task_type,
+        source="repeat",
+    )
+    STATE.remember_sent_task_reference(
+        build_sent_screenshot_reference(
+            repeatable_task.task_count,
+            repeatable_task.task_type,
+            source="repeat",
+            screenshot_paths=screenshot_paths,
+        )
+    )
     print(
         f"[repeat {timestamp_now()}] counter={repeatable_task.task_count} type={repeatable_task.task_type} captured-by-request",
         flush=True,
@@ -1322,6 +1422,15 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
         prompts=text_prompts,
         payload_task_type=get_control_payload_task_type_key(payload, settings.task_type),
         control_run_id=run_id,
+        task_text_record={
+            "source": "control_ocr",
+            "queryText": query_text,
+            "productText": product_text,
+            "ocrWarning": ocr_warning,
+            "selectedLineCount": selected_line_count,
+            "variant": str(entry.get("ocr_variant", "")),
+            "debug": debug_name,
+        },
     )
     print(
         f"[control {timestamp_now()}] queued-ocr-text counter={effective_task_count} type={settings.task_type}",
@@ -1476,6 +1585,20 @@ def queue_comment_draft_feedback(payload: dict[str, Any]) -> bool:
         prompts=(prompt,),
         payload_task_type=get_control_payload_task_type_key(payload, task_type),
         control_run_id=run_id,
+        comment_draft_record={
+            "source": "comment_draft_feedback",
+            "commentText": comment_text,
+            "lineCount": line_count,
+            "rawLineCount": int(ocr_result.get("raw_line_count", 0) or 0),
+            "variant": str(ocr_result.get("variant", "")),
+            "selectedRegionLabel": region_label,
+            "selectedRegion": {
+                "left": selected_region.left,
+                "top": selected_region.top,
+                "right": selected_region.left + selected_region.width,
+                "bottom": selected_region.top + selected_region.height,
+            },
+        },
     )
     print(
         f"[control {timestamp_now()}] queued-comment-draft counter={effective_task_count} "
@@ -1738,6 +1861,201 @@ def save_debug_text(filename: str, text: str) -> None:
         return
     ensure_debug_output_dir()
     (DEBUG_OUTPUT_DIR / filename).write_text(text, encoding="utf-8")
+
+
+def sanitize_filename_component(value: Any, fallback: str = "unknown", max_length: int = 80) -> str:
+    text = sanitize_control_command_field(value, max_length)
+    safe_text = "".join(
+        character if character.isascii() and (character.isalnum() or character in {"-", "_"}) else "_"
+        for character in text
+    ).strip("_")
+    return safe_text[:max_length] or fallback
+
+
+def save_sent_screenshot_pngs(
+    task_count: int,
+    screenshots_png: list[bytes] | tuple[bytes, ...],
+    *,
+    task_type: str = "",
+    source: str = "task",
+) -> list[str]:
+    if not screenshots_png:
+        return []
+
+    task_count_slug = sanitize_filename_component(task_count, fallback="unknown", max_length=24)
+    task_type_slug = sanitize_filename_component(task_type, fallback="unknown-task", max_length=80)
+    source_slug = sanitize_filename_component(source, fallback="sent", max_length=40)
+    saved_paths: list[str] = []
+    try:
+        TASK_SENT_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        print(
+            f"[task-screenshot {timestamp_now()}] counter={task_count} type={task_type or '-'} "
+            f"source={source_slug} mkdir-error={exc}",
+            flush=True,
+        )
+        return saved_paths
+
+    for index, screenshot_png in enumerate(screenshots_png, start=1):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        file_path = TASK_SENT_SCREENSHOT_DIR / (
+            f"task_{task_count_slug}_{timestamp}_{source_slug}_{task_type_slug}_{index}.png"
+        )
+        try:
+            file_path.write_bytes(bytes(screenshot_png))
+        except Exception as exc:
+            print(
+                f"[task-screenshot {timestamp_now()}] counter={task_count} type={task_type or '-'} "
+                f"source={source_slug} save-error={exc}",
+                flush=True,
+            )
+        else:
+            print(
+                f"[task-screenshot {timestamp_now()}] counter={task_count} type={task_type or '-'} "
+                f"source={source_slug} saved={file_path.name} bytes={len(screenshot_png)}",
+                flush=True,
+            )
+            saved_paths.append(str(file_path))
+
+    return saved_paths
+
+
+def append_jsonl_record(path: Path, record: dict[str, Any]) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        return True
+    except Exception as exc:
+        print(f"[bridge {timestamp_now()}] jsonl-save-error path={path.name} error={exc}", flush=True)
+        return False
+
+
+def build_sent_screenshot_reference(
+    task_count: int,
+    task_type: str,
+    *,
+    source: str,
+    screenshot_paths: list[str] | tuple[str, ...],
+    control_run_id: str = "",
+) -> SentTaskReference:
+    sent_at = timestamp_now()
+    first_path = Path(screenshot_paths[0]) if screenshot_paths else None
+    fallback_id = (
+        f"screenshot_{sanitize_filename_component(task_count, max_length=24)}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    )
+    record_id = first_path.stem if first_path is not None else fallback_id
+    return SentTaskReference(
+        reference_type="task_screenshot",
+        record_id=record_id,
+        task_count=task_count,
+        task_type=task_type,
+        sent_at=sent_at,
+        source=source,
+        control_run_id=sanitize_control_command_field(control_run_id, 120),
+        screenshot_paths=tuple(screenshot_paths),
+    )
+
+
+def build_task_text_record_id(task_count: int, source: str) -> str:
+    task_count_slug = sanitize_filename_component(task_count, fallback="unknown", max_length=24)
+    source_slug = sanitize_filename_component(source, fallback="ocr", max_length=40)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    return f"task_ocr_{task_count_slug}_{timestamp}_{source_slug}"
+
+
+# TODO: When task OCR is fleshed out beyond the current query/product extraction,
+# keep recording the exact OCR text sent to Chrome here so every later rating
+# comment draft can stay linked to the task OCR it was written for.
+def save_task_ocr_text_record(
+    task_count: int,
+    task_type: str,
+    prompts: list[str] | tuple[str, ...],
+    task_text_record: dict[str, Any],
+    *,
+    control_run_id: str = "",
+) -> SentTaskReference | None:
+    source = sanitize_control_command_field(task_text_record.get("source") or "task_ocr", 80)
+    record_id = build_task_text_record_id(task_count, source)
+    sent_at = timestamp_now()
+    record = {
+        "id": record_id,
+        "type": "task_ocr_text",
+        "sentAt": sent_at,
+        "taskCount": task_count,
+        "taskType": task_type,
+        "source": source,
+        "controlRunId": sanitize_control_command_field(control_run_id, 120),
+        "promptCount": len(prompts),
+        "prompts": list(prompts),
+        "queryText": str(task_text_record.get("queryText") or ""),
+        "productText": str(task_text_record.get("productText") or ""),
+        "ocrWarning": str(task_text_record.get("ocrWarning") or ""),
+        "selectedLineCount": task_text_record.get("selectedLineCount", ""),
+        "variant": str(task_text_record.get("variant") or ""),
+        "debug": str(task_text_record.get("debug") or ""),
+    }
+    if not append_jsonl_record(TASK_OCR_TEXT_HISTORY_PATH, record):
+        return None
+
+    print(
+        f"[task-ocr-text {timestamp_now()}] counter={task_count} type={task_type or '-'} "
+        f"source={source or '-'} saved={record_id}",
+        flush=True,
+    )
+    return SentTaskReference(
+        reference_type="task_ocr_text",
+        record_id=record_id,
+        task_count=task_count,
+        task_type=task_type,
+        sent_at=sent_at,
+        source=source,
+        control_run_id=sanitize_control_command_field(control_run_id, 120),
+        record_path=str(TASK_OCR_TEXT_HISTORY_PATH),
+    )
+
+
+def save_rating_comment_draft_record(
+    task_count: int,
+    task_type: str,
+    prompts: list[str] | tuple[str, ...],
+    comment_draft_record: dict[str, Any],
+    *,
+    linked_task_reference: SentTaskReference | None,
+    control_run_id: str = "",
+) -> None:
+    source = sanitize_control_command_field(comment_draft_record.get("source") or "comment_draft", 80)
+    record_id = (
+        f"rating_comment_{sanitize_filename_component(task_count, fallback='unknown', max_length=24)}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    )
+    comment_text = str(comment_draft_record.get("commentText") or "")
+    record = {
+        "id": record_id,
+        "type": "rating_comment_draft",
+        "sentAt": timestamp_now(),
+        "taskCount": task_count,
+        "taskType": task_type,
+        "source": source,
+        "controlRunId": sanitize_control_command_field(control_run_id, 120),
+        "commentText": comment_text,
+        "commentChars": len(comment_text),
+        "lineCount": comment_draft_record.get("lineCount", ""),
+        "rawLineCount": comment_draft_record.get("rawLineCount", ""),
+        "variant": str(comment_draft_record.get("variant") or ""),
+        "selectedRegionLabel": str(comment_draft_record.get("selectedRegionLabel") or ""),
+        "selectedRegion": comment_draft_record.get("selectedRegion", {}),
+        "promptCount": len(prompts),
+        "linkedTaskReference": linked_task_reference.to_dict() if linked_task_reference is not None else None,
+    }
+    if append_jsonl_record(RATING_COMMENT_DRAFT_HISTORY_PATH, record):
+        linked_id = linked_task_reference.record_id if linked_task_reference is not None else "-"
+        print(
+            f"[rating-comment {timestamp_now()}] counter={task_count} type={task_type or '-'} "
+            f"saved={record_id} linked={linked_id}",
+            flush=True,
+        )
 
 
 def load_template_image(path: Path) -> np.ndarray:
@@ -2347,6 +2665,15 @@ def monitor_screen() -> None:
                                         effective_task_count,
                                         text_prompts,
                                         task_type=test_settings.task_type,
+                                        task_text_record={
+                                            "source": "manual_paddleocr",
+                                            "queryText": query_text,
+                                            "productText": product_text,
+                                            "ocrWarning": ocr_warning,
+                                            "selectedLineCount": selected_line_count,
+                                            "variant": str(entry.get("ocr_variant", "")),
+                                            "debug": debug_name,
+                                        },
                                     )
                                     print(
                                         f"[paddleocr {timestamp_now()}] hotkey={PADDLE_OCR_HOTKEY_LABEL} queued-text type={test_settings.task_type}",

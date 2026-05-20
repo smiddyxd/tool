@@ -97,6 +97,19 @@ const ANALYSIS_SECTION_HEADINGS = [
   { heading: "Override Impact", label: "Override Impact" },
 ];
 
+const OPTIONS_TAB_KEYS = [
+  "bridge-settings",
+  "general",
+  "ocr-regions",
+  "ui",
+  "status-colors",
+  "status-messages",
+  "boilerplate-prompt",
+  "highlighting",
+  "toc-buttons",
+];
+const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
+
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
@@ -1922,9 +1935,6 @@ function getAnalysisTocColumnSettings(taskType) {
     positions: sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]),
     opacity: sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]),
     scale: sanitizeAnalysisTocColumnScale(highlightState.taskTypeTocColumnScale[taskType]),
-    latestPromptScrollHoldSeconds: sanitizeLatestPromptScrollHoldSeconds(
-      highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
-    ),
   };
 }
 
@@ -1933,14 +1943,10 @@ function setActiveAnalysisTocColumnSettings(settings) {
   const positions = sanitizeAnalysisTocColumnPositions(settings?.positions);
   const opacity = sanitizeAnalysisTocColumnOpacity(settings?.opacity);
   const scale = sanitizeAnalysisTocColumnScale(settings?.scale);
-  const latestPromptScrollHoldSeconds = sanitizeLatestPromptScrollHoldSeconds(
-    settings?.latestPromptScrollHoldSeconds,
-  );
 
   highlightState.tocColumnPositions = positions;
   highlightState.tocColumnOpacity = opacity;
   highlightState.tocColumnScale = scale;
-  highlightState.latestPromptScrollHoldSeconds = latestPromptScrollHoldSeconds;
   highlightState.taskTypeTocColumnPositions = {
     ...highlightState.taskTypeTocColumnPositions,
     [taskType]: positions,
@@ -1953,29 +1959,24 @@ function setActiveAnalysisTocColumnSettings(settings) {
     ...highlightState.taskTypeTocColumnScale,
     [taskType]: scale,
   };
-  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
-    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
-    [taskType]: latestPromptScrollHoldSeconds,
-  };
 
   setAnalysisTocColumnPositionInputs(positions);
   setAnalysisTocColumnOpacityInputs(opacity);
   setAnalysisTocColumnScaleInputs(scale);
-  setLatestPromptScrollHoldSecondsInput(latestPromptScrollHoldSeconds);
 }
 
 function copyAnalysisTocColumnSettingsFromTaskType(sourceTaskType) {
   const targetTaskType = getActiveTaskTypeKey();
   const sourceDefinition = getTaskTypeDefinitions().find((definition) => definition.key === sourceTaskType);
   if (!sourceDefinition || sourceDefinition.key === targetTaskType) {
-    setStatus("Choose another task type to copy column controls from.");
+    setStatus("Choose another task type to copy TOC column UI from.");
     return;
   }
 
   syncActiveTaskTypeScopedSettings();
   setActiveAnalysisTocColumnSettings(getAnalysisTocColumnSettings(sourceDefinition.key));
   renderAnalysisTocColumnSettingsCopyControl();
-  setStatus(`Copied TOC column controls from ${sourceDefinition.label}. Save settings to apply it.`);
+  setStatus(`Copied TOC column UI from ${sourceDefinition.label}. Save settings to apply it.`);
 }
 
 function renderAnalysisTocColumnSettingsCopyControl() {
@@ -2029,6 +2030,87 @@ function getRuleFormValue() {
   };
 
   return sanitizeHighlightRule(rawRule);
+}
+
+function getOptionsTabKeyFromHash() {
+  const hashValue = window.location.hash.replace(/^#/, "");
+  return OPTIONS_TAB_KEYS.includes(hashValue) ? hashValue : DEFAULT_OPTIONS_TAB_KEY;
+}
+
+function setActiveOptionsTab(tabKey, options = {}) {
+  const activeTabKey = OPTIONS_TAB_KEYS.includes(tabKey) ? tabKey : DEFAULT_OPTIONS_TAB_KEY;
+  const buttons = document.querySelectorAll("[data-options-tab]");
+  const panels = document.querySelectorAll("[data-options-tab-panel]");
+
+  for (const button of buttons) {
+    const isActive = button.dataset.optionsTab === activeTabKey;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+    button.tabIndex = isActive ? 0 : -1;
+  }
+
+  for (const panel of panels) {
+    panel.hidden = panel.dataset.optionsTabPanel !== activeTabKey;
+  }
+
+  if (options.updateHash) {
+    history.replaceState(null, "", `#${activeTabKey}`);
+  }
+}
+
+function focusOptionsTabByOffset(currentButton, offset) {
+  const buttons = [...document.querySelectorAll("[data-options-tab]")];
+  const currentIndex = buttons.indexOf(currentButton);
+  if (currentIndex < 0 || buttons.length === 0) {
+    return;
+  }
+
+  const nextIndex = (currentIndex + offset + buttons.length) % buttons.length;
+  const nextButton = buttons[nextIndex];
+  if (nextButton instanceof HTMLButtonElement) {
+    nextButton.focus();
+    setActiveOptionsTab(nextButton.dataset.optionsTab, { updateHash: true });
+  }
+}
+
+function initializeOptionsTabs() {
+  const buttons = document.querySelectorAll("[data-options-tab]");
+  if (buttons.length === 0) {
+    return;
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      setActiveOptionsTab(button.dataset.optionsTab, { updateHash: true });
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault();
+        focusOptionsTabByOffset(button, -1);
+      } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault();
+        focusOptionsTabByOffset(button, 1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setActiveOptionsTab(DEFAULT_OPTIONS_TAB_KEY, { updateHash: true });
+        document.querySelector(`[data-options-tab="${DEFAULT_OPTIONS_TAB_KEY}"]`)?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        const finalTabKey = OPTIONS_TAB_KEYS[OPTIONS_TAB_KEYS.length - 1];
+        setActiveOptionsTab(finalTabKey, { updateHash: true });
+        document.querySelector(`[data-options-tab="${finalTabKey}"]`)?.focus();
+      }
+    });
+  }
+
+  window.addEventListener("hashchange", () => {
+    setActiveOptionsTab(getOptionsTabKeyFromHash());
+  });
+  setActiveOptionsTab(getOptionsTabKeyFromHash());
 }
 
 function setStatus(message) {
@@ -3180,12 +3262,6 @@ function getSourceAnalysisTocState(taskType) {
     settings: sanitizeAnalysisTocButtonSettings(highlightState.taskTypeTocButtonSettings[taskType], entries),
     labels: sanitizeAnalysisTocButtonLabels(highlightState.taskTypeTocButtonLabels[taskType], entries),
     order: sanitizeAnalysisTocButtonOrder(highlightState.taskTypeTocButtonOrder[taskType], entries),
-    columnPositions: sanitizeAnalysisTocColumnPositions(highlightState.taskTypeTocColumnPositions[taskType]),
-    columnOpacity: sanitizeAnalysisTocColumnOpacity(highlightState.taskTypeTocColumnOpacity[taskType]),
-    columnScale: sanitizeAnalysisTocColumnScale(highlightState.taskTypeTocColumnScale[taskType]),
-    latestPromptScrollHoldSeconds: sanitizeLatestPromptScrollHoldSeconds(
-      highlightState.taskTypeLatestPromptScrollHoldSeconds[taskType],
-    ),
   };
 }
 
@@ -3311,22 +3387,6 @@ function copyAnalysisTocButtonsFromTaskType(sourceTaskType) {
   highlightState.taskTypeTocButtonOrder = {
     ...highlightState.taskTypeTocButtonOrder,
     [targetTaskType]: sanitizeAnalysisTocButtonOrder(order, entries),
-  };
-  highlightState.taskTypeTocColumnPositions = {
-    ...highlightState.taskTypeTocColumnPositions,
-    [targetTaskType]: source.columnPositions,
-  };
-  highlightState.taskTypeTocColumnOpacity = {
-    ...highlightState.taskTypeTocColumnOpacity,
-    [targetTaskType]: source.columnOpacity,
-  };
-  highlightState.taskTypeTocColumnScale = {
-    ...highlightState.taskTypeTocColumnScale,
-    [targetTaskType]: source.columnScale,
-  };
-  highlightState.taskTypeLatestPromptScrollHoldSeconds = {
-    ...highlightState.taskTypeLatestPromptScrollHoldSeconds,
-    [targetTaskType]: source.latestPromptScrollHoldSeconds,
   };
 
   applyActiveTaskTypeScopedSettings();
@@ -4252,6 +4312,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
 
+  initializeOptionsTabs();
   void loadOptions();
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
   form.addEventListener("submit", (event) => {

@@ -1,2 +1,6 @@
 # Runtime screenshot archives.
 python_service/task_screenshots/
+
+# Runtime OCR/comment audit logs.
+python_service/task_ocr_text_history.jsonl
+python_service/rating_comment_drafts.jsonl
