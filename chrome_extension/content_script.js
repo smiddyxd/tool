@@ -130,6 +130,7 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_STATUS_LOG_STYLE_ID = "local-query-bridge-server-control-status-log-styles";
   const SERVER_CONTROL_STATUS_LOG_EXPANDED_CLASS = "local-query-bridge-server-control-status-log-expanded";
   const SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS = "local-query-bridge-server-control-status-log-active";
+  const TASK_COUNTER_BADGE_ID = "local-query-bridge-task-counter-badge";
   const SERVER_CONTROL_MENU_HIDE_VIEWPORT_RATIO = 0.5;
   const SERVER_CONTROL_ZONE_OVERLAY_ID = "local-query-bridge-server-control-zone-overlay";
   const SERVER_CONTROL_ZONE_OVERLAY_ACTIVE_CLASS = "local-query-bridge-server-control-zone-overlay-active";
@@ -240,6 +241,7 @@ Base everything strictly on the screenshot attachment.`;
     "client-action": "#2563eb",
     "worker-send": "#7c3aed",
     "server-received": "#0891b2",
+    counter: "#475569",
     capture: "#0d9488",
     "ocr-start": "#4f46e5",
     "ocr-attempt": "#d97706",
@@ -257,6 +259,7 @@ Base everything strictly on the screenshot attachment.`;
     "client-action": "Action",
     "worker-send": "Worker",
     "server-received": "Server",
+    counter: "Counter",
     capture: "Capture",
     "ocr-start": "OCR start",
     "ocr-attempt": "OCR attempt",
@@ -568,6 +571,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     completedRunIds: new Set(),
     cancelledRunIds: new Set(),
     elapsedTimerId: null,
+  };
+
+  const taskCounterBadgeState = {
+    taskCount: "",
+    status: "waiting",
+    timestamp: "",
+    message: "Waiting for bridge counter status.",
   };
 
   const serverControlZoneContextMenuState = {
@@ -4400,12 +4410,67 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         font-weight: 650;
       }
 
+      #${TASK_COUNTER_BADGE_ID} {
+        position: fixed;
+        right: 8px;
+        bottom: 8px;
+        z-index: 2147483646;
+        min-width: 82px;
+        max-width: min(220px, calc(100vw - 16px));
+        box-sizing: border-box;
+        display: grid;
+        gap: 1px;
+        padding: 6px 8px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        border-radius: 8px;
+        background: rgba(248, 250, 252, 0.78);
+        color: #0f172a;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+        font: 12px/1.2 "Segoe UI", system-ui, sans-serif;
+        letter-spacing: 0;
+        pointer-events: none;
+      }
+
+      #${TASK_COUNTER_BADGE_ID} .local-query-bridge-task-counter-main {
+        overflow: hidden;
+        font-size: 15px;
+        font-weight: 850;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #${TASK_COUNTER_BADGE_ID} .local-query-bridge-task-counter-sub {
+        overflow: hidden;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="queued"],
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="waiting-for-edge"] {
+        border-color: rgba(22, 163, 74, 0.34);
+        background: rgba(240, 253, 244, 0.86);
+      }
+
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="missing"],
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="error"] {
+        border-color: rgba(220, 38, 38, 0.34);
+        background: rgba(254, 242, 242, 0.88);
+      }
+
       @media (max-width: 720px) {
         #${SERVER_CONTROL_STATUS_LOG_ID} {
           bottom: 8px;
           left: 8px;
           width: min(var(--local-query-bridge-status-log-width, ${DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX}px), calc(100vw - 16px));
           max-width: calc(100vw - 16px);
+        }
+
+        #${TASK_COUNTER_BADGE_ID} {
+          right: 8px;
+          bottom: 8px;
         }
       }
     `;
@@ -4441,6 +4506,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       time.textContent = formatServerControlStatusElapsed(time.dataset.statusLogTimestamp ?? "");
     }
+    syncTaskCounterBadge();
   }
 
   function ensureServerControlStatusElapsedTimer() {
@@ -4452,6 +4518,91 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       updateServerControlStatusElapsedTimes,
       1000,
     );
+  }
+
+  function getTaskCounterBadge() {
+    const badge = document.getElementById(TASK_COUNTER_BADGE_ID);
+    return badge instanceof HTMLElement ? badge : null;
+  }
+
+  function ensureTaskCounterBadge() {
+    if (!document.body) {
+      return null;
+    }
+
+    ensureServerControlStatusLogStyles();
+    let badge = getTaskCounterBadge();
+    if (badge instanceof HTMLElement) {
+      return badge;
+    }
+
+    badge = document.createElement("aside");
+    badge.id = TASK_COUNTER_BADGE_ID;
+    badge.setAttribute("aria-label", "Bridge task counter");
+
+    const main = document.createElement("div");
+    main.className = "local-query-bridge-task-counter-main";
+    main.dataset.taskCounterMain = "true";
+
+    const sub = document.createElement("div");
+    sub.className = "local-query-bridge-task-counter-sub";
+    sub.dataset.taskCounterSub = "true";
+
+    badge.append(main, sub);
+    document.body.append(badge);
+    return badge;
+  }
+
+  function formatTaskCounterBadgeAge(timestamp) {
+    const elapsedSeconds = getServerControlStatusElapsedSeconds(timestamp);
+    if (elapsedSeconds < 1) {
+      return "now";
+    }
+    if (elapsedSeconds < 60) {
+      return `${elapsedSeconds}s ago`;
+    }
+
+    return `${Math.floor(elapsedSeconds / 60)}m ago`;
+  }
+
+  function syncTaskCounterBadge() {
+    const badge = ensureTaskCounterBadge();
+    if (!(badge instanceof HTMLElement)) {
+      return;
+    }
+
+    badge.dataset.counterStatus = taskCounterBadgeState.status || "waiting";
+    badge.title = taskCounterBadgeState.message || "";
+
+    const main = badge.querySelector("[data-task-counter-main]");
+    if (main instanceof HTMLElement) {
+      main.textContent = taskCounterBadgeState.taskCount
+        ? `Task ${taskCounterBadgeState.taskCount}`
+        : "Task --";
+    }
+
+    const sub = badge.querySelector("[data-task-counter-sub]");
+    if (sub instanceof HTMLElement) {
+      const age = taskCounterBadgeState.timestamp
+        ? formatTaskCounterBadgeAge(taskCounterBadgeState.timestamp)
+        : "waiting";
+      sub.textContent = `${taskCounterBadgeState.status || "waiting"} · ${age}`;
+    }
+  }
+
+  function updateTaskCounterBadgeFromStatusEntry(entry) {
+    if (entry.type !== "counter") {
+      return;
+    }
+
+    const details = entry.details ?? {};
+    const rawTaskCount = details.screenTaskCount ?? details.taskCount ?? "";
+    const taskCount = rawTaskCount === undefined || rawTaskCount === null ? "" : `${rawTaskCount}`.trim();
+    taskCounterBadgeState.taskCount = taskCount;
+    taskCounterBadgeState.status = `${details.counterStatus || (details.counterVisible === false ? "missing" : "read")}`.trim();
+    taskCounterBadgeState.timestamp = entry.timestamp;
+    taskCounterBadgeState.message = entry.message;
+    syncTaskCounterBadge();
   }
 
   function normalizeServerControlStatusDetails(details) {
@@ -4494,6 +4645,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       screenshotCount: details.screenshotCount ?? "",
       selectedRegion: details.selectedRegion ?? "",
       selectedRegionLabel: details.selectedRegionLabel ?? "",
+      counterStatus: details.counterStatus ?? "",
+      screenTaskCount: details.screenTaskCount ?? details.taskCount ?? "",
+      lastSeenTaskCount: details.lastSeenTaskCount ?? "",
+      counterRawText: details.counterRawText ?? "",
+      counterParsedText: details.counterParsedText ?? "",
+      counterReadReason: details.counterReadReason ?? "",
     };
     return Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : "";
   }
@@ -4534,6 +4691,27 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
     if (details.error) {
       lines.push(`Error:\n${details.error}`);
+    }
+    if (
+      details.counterStatus
+      || details.screenTaskCount !== undefined
+      || details.lastSeenTaskCount !== undefined
+      || details.counterReadReason
+    ) {
+      lines.push(
+        [
+          details.counterStatus ? `Counter status: ${details.counterStatus}` : "",
+          details.screenTaskCount !== undefined && details.screenTaskCount !== "" ? `Screen count: ${details.screenTaskCount}` : "",
+          details.lastSeenTaskCount !== undefined && details.lastSeenTaskCount !== "" ? `Last accepted count: ${details.lastSeenTaskCount}` : "",
+          details.newTaskSignal !== undefined ? `New task signal: ${details.newTaskSignal ? "yes" : "no"}` : "",
+          details.historyRecorded !== undefined ? `History recorded: ${details.historyRecorded ? "yes" : "no"}` : "",
+          details.taskTypeTotal !== undefined ? `Task type total: ${details.taskTypeTotal}` : "",
+          details.counterIconFound !== undefined ? `Counter icon found: ${details.counterIconFound ? "yes" : "no"}` : "",
+          details.counterRawText ? `Raw OCR: ${details.counterRawText}` : "",
+          details.counterParsedText ? `Parsed OCR: ${details.counterParsedText}` : "",
+          details.counterReadReason ? `Read reason: ${details.counterReadReason}` : "",
+        ].filter(Boolean).join("\n"),
+      );
     }
     if (details.variant || details.rawLineCount !== undefined || details.averageConfidence !== undefined) {
       lines.push(
@@ -4611,6 +4789,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function isServerControlTerminalStatusType(type) {
     return type === "response-complete" || type === "cancel" || type === "error";
+  }
+
+  function isServerControlPassiveStatusType(type) {
+    return type === "counter";
   }
 
   function updateServerControlStatusLogPosition(panel = getServerControlStatusLog()) {
@@ -4740,6 +4922,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function appendServerControlStatusLog(status) {
     const entry = normalizeServerControlStatusEntry(status);
+    updateTaskCounterBadgeFromStatusEntry(entry);
     if (entry.runId) {
       serverControlStatusLogState.currentRunId = entry.runId;
     }
@@ -4755,7 +4938,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         serverControlStatusLogState.active = false;
       }
       resumeServerControlZoneClicksForRun(entry.runId);
-    } else if (!entry.runId || !serverControlStatusLogState.completedRunIds.has(entry.runId)) {
+    } else if (
+      !isServerControlPassiveStatusType(entry.type)
+      && (!entry.runId || !serverControlStatusLogState.completedRunIds.has(entry.runId))
+    ) {
       serverControlStatusLogState.active = true;
     }
 

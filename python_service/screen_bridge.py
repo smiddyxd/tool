@@ -46,8 +46,9 @@ TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
 TEXT_TASK_ABORT_HEADER = "OCR abort:"
 COMMENT_DRAFT_FEEDBACK_PROMPT = (
-    "Give me feedback on my rating comment. Focus on clarity, wording, and whether it supports the rating. "
-    "Suggest a polished version that keeps the same meaning."
+    "Give me feedback on my rating comment. Use rating_comment_style_guide.md from the project context "
+    "as the style reference. Focus on making the comment sound natural, personally written, and consistent "
+    "with that guide while keeping the same meaning. Suggest a polished version if useful."
 )
 COMMENT_DRAFT_INPUT_HEADER = "Draft comment OCR:"
 MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
@@ -66,6 +67,15 @@ class Region:
     top: int
     width: int
     height: int
+
+
+@dataclass(frozen=True)
+class TaskCounterRead:
+    task_count: int | None
+    icon_found: bool
+    raw_text: str = ""
+    parsed_text: str = ""
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -103,6 +113,8 @@ TASK_COUNTER_TEXT_COLOR_BGR = (246, 135, 68)  # Hex 4487F6 in BGR order for Open
 TASK_COUNTER_TEXT_COLOR_TOLERANCE = 40
 TASK_COUNTER_OCR_SCALE_FACTOR = 5.0
 TASK_COUNTER_OCR_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789"
+TASK_COUNTER_STATUS_TYPE = "counter"
+TASK_COUNTER_STATUS_HEARTBEAT_SECONDS = 10.0
 
 # Task-type detection settings.
 TASK_TYPE_SCAN_REGION = Region(left=20, top=127, width=40, height=40)
@@ -145,8 +157,6 @@ DEBUG_OUTPUT_DIR = Path(__file__).resolve().parent / "debug"
 TASK_TYPE_CONFIG_PATH = Path(__file__).resolve().parent / "task_type_config.json"
 TASK_TYPE_COUNTS_PATH = Path(__file__).resolve().parent / "task_type_counts.json"
 TASK_TYPE_HISTORY_PATH = Path(__file__).resolve().parent / "task_type_history.jsonl"
-TASK_ARCHIVE_SCREENSHOT_DIR = Path(__file__).resolve().parent / "task_screenshots"
-TASK_ARCHIVE_CAPTURE_DELAY_SECONDS = 0.5
 DEFAULT_CONTROL_TASK_TYPE_KEY = "search-experience-to-product-usefulness"
 DEFAULT_CONTROL_TASK_TYPE_LABEL = "Search Experience to Product Usefulness"
 
@@ -348,6 +358,10 @@ class SharedState:
         with self.lock:
             return task_count != self.last_seen_task_count
 
+    def get_last_seen_task_count(self) -> int | None:
+        with self.lock:
+            return self.last_seen_task_count
+
     def set_active_task_type(self, task_type_key: str = "", task_type_label: str = "") -> tuple[str, str]:
         normalized_key = sanitize_control_command_field(task_type_key, 120)
         normalized_label = clean_ocr_text(str(task_type_label or ""))
@@ -461,6 +475,27 @@ class SharedState:
         if event is None:
             return
 
+        with self.lock:
+            self.pending_events.append(event)
+
+    def publish_bridge_status(
+        self,
+        status_type: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        task_type: str = "",
+    ) -> None:
+        event = {
+            "type": CONTROL_STATUS_EVENT_TYPE,
+            "run_id": "",
+            "status_type": sanitize_control_command_field(status_type, 80),
+            "message": sanitize_control_command_field(message, 300),
+            "details": details if isinstance(details, dict) else {},
+            "tab_id": "",
+            "task_type": str(task_type or ""),
+            "timestamp": timestamp_now(),
+        }
         with self.lock:
             self.pending_events.append(event)
 
@@ -1077,6 +1112,46 @@ def build_comment_draft_feedback_prompt(comment_text: str) -> str:
             comment_text.strip(),
         ]
     ).strip()
+
+
+def publish_task_counter_status(
+    counter_read: TaskCounterRead,
+    counter_status: str,
+    message: str,
+    *,
+    last_seen_task_count: int | None = None,
+    task_type: str = "",
+    extra_details: dict[str, Any] | None = None,
+) -> None:
+    details: dict[str, Any] = {
+        "taskCount": counter_read.task_count if counter_read.task_count is not None else "",
+        "screenTaskCount": counter_read.task_count if counter_read.task_count is not None else "",
+        "lastSeenTaskCount": last_seen_task_count if last_seen_task_count is not None else "",
+        "counterVisible": counter_read.task_count is not None,
+        "counterIconFound": counter_read.icon_found,
+        "counterRawText": counter_read.raw_text,
+        "counterParsedText": counter_read.parsed_text,
+        "counterReadReason": counter_read.reason,
+        "counterStatus": counter_status,
+    }
+    if extra_details:
+        details.update(extra_details)
+
+    STATE.publish_bridge_status(
+        TASK_COUNTER_STATUS_TYPE,
+        message,
+        details=details,
+        task_type=task_type,
+    )
+    print(
+        f"[counter {timestamp_now()}] status={counter_status or '-'} "
+        f"screen={counter_read.task_count if counter_read.task_count is not None else '-'} "
+        f"last_seen={last_seen_task_count if last_seen_task_count is not None else '-'} "
+        f"icon={'yes' if counter_read.icon_found else 'no'} "
+        f"raw={counter_read.raw_text!r} parsed={counter_read.parsed_text!r} "
+        f"reason={counter_read.reason or '-'}",
+        flush=True,
+    )
 
 
 def queue_control_screenshot(payload: dict[str, Any]) -> bool:
@@ -1878,19 +1953,27 @@ def preprocess_counter_digits(region_bgr: np.ndarray) -> np.ndarray:
     return upscale_image(processed, TASK_COUNTER_OCR_SCALE_FACTOR, cv2.INTER_NEAREST)
 
 
-def extract_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> int | None:
+def read_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> TaskCounterRead:
     scan_region = extract_region(
         frame_bgr,
         Region(left=0, top=TASK_COUNTER_SCAN_TOP, width=frame_bgr.shape[1], height=TASK_COUNTER_SCAN_HEIGHT),
     )
     icon_match = match_template(scan_region, icon_template_bgr, TASK_COUNTER_ICON_MATCH_THRESHOLD)
     if icon_match is None:
-        return None
+        return TaskCounterRead(
+            task_count=None,
+            icon_found=False,
+            reason="counter icon not found",
+        )
 
     digits_left = icon_match.left + icon_match.width
     digits_right = min(scan_region.shape[1], digits_left + TASK_COUNTER_TEXT_REGION_WIDTH)
     if digits_right <= digits_left:
-        return None
+        return TaskCounterRead(
+            task_count=None,
+            icon_found=True,
+            reason="counter digit region empty",
+        )
 
     digits_region = scan_region[:, digits_left:digits_right].copy()
     processed_digits = preprocess_counter_digits(digits_region)
@@ -1904,12 +1987,34 @@ def extract_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -
     save_debug_text("task_counter_ocr.txt", f"raw={raw_text!r}\nparsed={cleaned!r}\n")
 
     if not cleaned:
-        return None
+        return TaskCounterRead(
+            task_count=None,
+            icon_found=True,
+            raw_text=raw_text,
+            parsed_text=cleaned,
+            reason="counter OCR read no digits",
+        )
 
     try:
-        return int(cleaned)
+        return TaskCounterRead(
+            task_count=int(cleaned),
+            icon_found=True,
+            raw_text=raw_text,
+            parsed_text=cleaned,
+            reason="ok",
+        )
     except ValueError:
-        return None
+        return TaskCounterRead(
+            task_count=None,
+            icon_found=True,
+            raw_text=raw_text,
+            parsed_text=cleaned,
+            reason="counter OCR parsed invalid integer",
+        )
+
+
+def extract_task_counter(frame_bgr: np.ndarray, icon_template_bgr: np.ndarray) -> int | None:
+    return read_task_counter(frame_bgr, icon_template_bgr).task_count
 
 def preprocess_task_type_variants(region_bgr: np.ndarray) -> list[tuple[str, np.ndarray]]:
     raw_upscaled = upscale_image(region_bgr, TASK_TYPE_OCR_SCALE_FACTOR, cv2.INTER_CUBIC)
@@ -2100,17 +2205,6 @@ def build_screenshot_payload(frame_bgr: np.ndarray) -> bytes:
     return encode_png(build_screenshot_image(frame_bgr))
 
 
-def save_task_archive_screenshot(frame_bgr: np.ndarray, task_count: int) -> Path:
-    TASK_ARCHIVE_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    screenshot_bgr = build_screenshot_image(frame_bgr)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_path = TASK_ARCHIVE_SCREENSHOT_DIR / f"task_{int(task_count)}_{timestamp}.png"
-    success = cv2.imwrite(str(file_path), screenshot_bgr)
-    if not success:
-        raise RuntimeError(f"Failed to save task screenshot to {file_path}")
-    return file_path
-
-
 def capture_primary_monitor(screenshotter: mss.mss, monitor: dict[str, int]) -> np.ndarray:
     grabbed = np.asarray(screenshotter.grab(monitor))
     return cv2.cvtColor(grabbed, cv2.COLOR_BGRA2BGR)
@@ -2145,28 +2239,26 @@ def monitor_screen() -> None:
         monitor = screenshotter.monitors[1]
         last_edge_active = is_mouse_signal_active(monitor)
         last_counter_visible = False
+        last_reported_counter_count: int | None = None
+        last_reported_counter_visible = False
+        last_counter_status_at = 0.0
         while True:
             try:
                 frame_bgr = capture_primary_monitor(screenshotter, monitor)
-                task_count = extract_task_counter(frame_bgr, counter_icon_template)
+                counter_read = read_task_counter(frame_bgr, counter_icon_template)
+                task_count = counter_read.task_count
                 counter_visible = task_count is not None
-                should_archive_task_screenshot = bool(
-                    task_count is not None and (
-                        not last_counter_visible or STATE.is_new_task(task_count)
-                    )
+
+                counter_status_reported = False
+                counter_status_now = time.monotonic()
+                counter_status_heartbeat_due = (
+                    last_counter_status_at <= 0.0
+                    or counter_status_now - last_counter_status_at >= TASK_COUNTER_STATUS_HEARTBEAT_SECONDS
                 )
-                if should_archive_task_screenshot:
-                    time.sleep(TASK_ARCHIVE_CAPTURE_DELAY_SECONDS)
-                    frame_bgr = capture_primary_monitor(screenshotter, monitor)
-                    refreshed_task_count = extract_task_counter(frame_bgr, counter_icon_template)
-                    if refreshed_task_count is not None:
-                        task_count = refreshed_task_count
-                    archive_path = save_task_archive_screenshot(frame_bgr, task_count)
-                    print(
-                        f"[task-screenshot {timestamp_now()}] counter={task_count} saved={archive_path.name}",
-                        flush=True,
-                    )
-                    counter_visible = task_count is not None
+                counter_changed = (
+                    counter_visible != last_reported_counter_visible
+                    or (counter_visible and task_count != last_reported_counter_count)
+                )
 
                 if TEST_TRIGGER_STATE.consume():
                     test_settings = resolve_test_task_settings(CONFIG_CACHE.load())
@@ -2262,6 +2354,7 @@ def monitor_screen() -> None:
                                     )
 
                 if task_count is not None and STATE.is_new_task(task_count):
+                    last_seen_before_task = STATE.get_last_seen_task_count()
                     active_task_type_key, active_task_type_label = STATE.get_active_task_type()
                     counted_task_type = active_task_type_key or active_task_type_label or "Unknown"
                     settings = resolve_active_control_task_settings(
@@ -2277,6 +2370,21 @@ def monitor_screen() -> None:
                                 f"[task {timestamp_now()}] counter={task_count} type={counted_task_type} label={active_task_type_label or '-'} total={task_type_total} ignored",
                                 flush=True,
                             )
+                            publish_task_counter_status(
+                                counter_read,
+                                "ignored",
+                                f"Task counter read {task_count}; recorded history entry but ignored the task because no settings matched.",
+                                last_seen_task_count=last_seen_before_task,
+                                task_type=counted_task_type,
+                                extra_details={
+                                    "newTaskSignal": True,
+                                    "historyRecorded": True,
+                                    "taskTypeTotal": task_type_total,
+                                    "activeTaskType": active_task_type_key,
+                                    "activeTaskTypeLabel": active_task_type_label,
+                                },
+                            )
+                            counter_status_reported = True
                     else:
                         settings = apply_counted_task_type(settings, counted_task_type)
                         action = STATE.register_task(task_count, settings)
@@ -2299,11 +2407,92 @@ def monitor_screen() -> None:
                                 f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} label={active_task_type_label or '-'} total={task_type_total}",
                                 flush=True,
                             )
+                            publish_task_counter_status(
+                                counter_read,
+                                "queued",
+                                f"Task counter read {task_count}; accepted as a new task and queued for ChatGPT.",
+                                last_seen_task_count=last_seen_before_task,
+                                task_type=settings.task_type,
+                                extra_details={
+                                    "newTaskSignal": True,
+                                    "historyRecorded": True,
+                                    "taskTypeTotal": task_type_total,
+                                    "activeTaskType": active_task_type_key,
+                                    "activeTaskTypeLabel": active_task_type_label,
+                                },
+                            )
+                            counter_status_reported = True
                         elif action == "armed":
                             print(
                                 f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} label={active_task_type_label or '-'} total={task_type_total} waiting-for-edge",
                                 flush=True,
                             )
+                            publish_task_counter_status(
+                                counter_read,
+                                "waiting-for-edge",
+                                f"Task counter read {task_count}; accepted as a new task and waiting for edge release.",
+                                last_seen_task_count=last_seen_before_task,
+                                task_type=settings.task_type,
+                                extra_details={
+                                    "newTaskSignal": True,
+                                    "historyRecorded": True,
+                                    "taskTypeTotal": task_type_total,
+                                    "activeTaskType": active_task_type_key,
+                                    "activeTaskTypeLabel": active_task_type_label,
+                                },
+                            )
+                            counter_status_reported = True
+                        elif action == "duplicate":
+                            publish_task_counter_status(
+                                counter_read,
+                                "duplicate",
+                                f"Task counter read {task_count}; duplicate after task registration check.",
+                                last_seen_task_count=last_seen_before_task,
+                                task_type=settings.task_type,
+                                extra_details={
+                                    "newTaskSignal": False,
+                                    "historyRecorded": True,
+                                    "taskTypeTotal": task_type_total,
+                                    "activeTaskType": active_task_type_key,
+                                    "activeTaskTypeLabel": active_task_type_label,
+                                },
+                            )
+                            counter_status_reported = True
+
+                if not counter_status_reported:
+                    last_seen_task_count = STATE.get_last_seen_task_count()
+                    if counter_visible and (counter_changed or counter_status_heartbeat_due):
+                        new_task_signal = task_count != last_seen_task_count
+                        counter_status = "new-signal" if new_task_signal else ("read" if counter_changed else "heartbeat")
+                        signal_text = "new task signal" if new_task_signal else "no new task signal"
+                        publish_task_counter_status(
+                            counter_read,
+                            counter_status,
+                            f"Task counter read {task_count}; {signal_text}.",
+                            last_seen_task_count=last_seen_task_count,
+                            extra_details={
+                                "newTaskSignal": new_task_signal,
+                                "historyRecorded": False,
+                            },
+                        )
+                        counter_status_reported = True
+                    elif not counter_visible and (last_reported_counter_visible or counter_status_heartbeat_due):
+                        publish_task_counter_status(
+                            counter_read,
+                            "missing",
+                            "Task counter not found on screen.",
+                            last_seen_task_count=last_seen_task_count,
+                            extra_details={
+                                "newTaskSignal": False,
+                                "historyRecorded": False,
+                            },
+                        )
+                        counter_status_reported = True
+
+                if counter_status_reported:
+                    last_reported_counter_count = task_count
+                    last_reported_counter_visible = counter_visible
+                    last_counter_status_at = counter_status_now
 
                 edge_active = is_mouse_signal_active(monitor)
                 if edge_active and not last_edge_active:
