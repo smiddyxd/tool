@@ -872,6 +872,27 @@ function getTaskRegionBounds(taskTypeKey, region) {
   return sanitizeTaskRegionBounds(highlightState.taskRegions[sanitizedTaskType]?.[region.key]);
 }
 
+function updateTaskRegionBounds(taskTypeKey, region, bounds) {
+  const sanitizedBounds = sanitizeTaskRegionBounds(bounds);
+  if (isUniversalTaskRegion(region)) {
+    highlightState.universalRegions = {
+      ...highlightState.universalRegions,
+      [region.key]: sanitizedBounds,
+    };
+    return sanitizedBounds;
+  }
+
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskTypeKey);
+  highlightState.taskRegions = {
+    ...highlightState.taskRegions,
+    [sanitizedTaskType]: {
+      ...(highlightState.taskRegions[sanitizedTaskType] ?? {}),
+      [region.key]: sanitizedBounds,
+    },
+  };
+  return sanitizedBounds;
+}
+
 function updateTaskRegionCoordinate(taskTypeKey, region, coordinateKey, value) {
   if (!TASK_REGION_COORDINATES.some((coordinate) => coordinate.key === coordinateKey)) {
     return;
@@ -900,6 +921,46 @@ function updateTaskRegionCoordinate(taskTypeKey, region, coordinateKey, value) {
       },
     },
   };
+}
+
+function getTaskRegionCopyTypeKey(region) {
+  return `${region.kind}:${createTaskConfigKey(region.label || region.key, "region")}`;
+}
+
+function isSameCopyableTaskRegionType(region, candidateRegion) {
+  if (!region || !candidateRegion || isUniversalTaskRegion(candidateRegion)) {
+    return false;
+  }
+
+  return candidateRegion.key === region.key
+    || getTaskRegionCopyTypeKey(candidateRegion) === getTaskRegionCopyTypeKey(region);
+}
+
+function getTaskRegionCoordinateCopySources(taskDefinition, region) {
+  if (isUniversalTaskRegion(region)) {
+    return [];
+  }
+
+  const sources = [];
+  for (const sourceTaskDefinition of getTaskTypeDefinitions()) {
+    if (sourceTaskDefinition.key === taskDefinition.key) {
+      continue;
+    }
+
+    for (const sourceRegion of sourceTaskDefinition.regions) {
+      if (!isSameCopyableTaskRegionType(region, sourceRegion)) {
+        continue;
+      }
+
+      sources.push({
+        taskDefinition: sourceTaskDefinition,
+        region: sourceRegion,
+        bounds: getTaskRegionBounds(sourceTaskDefinition.key, sourceRegion),
+      });
+    }
+  }
+
+  return sources;
 }
 
 function getDefaultTaskTypeProjectIds(definitions = getTaskTypeDefinitions()) {
@@ -2317,6 +2378,53 @@ function getTaskRegionKindLabel(region) {
   return "OCR";
 }
 
+function createRegionCoordinateCopyControl(taskDefinition, region) {
+  const wrapper = document.createElement("label");
+  wrapper.className = "region-coordinate-copy";
+
+  const labelText = document.createElement("span");
+  labelText.textContent = "Copy";
+
+  const select = document.createElement("select");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+
+  if (isUniversalTaskRegion(region)) {
+    placeholder.textContent = "Shared region";
+    select.disabled = true;
+  } else {
+    const copySources = getTaskRegionCoordinateCopySources(taskDefinition, region);
+    placeholder.textContent = copySources.length > 0 ? "From task..." : "No matching source";
+    select.disabled = copySources.length === 0;
+
+    for (const [index, source] of copySources.entries()) {
+      const option = document.createElement("option");
+      option.value = `${index}`;
+      option.textContent = source.region.label === region.label
+        ? source.taskDefinition.label
+        : `${source.taskDefinition.label} - ${source.region.label}`;
+      select.append(option);
+    }
+
+    select.addEventListener("change", () => {
+      const sourceIndex = Number.parseInt(select.value, 10);
+      const source = Number.isInteger(sourceIndex) ? copySources[sourceIndex] : null;
+      if (!source) {
+        return;
+      }
+
+      updateTaskRegionBounds(taskDefinition.key, region, source.bounds);
+      setStatus(`Copied ${region.label} coordinates from ${source.taskDefinition.label}. Save settings to apply it.`);
+      renderRegionCoordinateEditor(getTaskTypeDefinition(taskDefinition.key));
+    });
+  }
+
+  select.prepend(placeholder);
+  select.value = "";
+  wrapper.append(labelText, select);
+  return wrapper;
+}
+
 function renderRegionCoordinateEditor(taskDefinition) {
   const list = document.querySelector("#task-type-region-coordinates");
   if (!(list instanceof HTMLElement)) {
@@ -2348,7 +2456,7 @@ function renderRegionCoordinateEditor(taskDefinition) {
       ? `${getTaskRegionKindLabel(region)} - shared`
       : getTaskRegionKindLabel(region);
 
-    summary.append(title, meta);
+    summary.append(title, meta, createRegionCoordinateCopyControl(taskDefinition, region));
 
     const grid = document.createElement("div");
     grid.className = "region-coordinate-grid";
