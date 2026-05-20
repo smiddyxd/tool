@@ -162,6 +162,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
   const STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN = "serverControlTaskCountTimespan";
+  const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -4937,7 +4938,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       id,
       timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
       action: typeof sample?.action === "string" ? sample.action : "",
-      kind: sample?.kind === "cover" || sample?.action === "cover" ? "cover" : "actual",
+      operation: typeof sample?.operation === "string" ? sample.operation : "",
+      kind: sample?.kind === "cover" || sample?.action === "cover" || sample?.operation === "cover" ? "cover" : "actual",
       path: typeof sample?.path === "string" ? sample.path : "",
       method: typeof sample?.method === "string" ? sample.method : "POST",
       requestBytes,
@@ -4946,6 +4948,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       durationMs: Math.max(0, Number.parseInt(`${sample?.durationMs ?? 0}`, 10) || 0),
       status: Math.max(0, Number.parseInt(`${sample?.status ?? 0}`, 10) || 0),
       ok: sample?.ok === true,
+      source: typeof sample?.source === "string" ? sample.source : "",
       error: typeof sample?.error === "string" ? sample.error : "",
     };
   }
@@ -4983,6 +4986,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     row.className = "local-query-bridge-traffic-entry";
     row.title = [
       `${entry.kind === "cover" ? "Cover" : "Actual"} ${entry.action || "operation"}`,
+      entry.operation && entry.operation !== entry.action ? `Bridge operation: ${entry.operation}` : "",
+      entry.source ? `Source: ${entry.source}` : "",
       `${entry.method} ${entry.path}`,
       `Request: ${formatBridgeTrafficBytes(entry.requestBytes)}`,
       `Response: ${formatBridgeTrafficBytes(entry.responseBytes)}`,
@@ -5063,8 +5068,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     serverControlStatusLogState.trafficHistoryRequested = true;
 
     try {
-      const response = await chrome.runtime.sendMessage({ type: SERVER_CONTROL_TRAFFIC_HISTORY_MESSAGE_TYPE });
-      const samples = Array.isArray(response?.samples) ? response.samples : [];
+      const [response, storedSamples] = await Promise.all([
+        chrome.runtime.sendMessage({ type: SERVER_CONTROL_TRAFFIC_HISTORY_MESSAGE_TYPE }).catch(() => null),
+        readStoredBridgeTrafficHistory().catch(() => []),
+      ]);
+      const responseSamples = Array.isArray(response?.samples) ? response.samples : [];
+      const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
       for (const sample of samples) {
         appendBridgeTrafficLog(sample, { sync: false });
       }
@@ -5091,6 +5100,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
     window.clearInterval(serverControlStatusLogState.trafficRefreshTimerId);
     serverControlStatusLogState.trafficRefreshTimerId = null;
+  }
+
+  async function readStoredBridgeTrafficHistory() {
+    const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [] });
+    const samples = stored[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY];
+    return Array.isArray(samples) ? samples : [];
   }
 
   function isServerControlTerminalStatusType(type) {

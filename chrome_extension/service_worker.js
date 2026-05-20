@@ -18,6 +18,8 @@ const BRIDGE_ACTION_COVER = "cover";
 const BRIDGE_PADDING_RANDOM_CHUNK_BYTES = 65536;
 const BRIDGE_PADDING_MAX_EXTRA_BYTES = 262144;
 const BRIDGE_COVER_TRAFFIC_ENABLED = true;
+const BRIDGE_COVER_INITIAL_MIN_INTERVAL_MS = 5000;
+const BRIDGE_COVER_INITIAL_MAX_INTERVAL_MS = 15000;
 const BRIDGE_COVER_MIN_INTERVAL_MS = 45000;
 const BRIDGE_COVER_MAX_INTERVAL_MS = 180000;
 const BRIDGE_COVER_REQUEST_MIN_BYTES = 65536;
@@ -25,10 +27,12 @@ const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
 const BRIDGE_COVER_RESPONSE_MIN_BYTES = 786432;
 const BRIDGE_COVER_RESPONSE_MAX_BYTES = 3145728;
 const BRIDGE_COVER_TIMEOUT_MS = 30000;
+const BRIDGE_COVER_ALARM_PERIOD_MINUTES = 0.5;
 const BRIDGE_TRAFFIC_HISTORY_LIMIT = 1000;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
+const COVER_TRAFFIC_ALARM_NAME = "cover-local-query-bridge";
 const POLL_PERIOD_MINUTES = 0.005;
 const FAST_SCROLL_REPOLL_DELAY_MS = 100;
 const ENABLE_SCROLL_BRIDGE = false;
@@ -160,6 +164,27 @@ const state = {
 function createPollingAlarm() {
   chrome.alarms.create(POLL_ALARM_NAME, { periodInMinutes: POLL_PERIOD_MINUTES });
 }
+
+function createCoverTrafficAlarm() {
+  chrome.alarms.create(COVER_TRAFFIC_ALARM_NAME, { periodInMinutes: BRIDGE_COVER_ALARM_PERIOD_MINUTES });
+}
+
+async function ensureBridgeAlarms() {
+  const [pollAlarm, coverAlarm] = await Promise.all([
+    chrome.alarms.get(POLL_ALARM_NAME),
+    chrome.alarms.get(COVER_TRAFFIC_ALARM_NAME),
+  ]);
+  if (!pollAlarm) {
+    createPollingAlarm();
+  }
+  if (!coverAlarm) {
+    createCoverTrafficAlarm();
+  }
+}
+
+void ensureBridgeAlarms().catch((error) => {
+  console.warn("Local Query Bridge alarm check failed", error);
+});
 
 function delay(milliseconds) {
   return new Promise((resolve) => {
@@ -527,11 +552,13 @@ function normalizeBridgeTrafficSample(sample) {
   const requestBytes = Number.isFinite(sample?.requestBytes) ? sample.requestBytes : 0;
   const responseBytes = Number.isFinite(sample?.responseBytes) ? sample.responseBytes : 0;
   const action = typeof sample?.action === "string" ? sample.action : "";
+  const operation = typeof sample?.operation === "string" ? sample.operation : action;
   const normalizedSample = {
     id: typeof sample?.id === "string" && sample.id ? sample.id : createTrafficSampleId(),
     timestamp: new Date().toISOString(),
     action,
-    kind: action === BRIDGE_ACTION_COVER ? "cover" : "actual",
+    operation,
+    kind: action === BRIDGE_ACTION_COVER || operation === BRIDGE_ACTION_COVER ? "cover" : "actual",
     path: typeof sample?.path === "string" ? sample.path : "",
     method: "POST",
     requestBytes,
@@ -539,6 +566,7 @@ function normalizeBridgeTrafficSample(sample) {
     durationMs: Number.isFinite(sample?.durationMs) ? sample.durationMs : 0,
     status: Number.isFinite(sample?.status) ? sample.status : 0,
     ok: sample?.ok === true,
+    source: typeof sample?.source === "string" ? sample.source : "",
     error: typeof sample?.error === "string" ? sample.error : "",
   };
   normalizedSample.totalBytes = normalizedSample.requestBytes + normalizedSample.responseBytes;
@@ -565,7 +593,8 @@ function normalizeBridgeTrafficHistory(rawSamples) {
         id: typeof sample.id === "string" && sample.id ? sample.id : createTrafficSampleId(),
         timestamp: typeof sample.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
         action: typeof sample.action === "string" ? sample.action : "",
-        kind: sample.kind === "cover" || sample.action === BRIDGE_ACTION_COVER ? "cover" : "actual",
+        operation: typeof sample.operation === "string" ? sample.operation : (typeof sample.action === "string" ? sample.action : ""),
+        kind: sample.kind === "cover" || sample.action === BRIDGE_ACTION_COVER || sample.operation === BRIDGE_ACTION_COVER ? "cover" : "actual",
         path: typeof sample.path === "string" ? sample.path : "",
         method: typeof sample.method === "string" ? sample.method : "POST",
         requestBytes,
@@ -574,6 +603,7 @@ function normalizeBridgeTrafficHistory(rawSamples) {
         durationMs: Math.max(0, Number.parseInt(`${sample.durationMs ?? 0}`, 10) || 0),
         status: Math.max(0, Number.parseInt(`${sample.status ?? 0}`, 10) || 0),
         ok: sample.ok === true,
+        source: typeof sample.source === "string" ? sample.source : "",
         error: typeof sample.error === "string" ? sample.error : "",
       };
     })
@@ -652,6 +682,8 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
   const endpoint = getRandomBridgeOperationEndpoint();
   const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, params, options));
   const requestBytes = getStringByteLength(requestBody);
+  const logAction = typeof options.logAction === "string" && options.logAction ? options.logAction : action;
+  const logSource = typeof options.logSource === "string" ? options.logSource : "";
   const startedAt = Date.now();
   let responseBytes = 0;
   let status = 0;
@@ -684,7 +716,9 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
     throw error;
   } finally {
     await rememberBridgeTrafficSample({
-      action,
+      action: logAction,
+      operation: action,
+      source: logSource,
       path: endpoint.path,
       requestBytes,
       responseBytes,
@@ -2029,15 +2063,15 @@ function isIdleForCoverTraffic() {
     && !state.isDelivering
     && !state.pendingSubmission
     && !state.pendingRepeatDraft
-    && !state.lastQueuedControlStatus
   );
 }
 
-function scheduleNextCoverTraffic(now = Date.now()) {
-  state.nextCoverTrafficAt = now + getRandomIntInclusive(
-    BRIDGE_COVER_MIN_INTERVAL_MS,
-    BRIDGE_COVER_MAX_INTERVAL_MS,
-  );
+function scheduleNextCoverTraffic(
+  now = Date.now(),
+  minIntervalMs = BRIDGE_COVER_MIN_INTERVAL_MS,
+  maxIntervalMs = BRIDGE_COVER_MAX_INTERVAL_MS,
+) {
+  state.nextCoverTrafficAt = now + getRandomIntInclusive(minIntervalMs, maxIntervalMs);
   void chrome.storage.local.set({
     [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: state.nextCoverTrafficAt,
   });
@@ -2048,15 +2082,19 @@ async function ensureCoverTrafficScheduleLoaded() {
     return;
   }
 
+  await ensureBridgeTrafficHistoryLoaded();
+
   const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: 0 });
+  const now = Date.now();
   const storedNextAt = Number.parseInt(`${stored[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT] ?? 0}`, 10) || 0;
+  const hasLoggedCoverTraffic = state.trafficHistory.some((sample) => sample.kind === "cover");
   state.coverTrafficScheduleLoaded = true;
-  if (storedNextAt > Date.now()) {
+  if (hasLoggedCoverTraffic && storedNextAt > now && storedNextAt <= now + BRIDGE_COVER_MAX_INTERVAL_MS) {
     state.nextCoverTrafficAt = storedNextAt;
     return;
   }
 
-  scheduleNextCoverTraffic();
+  scheduleNextCoverTraffic(now, BRIDGE_COVER_INITIAL_MIN_INTERVAL_MS, BRIDGE_COVER_INITIAL_MAX_INTERVAL_MS);
 }
 
 async function maybeSendIdleCoverTraffic() {
@@ -2363,9 +2401,17 @@ async function sendServerControlCommand(command, sender) {
     rememberControlRunTab(controlRunId, payload.tabId);
     rememberControlRunCountingBehavior(controlRunId, payload.command);
   }
+  const commandName = typeof payload.command === "string" && payload.command ? payload.command : "";
+  const logAction = commandName === "sync_task_type"
+    ? "sync_task_type"
+    : (commandName ? `control:${commandName}` : BRIDGE_ACTION_CONTROL);
+  const logSource = typeof payload.source === "string" ? payload.source : "";
 
   try {
-    await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal);
+    await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal, {
+      logAction,
+      logSource,
+    });
 
     console.log("Local Query Bridge forwarded server control command", {
       command: payload.command,
@@ -2901,27 +2947,38 @@ async function pollLocalBridge() {
 
 async function runBridgeAlarmTick() {
   await pollLocalBridge();
-  await maybeSendIdleCoverTraffic();
+  try {
+    await maybeSendIdleCoverTraffic();
+  } catch (error) {
+    console.warn("Local Query Bridge cover traffic tick failed", error);
+  }
 }
 
 chrome.runtime.onInstalled.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
+  createCoverTrafficAlarm();
   void runBridgeAlarmTick();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
+  createCoverTrafficAlarm();
   void runBridgeAlarmTick();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== POLL_ALARM_NAME) {
+  if (alarm.name === POLL_ALARM_NAME) {
+    void runBridgeAlarmTick();
     return;
   }
 
-  void runBridgeAlarmTick();
+  if (alarm.name === COVER_TRAFFIC_ALARM_NAME) {
+    void maybeSendIdleCoverTraffic().catch((error) => {
+      console.warn("Local Query Bridge cover traffic alarm failed", error);
+    });
+  }
 });
 
 chrome.action.onClicked.addListener((tab) => {

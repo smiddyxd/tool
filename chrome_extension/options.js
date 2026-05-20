@@ -112,6 +112,7 @@ const OPTIONS_TAB_KEYS = [
 const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
 const TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
+const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
@@ -394,6 +395,7 @@ const highlightState = {
 const trafficHistoryState = {
   samples: [],
   refreshTimerId: null,
+  loadedAt: 0,
 };
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
@@ -2160,7 +2162,8 @@ function normalizeTrafficSample(sample) {
     id: typeof rawId === "string" && rawId ? rawId : (Number.isFinite(rawId) ? `${rawId}` : ""),
     timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : "",
     action: typeof sample?.action === "string" ? sample.action : "",
-    kind: sample?.kind === "cover" || sample?.action === "cover" ? "cover" : "actual",
+    operation: typeof sample?.operation === "string" ? sample.operation : "",
+    kind: sample?.kind === "cover" || sample?.action === "cover" || sample?.operation === "cover" ? "cover" : "actual",
     path: typeof sample?.path === "string" ? sample.path : "",
     method: typeof sample?.method === "string" ? sample.method : "POST",
     requestBytes,
@@ -2169,6 +2172,7 @@ function normalizeTrafficSample(sample) {
     durationMs: Math.max(0, Number.parseInt(`${sample?.durationMs ?? 0}`, 10) || 0),
     status: Math.max(0, Number.parseInt(`${sample?.status ?? 0}`, 10) || 0),
     ok: sample?.ok === true,
+    source: typeof sample?.source === "string" ? sample.source : "",
     error: typeof sample?.error === "string" ? sample.error : "",
   };
 }
@@ -2185,6 +2189,8 @@ function createTrafficChartRow(sample, maxBytes) {
   row.className = "traffic-chart-row";
   row.title = [
     `${sample.kind === "cover" ? "Cover" : "Actual"} ${sample.action || "operation"}`,
+    sample.operation && sample.operation !== sample.action ? `Bridge operation: ${sample.operation}` : "",
+    sample.source ? `Source: ${sample.source}` : "",
     `${sample.method} ${sample.path}`,
     `Request: ${formatTrafficBytes(sample.requestBytes)}`,
     `Response: ${formatTrafficBytes(sample.responseBytes)}`,
@@ -2234,6 +2240,7 @@ function renderTrafficHistory() {
     createTrafficSummaryItem(`Real ${actualCount}`),
     createTrafficSummaryItem(`Cover ${coverCount}`),
     createTrafficSummaryItem(`Latest ${latest ? formatTrafficBytes(latest.totalBytes) : "--"}`),
+    createTrafficSummaryItem(`Rows ${samples.length}`),
   );
 
   if (samples.length === 0) {
@@ -2251,13 +2258,25 @@ function renderTrafficHistory() {
   }
 }
 
+async function readStoredTrafficHistory() {
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [] });
+  const samples = stored[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY];
+  return Array.isArray(samples) ? samples : [];
+}
+
 async function loadTrafficHistory() {
   const chart = document.querySelector("#traffic-history-chart");
   try {
-    const response = await chrome.runtime.sendMessage({ type: TRAFFIC_HISTORY_MESSAGE_TYPE });
-    const samples = Array.isArray(response?.samples) ? response.samples : [];
+    const [response, storedSamples] = await Promise.all([
+      chrome.runtime.sendMessage({ type: TRAFFIC_HISTORY_MESSAGE_TYPE }).catch(() => null),
+      readStoredTrafficHistory().catch(() => []),
+    ]);
+    const responseSamples = Array.isArray(response?.samples) ? response.samples : [];
+    const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
     trafficHistoryState.samples = samples.map(normalizeTrafficSample);
+    trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
+    setStatus(`Traffic history refreshed: ${trafficHistoryState.samples.length} row(s).`);
   } catch (error) {
     trafficHistoryState.samples = [];
     renderTrafficHistory();
