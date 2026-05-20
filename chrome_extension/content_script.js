@@ -5764,6 +5764,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     const defaultDefinition = getDefaultServerControlTaskTypeDefinition(taskDefinition.key);
+    const seenKeys = new Set();
     const candidateKeys = [
       taskDefinition.label,
       defaultDefinition?.label,
@@ -5771,14 +5772,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ]
       .map(normalizeServerControlTaskCountKey)
       .filter(Boolean);
+    let total = 0;
 
     for (const key of candidateKeys) {
-      if (countMap.has(key)) {
-        return countMap.get(key);
+      if (!seenKeys.has(key) && countMap.has(key)) {
+        total += countMap.get(key);
+        seenKeys.add(key);
       }
     }
 
-    return 0;
+    return total;
   }
 
   function createServerControlConfigKey(value, fallbackPrefix = "task") {
@@ -6371,6 +6374,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  async function syncServerControlTaskTypeWithBridge(source = "load") {
+    try {
+      const taskDefinition = getCurrentServerControlTaskTypeDefinition();
+      const payload = buildServerControlMenuPayload({
+        command: "sync_task_type",
+        value: taskDefinition.key,
+        label: taskDefinition.label,
+      }, "Task type");
+      payload.source = `chatgpt-content-control-menu-${source}`;
+      await chrome.runtime.sendMessage({
+        type: SERVER_CONTROL_MENU_COMMAND_MESSAGE_TYPE,
+        command: payload,
+      });
+    } catch (error) {
+      console.warn("Local Query Bridge failed to sync active task type with bridge", error);
+    }
+  }
+
   async function loadServerControlMenuSettings() {
     try {
       const stored = await chrome.storage.local.get([
@@ -6422,6 +6443,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         console.error("Local Query Bridge scoped highlight/TOC setting load failed", error);
       });
       void refreshServerControlTaskCounts(true);
+      void syncServerControlTaskTypeWithBridge("load");
     } catch (error) {
       console.warn("Local Query Bridge failed to load server control menu settings", error);
     }

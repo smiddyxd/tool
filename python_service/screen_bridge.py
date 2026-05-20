@@ -137,6 +137,8 @@ TASK_TYPE_COUNTS_PATH = Path(__file__).resolve().parent / "task_type_counts.json
 TASK_TYPE_HISTORY_PATH = Path(__file__).resolve().parent / "task_type_history.jsonl"
 TASK_ARCHIVE_SCREENSHOT_DIR = Path(__file__).resolve().parent / "task_screenshots"
 TASK_ARCHIVE_CAPTURE_DELAY_SECONDS = 0.5
+DEFAULT_CONTROL_TASK_TYPE_KEY = "search-experience-to-product-usefulness"
+DEFAULT_CONTROL_TASK_TYPE_LABEL = "Search Experience to Product Usefulness"
 
 DEFAULT_PROMPT = """The attached screenshot contains the current task page. First extract the exact Google search query shown in the screenshot. Then, for each semantically distinct component, provide a bullet point explaining what it is. Keep explanations as short as possible -- ideally just a label like \"brand name\" or \"model nr\" or \"file format\". Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification, give the shortest explanation that captures the essential nature of the thing while still leaving someone unfamiliar with an accurate mental model.
 
@@ -328,11 +330,29 @@ class SharedState:
     cancelled_control_run_ids: set[str] = field(default_factory=set)
     armed_task: ArmedTask | None = None
     repeatable_task: RepeatableTask | None = None
+    active_task_type_key: str = DEFAULT_CONTROL_TASK_TYPE_KEY
+    active_task_type_label: str = DEFAULT_CONTROL_TASK_TYPE_LABEL
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def is_new_task(self, task_count: int) -> bool:
         with self.lock:
             return task_count != self.last_seen_task_count
+
+    def set_active_task_type(self, task_type_key: str = "", task_type_label: str = "") -> tuple[str, str]:
+        normalized_key = sanitize_control_command_field(task_type_key, 120)
+        normalized_label = clean_ocr_text(str(task_type_label or ""))
+        with self.lock:
+            if normalized_key:
+                self.active_task_type_key = normalized_key
+            if normalized_label:
+                self.active_task_type_label = normalized_label
+            elif normalized_key and not self.active_task_type_label:
+                self.active_task_type_label = normalized_key
+            return self.active_task_type_key, self.active_task_type_label
+
+    def get_active_task_type(self) -> tuple[str, str]:
+        with self.lock:
+            return self.active_task_type_key, self.active_task_type_label
 
     def ignore_task(self, task_count: int) -> bool:
         with self.lock:
@@ -829,6 +849,19 @@ def receive_control_command() -> Any:
         f"tab={tab_id or '-'} run={control_run_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
+
+    active_task_type_key = current_task_type or (value if command == "set_task_type" else "")
+    active_task_type_label = current_task_type_label
+    if active_task_type_key or active_task_type_label or command in {"set_task_type", "sync_task_type"}:
+        stored_task_type_key, stored_task_type_label = STATE.set_active_task_type(
+            active_task_type_key,
+            active_task_type_label,
+        )
+        if command in {"set_task_type", "sync_task_type"}:
+            print(
+                f"[control {timestamp_now()}] active-task-type key={stored_task_type_key or '-'} label={stored_task_type_label or '-'}",
+                flush=True,
+            )
 
     if command == CONTROL_CANCEL_COMMAND:
         STATE.cancel_control_run(control_run_id)
@@ -1333,6 +1366,34 @@ def resolve_task_settings(task_type: str, config: dict[str, Any]) -> TaskSetting
         wait_for_edge=wait_for_edge,
         prompts=prompts,
         repeat_prefix=repeat_prefix,
+    )
+
+def resolve_active_control_task_settings(
+    config: dict[str, Any],
+    task_type_key: str,
+    task_type_label: str,
+) -> TaskSettings | None:
+    candidates = [
+        clean_ocr_text(task_type_label),
+        sanitize_control_command_field(task_type_key, 120),
+    ]
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate.casefold() in seen:
+            continue
+        seen.add(candidate.casefold())
+        settings = resolve_task_settings(candidate, config)
+        if settings is not None:
+            return settings
+    return None
+
+
+def apply_counted_task_type(settings: TaskSettings, counted_task_type: str) -> TaskSettings:
+    return TaskSettings(
+        task_type=counted_task_type,
+        wait_for_edge=settings.wait_for_edge,
+        prompts=settings.prompts,
+        repeat_prefix=settings.repeat_prefix,
     )
 
 def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
@@ -1856,7 +1917,6 @@ def monitor_scroll_signals() -> None:
 
 def monitor_screen() -> None:
     counter_icon_template = load_template_image(TASK_COUNTER_ICON_TEMPLATE_PATH)
-    task_type_icon_template = load_template_image(TASK_TYPE_ICON_TEMPLATE_PATH)
 
     with mss.mss() as screenshotter:
         monitor = screenshotter.monitors[1]
@@ -1979,17 +2039,23 @@ def monitor_screen() -> None:
                                     )
 
                 if task_count is not None and STATE.is_new_task(task_count):
-                    task_type = clean_ocr_text(extract_task_type(frame_bgr, task_type_icon_template)) or "Unknown"
-                    task_type_total = TASK_TYPE_COUNTERS.record(task_count, task_type)
-                    settings = resolve_task_settings(task_type, CONFIG_CACHE.load())
+                    active_task_type_key, active_task_type_label = STATE.get_active_task_type()
+                    counted_task_type = active_task_type_key or active_task_type_label or "Unknown"
+                    settings = resolve_active_control_task_settings(
+                        CONFIG_CACHE.load(),
+                        active_task_type_key,
+                        active_task_type_label,
+                    )
+                    task_type_total = TASK_TYPE_COUNTERS.record(task_count, counted_task_type)
 
                     if settings is None:
                         if STATE.ignore_task(task_count):
                             print(
-                                f"[task {timestamp_now()}] counter={task_count} type={task_type} total={task_type_total} ignored",
+                                f"[task {timestamp_now()}] counter={task_count} type={counted_task_type} label={active_task_type_label or '-'} total={task_type_total} ignored",
                                 flush=True,
                             )
                     else:
+                        settings = apply_counted_task_type(settings, counted_task_type)
                         action = STATE.register_task(task_count, settings)
                         if action == "ready":
                             screenshot_png = build_screenshot_payload(frame_bgr)
@@ -2007,12 +2073,12 @@ def monitor_screen() -> None:
                                 task_type=settings.task_type,
                             )
                             print(
-                                f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} total={task_type_total}",
+                                f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} label={active_task_type_label or '-'} total={task_type_total}",
                                 flush=True,
                             )
                         elif action == "armed":
                             print(
-                                f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} total={task_type_total} waiting-for-edge",
+                                f"[task {timestamp_now()}] counter={task_count} type={settings.task_type} label={active_task_type_label or '-'} total={task_type_total} waiting-for-edge",
                                 flush=True,
                             )
 

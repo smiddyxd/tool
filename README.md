@@ -6,7 +6,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
 
 1. `python_service/screen_bridge.py`
    Captures the primary monitor every 0.5 seconds, detects the task-counter icon in a fixed screen band, OCRs the blue counter digits to the right of that icon, and treats every new counter value as a new task.
-2. For each new task, the bridge also reads the task type from the left side of the screen by matching `task-type-icon.png` and OCRing the text to its right.
+2. For each new task, the bridge uses the active task type selected in the ChatGPT bridge control menu. The older task-type icon/OCR path remains in the code for debugging, but normal task counting and task registration no longer depend on it.
 3. `python_service/task_type_config.json`
    Maps task-type text to behavior. By default the bridge does nothing unless a rule matches.
    - `enabled`: if `false`, that config path is ignored
@@ -14,7 +14,7 @@ This project watches a task counter on screen, captures a screenshot for each ne
    - `test_trigger`: if `true`, `Shift+Alt+Z` runs a manual screenshot test using that rule
    - `prompts`: one or two prompt texts sent to ChatGPT for that task type
 4. Every new task increment is also recorded on disk by task type:
-   - `python_service/task_type_counts.json`: running totals per OCRed task type
+   - `python_service/task_type_counts.json`: running totals per bridge-control task type
    - `python_service/task_type_history.jsonl`: append-only history with timestamp, global counter value, and task type
 5. `chrome_extension/`
    Polls `GET /a`, decrypts screenshot events and scroll events, injects a content script into active ChatGPT tabs, attaches the same screenshot wherever needed, and scrolls ChatGPT when the Python side emits edge-scroll commands.
@@ -114,7 +114,7 @@ The ChatGPT content script creates a half-viewport control menu when the pointer
 
 The processing legend is a toggle. When enabled, the ChatGPT main area is divided into one horizontal zone per processing action, with translucent vertical divider lines. Left-clicking a zone sends the corresponding processing command. Right-clicking inside a zone turns zone-click mode off and suppresses the browser context menu. When disabled, those zones do not capture clicks.
 
-Task type switching sends a `/c` command, updates the active project settings in the service worker, and navigates the current ChatGPT tab to that task type's project URL. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
+Task type switching sends a `/c` command, updates the active project settings in the service worker, updates the Python bridge's active task type for task counting/registration, and navigates the current ChatGPT tab to that task type's project URL. On content-script load, the current bridge-control task type is also synced to the Python bridge. Each task type has two account-specific project ID slots, `ascasdqwe` and `aoizxcaoi`, stored in Chrome sync storage under `taskTypeProjectIds`; the selected slot is stored under `taskTypeActiveProjectAccounts`. Legacy global project IDs are migrated into the `Search Experience to Product Usefulness` slots. The options page is the full editor, and the bridge control menu has a small `IDs` picker for switching the active account/project while working.
 
 The options page also edits the control-menu task type definitions stored in Chrome local storage under `serverControlTaskTypeDefinitions`. For each task type, you can:
 - add or delete task types
@@ -158,10 +158,11 @@ Task counter:
 - digit OCR band: the next `64px` immediately to the right of the matched icon
 - digit color target: hex `4487F6`
 
-Task type:
+Task type OCR fallback/debug path:
 - icon search region: `left=20, top=127, width=40, height=40`
 - icon template: `python_service/assets/task-type-icon.png`
 - OCR region: starts just to the right of the matched icon and extends to the middle of the screen
+- normal task registration uses the active bridge-control task type instead of this OCR result
 
 Mouse release signal:
 - left-edge signal: `x < 2` anywhere vertically on the primary screen
@@ -184,7 +185,7 @@ Manual PaddleOCR test trigger:
 - appends a structured PaddleOCR transcript to `python_service/paddleocr_manual_results.json`
 
 Task-type counting:
-- every new global counter increment is recorded against the OCRed task type, even if that task type is ignored by the automation rules
+- every new global counter increment is recorded against the active bridge-control task type, even if that task type is ignored by the automation rules
 - totals are stored in `python_service/task_type_counts.json`
 - the full append-only event log is stored in `python_service/task_type_history.jsonl`
 
@@ -219,7 +220,7 @@ Notes:
 - `enabled=false` disables that config entry
 - `test_trigger=true` marks the rule used by the manual `Shift+Alt+Z` test run
 - rules are checked in order; the first match wins
-- `[TASK_TYPE]` inside each prompt is replaced with the OCRed task type text
+- `[TASK_TYPE]` inside each prompt is replaced with the selected bridge-control task type text used to resolve the automation rule
 - with `default.enabled=false`, unmatched task types are ignored completely
 
 ## PaddleOCR manual test
