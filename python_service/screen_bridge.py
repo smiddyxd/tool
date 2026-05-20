@@ -45,9 +45,19 @@ TEXT_TASK_QUERY_LABEL = "Query:"
 TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
 TEXT_TASK_ABORT_HEADER = "OCR abort:"
+COMMENT_DRAFT_FEEDBACK_PROMPT = (
+    "Give me feedback on my rating comment. Focus on clarity, wording, and whether it supports the rating. "
+    "Suggest a polished version that keeps the same meaning."
+)
+COMMENT_DRAFT_INPUT_HEADER = "Draft comment OCR:"
 MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
 CONTROL_CANCEL_COMMAND = "cancel_control_processing"
-ASYNC_CONTROL_PROCESSING_COMMANDS = {"start_task_screenshot", "start_task_ocr"}
+COMMENT_DRAFT_FEEDBACK_COMMAND = "draft_comment_feedback"
+ASYNC_CONTROL_PROCESSING_COMMANDS = {
+    "start_task_screenshot",
+    "start_task_ocr",
+    COMMENT_DRAFT_FEEDBACK_COMMAND,
+}
 
 
 @dataclass(frozen=True)
@@ -1013,6 +1023,62 @@ def capture_control_frame() -> tuple[np.ndarray, int | None]:
     return frame_bgr, task_count
 
 
+def parse_control_selected_region(payload: dict[str, Any]) -> Region | None:
+    bounds = payload.get("selectedRegionBounds")
+    if not isinstance(bounds, dict):
+        return None
+
+    def parse_coordinate(key: str) -> int | None:
+        try:
+            value = int(float(str(bounds.get(key, "")).strip()))
+        except (TypeError, ValueError):
+            return None
+        return value
+
+    left = parse_coordinate("left")
+    top = parse_coordinate("top")
+    right = parse_coordinate("right")
+    bottom = parse_coordinate("bottom")
+    if left is None or top is None or right is None or bottom is None:
+        return None
+    if right <= left or bottom <= top:
+        return None
+    return Region(left=left, top=top, width=right - left, height=bottom - top)
+
+
+def get_control_selected_region_label(payload: dict[str, Any], fallback: str = "selected region") -> str:
+    return sanitize_control_command_field(
+        payload.get("selectedRegionLabel") or payload.get("selectedRegion") or fallback,
+        160,
+    )
+
+
+def extract_plain_ocr_result_text(ocr_result: dict[str, Any]) -> str:
+    lines = ocr_result.get("lines", [])
+    if isinstance(lines, list):
+        text_lines: list[str] = []
+        for line in lines:
+            if not isinstance(line, dict):
+                continue
+            cleaned = clean_multiline_ocr_text(str(line.get("text", "")))
+            if cleaned:
+                text_lines.append(cleaned)
+        if text_lines:
+            return "\n".join(text_lines)
+
+    return clean_multiline_ocr_text(str(ocr_result.get("text", "")))
+
+
+def build_comment_draft_feedback_prompt(comment_text: str) -> str:
+    return "\n\n".join(
+        [
+            COMMENT_DRAFT_FEEDBACK_PROMPT,
+            COMMENT_DRAFT_INPUT_HEADER,
+            comment_text.strip(),
+        ]
+    ).strip()
+
+
 def queue_control_screenshot(payload: dict[str, Any]) -> bool:
     settings = resolve_control_task_settings(payload)
     if settings is None:
@@ -1189,11 +1255,168 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
     return True
 
 
+def queue_comment_draft_feedback(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    task_type = settings.task_type if settings is not None else get_control_payload_task_type(payload)
+    run_id = get_control_run_id(payload)
+    region_label = get_control_selected_region_label(payload, "rating comment")
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(
+            payload,
+            "cancel",
+            "Comment feedback request cancelled before capture.",
+            task_type=task_type,
+        )
+        return False
+
+    selected_region = parse_control_selected_region(payload)
+    if selected_region is None:
+        publish_control_status(
+            payload,
+            "error",
+            "Rating comment region bounds are empty. Set the Rating comment coordinates before using Comment.",
+            details={
+                "selectedRegion": sanitize_control_command_field(payload.get("selectedRegion"), 120),
+                "selectedRegionLabel": region_label,
+            },
+            task_type=task_type,
+        )
+        return False
+
+    publish_control_status(
+        payload,
+        "capture",
+        f"Capturing {region_label} for comment feedback.",
+        task_type=task_type,
+    )
+    frame_bgr, task_count = capture_control_frame()
+    effective_task_count = task_count if task_count is not None else 0
+    comment_crop = extract_region(frame_bgr, selected_region)
+    if comment_crop.size == 0:
+        publish_control_status(
+            payload,
+            "error",
+            "Rating comment region did not overlap the captured screen.",
+            details={
+                "selectedRegion": sanitize_control_command_field(payload.get("selectedRegion"), 120),
+                "selectedRegionLabel": region_label,
+                "bounds": {
+                    "left": selected_region.left,
+                    "top": selected_region.top,
+                    "right": selected_region.left + selected_region.width,
+                    "bottom": selected_region.top + selected_region.height,
+                },
+            },
+            task_type=task_type,
+        )
+        return False
+
+    save_debug_image("comment_draft_region.png", comment_crop)
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(
+            payload,
+            "cancel",
+            "Comment feedback request cancelled before OCR.",
+            task_type=task_type,
+        )
+        return False
+
+    publish_control_status(
+        payload,
+        "ocr-start",
+        f"OCRing {region_label} for comment feedback.",
+        details={
+            "selectedRegion": sanitize_control_command_field(payload.get("selectedRegion"), 120),
+            "selectedRegionLabel": region_label,
+            "cropWidth": int(comment_crop.shape[1]),
+            "cropHeight": int(comment_crop.shape[0]),
+        },
+        task_type=task_type,
+    )
+    try:
+        ocr_result = paddleocr_manual_test.ocr_text_region(comment_crop)
+    except Exception as exc:
+        print(f"[control {timestamp_now()}] comment-draft-ocr error: {exc}", flush=True)
+        publish_control_status(
+            payload,
+            "error",
+            "Comment OCR failed.",
+            details={"error": str(exc), "selectedRegionLabel": region_label},
+            task_type=task_type,
+        )
+        return False
+
+    comment_text = extract_plain_ocr_result_text(ocr_result)
+    line_count = len(ocr_result.get("lines", [])) if isinstance(ocr_result.get("lines", []), list) else 0
+    publish_control_status(
+        payload,
+        "ocr-selected",
+        "Selected rating comment OCR text.",
+        details={
+            "commentText": comment_text,
+            "charCount": len(comment_text),
+            "lineCount": line_count,
+            "variant": str(ocr_result.get("variant", "")),
+            "rawLineCount": int(ocr_result.get("raw_line_count", 0) or 0),
+            "selectedRegionLabel": region_label,
+        },
+        task_type=task_type,
+    )
+
+    if not comment_text.strip():
+        publish_control_status(
+            payload,
+            "error",
+            "Comment OCR produced no text.",
+            details={"selectedRegionLabel": region_label, "lineCount": line_count},
+            task_type=task_type,
+        )
+        return False
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(
+            payload,
+            "cancel",
+            "Comment feedback request cancelled before queueing prompt.",
+            task_type=task_type,
+        )
+        return False
+
+    prompt = build_comment_draft_feedback_prompt(comment_text)
+    STATE.publish_control_status_and_text_payload(
+        run_id,
+        "queued",
+        "Comment feedback prompt queued for ChatGPT.",
+        details={
+            "taskCount": effective_task_count,
+            "promptCount": 1,
+            "commentChars": len(comment_text),
+            "selectedRegionLabel": region_label,
+        },
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=task_type,
+        task_count=effective_task_count,
+        prompts=(prompt,),
+        payload_task_type=get_control_payload_task_type_key(payload, task_type),
+        control_run_id=run_id,
+    )
+    print(
+        f"[control {timestamp_now()}] queued-comment-draft counter={effective_task_count} "
+        f"type={task_type} chars={len(comment_text)} region={region_label}",
+        flush=True,
+    )
+    return True
+
+
 def handle_control_processing_command(command: str, payload: dict[str, Any]) -> bool:
     if command == "start_task_screenshot":
         return queue_control_screenshot(payload)
     if command == "start_task_ocr":
         return queue_control_ocr(payload)
+    if command == COMMENT_DRAFT_FEEDBACK_COMMAND:
+        return queue_comment_draft_feedback(payload)
     if get_control_run_id(payload):
         publish_control_status(
             payload,

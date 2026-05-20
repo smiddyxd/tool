@@ -146,6 +146,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_SELECTED_REGION = "serverControlSelectedRegion";
   const STORAGE_KEY_SERVER_CONTROL_OCR_REVIEW_TEXT = "serverControlOcrReviewText";
   const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
+  const STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED = "serverControlCommentDraftActionMigrated";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
   const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
@@ -158,6 +159,7 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
+  const SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY = "ratingComment";
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
   const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
@@ -306,6 +308,12 @@ Base everything strictly on the screenshot attachment.`;
       defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
     },
     {
+      key: SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
+      label: "Rating comment",
+      kind: SERVER_CONTROL_REGION_KIND_OCR,
+      defaultBounds: { ...DEFAULT_SERVER_CONTROL_REGION_BOUNDS },
+    },
+    {
       key: "googleResults",
       label: "Google results",
       kind: SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS,
@@ -339,13 +347,26 @@ Base everything strictly on the screenshot attachment.`;
       value: "google-search",
       regionKey: "googleResults",
     },
+    commentDraft: {
+      label: "Comment",
+      command: "draft_comment_feedback",
+      value: "comment-draft",
+      regionKey: SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
+    },
   };
   const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
       key: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
       label: "Search Experience to Product Usefulness",
-      regions: ["query", "productCard", "productDescription", "googleResults", SERVER_CONTROL_REGION_DEFAULT_KEY],
-      actions: ["ocr", "screenshot", "googleSearch"],
+      regions: [
+        "query",
+        "productCard",
+        "productDescription",
+        "googleResults",
+        SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
+        SERVER_CONTROL_REGION_DEFAULT_KEY,
+      ],
+      actions: ["ocr", "screenshot", "googleSearch", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
 
@@ -359,8 +380,8 @@ Use the screenshot and any OCR text above to judge how useful the product is for
     {
       key: "get-rich-quick",
       label: "Get Rich Quick",
-      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
-      actions: ["ocr", "screenshot"],
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
+      actions: ["ocr", "screenshot", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
@@ -371,8 +392,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     {
       key: "video-games",
       label: "Video Games",
-      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
-      actions: ["ocr", "screenshot"],
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
+      actions: ["ocr", "screenshot", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Video Games task.
 
@@ -383,8 +404,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     {
       key: "weight-loss",
       label: "Weight Loss",
-      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr"],
-      actions: ["ocr", "screenshot"],
+      regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
+      actions: ["ocr", "screenshot", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
@@ -4164,7 +4185,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function isServerControlProcessingCommand(command) {
     return command === "start_task_ocr"
       || command === "start_task_screenshot"
-      || command === "ocr_google_results";
+      || command === "ocr_google_results"
+      || command === "draft_comment_feedback";
   }
 
   function getServerControlStatusLogColor(type) {
@@ -5849,12 +5871,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const label = normalizeServerControlConfigText(source.label, fallbackLabel);
     const kind = normalizeServerControlRegionKind(source.kind);
     let key = normalizeServerControlConfigText(source.key, "");
+    const normalizedKey = createServerControlConfigKey(key || label, "region");
     if (kind === SERVER_CONTROL_REGION_KIND_SCREENSHOT) {
       key = SERVER_CONTROL_REGION_DEFAULT_KEY;
     } else if (kind === SERVER_CONTROL_REGION_KIND_GOOGLE_RESULTS) {
       key = "googleResults";
+    } else if (
+      normalizedKey === createServerControlConfigKey(SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY, "region")
+      || normalizedKey === createServerControlConfigKey("Rating comment", "region")
+    ) {
+      key = SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY;
     } else {
-      key = createServerControlConfigKey(key || label, "region");
+      key = normalizedKey;
     }
 
     return {
@@ -5895,6 +5923,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (regionKey === "googleResults") {
         return actions.has("googleSearch");
       }
+      if (regionKey === SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY) {
+        return actions.has("commentDraft");
+      }
 
       return true;
     });
@@ -5908,6 +5939,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       regions.push("googleResults");
       regionDefinitionsByKey.set("googleResults", sanitizeServerControlRegionDefinition({
         ...getDefaultServerControlRegionDefinition("googleResults"),
+      }));
+    }
+    if (actions.has("commentDraft") && !regions.includes(SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY)) {
+      regions.push(SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY);
+      regionDefinitionsByKey.set(SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY, sanitizeServerControlRegionDefinition({
+        ...getDefaultServerControlRegionDefinition(SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY),
       }));
     }
     if (actions.has("ocr")) {
@@ -5932,10 +5969,25 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     };
   }
 
-  function sanitizeServerControlTaskTypeDefinitions(rawValue) {
+  function shouldMigrateServerControlCommentDraftAction(rawValue, migrationDone) {
+    if (migrationDone === true || !Array.isArray(rawValue) || rawValue.length === 0) {
+      return false;
+    }
+
+    return !rawValue.some((definition) => (
+      definition
+      && typeof definition === "object"
+      && !Array.isArray(definition)
+      && Array.isArray(definition.actions)
+      && definition.actions.includes("commentDraft")
+    ));
+  }
+
+  function sanitizeServerControlTaskTypeDefinitions(rawValue, options = {}) {
     const sourceDefinitions = Array.isArray(rawValue) && rawValue.length > 0
       ? rawValue
       : DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS;
+    const addCommentDraftAction = Boolean(options.addCommentDraftAction);
     const usedTaskKeys = new Set();
     const regionDefinitionsByKey = new Map(
       DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
@@ -5972,11 +6024,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         regionDefinitionsByKey.set(regionDefinition.key, regionDefinition);
       }
 
+      const actions = normalizeServerControlActionKeys(rawDefinition.actions);
+      if (addCommentDraftAction && !actions.includes("commentDraft")) {
+        actions.push("commentDraft");
+      }
+
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
         key,
         label,
         regions,
-        actions: normalizeServerControlActionKeys(rawDefinition.actions),
+        actions,
         requireWebSearchChip: normalizeServerControlRequireWebSearchChip(rawDefinition.requireWebSearchChip),
         boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
           ? rawDefinition.boilerplatePrompt.trim()
@@ -5994,8 +6051,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     };
   }
 
-  function applyServerControlTaskTypeDefinitions(rawValue) {
-    const sanitizedDefinitions = sanitizeServerControlTaskTypeDefinitions(rawValue);
+  function applyServerControlTaskTypeDefinitions(rawValue, options = {}) {
+    const sanitizedDefinitions = sanitizeServerControlTaskTypeDefinitions(rawValue, options);
     SERVER_CONTROL_TASK_TYPE_DEFINITIONS = sanitizedDefinitions.taskDefinitions;
     SERVER_CONTROL_REGION_DEFINITIONS = sanitizedDefinitions.regionDefinitions;
   }
@@ -6396,6 +6453,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     try {
       const stored = await chrome.storage.local.get([
         STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS,
+        STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED,
         STORAGE_KEY_SERVER_CONTROL_TASK_TYPE,
         STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS,
         STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS,
@@ -6406,7 +6464,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
         STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN,
       ]);
-      applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]);
+      const migrateCommentDraftAction = shouldMigrateServerControlCommentDraftAction(
+        stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+        stored[STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED],
+      );
+      applyServerControlTaskTypeDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS], {
+        addCommentDraftAction: migrateCommentDraftAction,
+      });
 
       serverControlMenuState.currentTaskType = sanitizeServerControlTaskTypeKey(
         stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE] ?? SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,

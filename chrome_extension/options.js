@@ -124,6 +124,7 @@ const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButt
 const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
 const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
+const STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED = "serverControlCommentDraftActionMigrated";
 const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
 const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
 const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
@@ -203,11 +204,18 @@ const TASK_REGION_COORDINATES = [
 const TASK_ACTION_OCR = "ocr";
 const TASK_ACTION_SCREENSHOT = "screenshot";
 const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
-const TASK_ACTION_KEYS = [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH];
+const TASK_ACTION_COMMENT_DRAFT = "commentDraft";
+const TASK_ACTION_KEYS = [
+  TASK_ACTION_OCR,
+  TASK_ACTION_SCREENSHOT,
+  TASK_ACTION_GOOGLE_SEARCH,
+  TASK_ACTION_COMMENT_DRAFT,
+];
 const TASK_ACTION_LABELS = {
   [TASK_ACTION_OCR]: "OCR",
   [TASK_ACTION_SCREENSHOT]: "Screenshot",
   [TASK_ACTION_GOOGLE_SEARCH]: "Google search",
+  [TASK_ACTION_COMMENT_DRAFT]: "Comment",
 };
 const FULL_TASK_SCREENSHOT_REGION = {
   key: "fullTaskScreenshot",
@@ -218,6 +226,11 @@ const GOOGLE_RESULTS_REGION = {
   key: "googleResults",
   label: "Google results",
   kind: TASK_REGION_KIND_GOOGLE_RESULTS,
+};
+const COMMENT_DRAFT_REGION = {
+  key: "ratingComment",
+  label: "Rating comment",
+  kind: TASK_REGION_KIND_OCR,
 };
 const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
 const PROJECT_ACCOUNT_DEFINITIONS = [
@@ -234,13 +247,14 @@ const DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS = [
   {
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       { key: "query", label: "Query", kind: TASK_REGION_KIND_OCR },
       { key: "productCard", label: "Product card", kind: TASK_REGION_KIND_OCR },
       { key: "productDescription", label: "Product description", kind: TASK_REGION_KIND_OCR },
       GOOGLE_RESULTS_REGION,
+      COMMENT_DRAFT_REGION,
       FULL_TASK_SCREENSHOT_REGION,
     ],
     boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
@@ -255,11 +269,12 @@ Use the screenshot and any OCR text above to judge how useful the product is for
   {
     key: "get-rich-quick",
     label: "Get Rich Quick",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+      COMMENT_DRAFT_REGION,
     ],
     boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
@@ -270,11 +285,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   {
     key: "video-games",
     label: "Video Games",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+      COMMENT_DRAFT_REGION,
     ],
     boilerplatePrompt: `The attached screenshot contains a Video Games task.
 
@@ -285,11 +301,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   {
     key: "weight-loss",
     label: "Weight Loss",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
       { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+      COMMENT_DRAFT_REGION,
     ],
     boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
@@ -529,6 +546,9 @@ function getDefaultTaskRegionByKey(regionKey) {
   if (regionKey === GOOGLE_RESULTS_REGION.key) {
     return { ...GOOGLE_RESULTS_REGION };
   }
+  if (regionKey === COMMENT_DRAFT_REGION.key) {
+    return { ...COMMENT_DRAFT_REGION };
+  }
 
   return null;
 }
@@ -554,13 +574,19 @@ function sanitizeTaskRegionDefinition(rawRegion, fallbackLabel = "OCR region") {
   const label = normalizeTaskConfigText(source.label, fallbackLabel);
   const kind = normalizeTaskRegionKind(source.kind);
   let key = normalizeTaskConfigText(source.key, "");
+  const normalizedKey = createTaskConfigKey(key || label, "region");
 
   if (kind === TASK_REGION_KIND_SCREENSHOT) {
     key = FULL_TASK_SCREENSHOT_REGION.key;
   } else if (kind === TASK_REGION_KIND_GOOGLE_RESULTS) {
     key = GOOGLE_RESULTS_REGION.key;
+  } else if (
+    normalizedKey === createTaskConfigKey(COMMENT_DRAFT_REGION.key, "region")
+    || normalizedKey === createTaskConfigKey(COMMENT_DRAFT_REGION.label, "region")
+  ) {
+    key = COMMENT_DRAFT_REGION.key;
   } else {
-    key = createTaskConfigKey(key || label, "region");
+    key = normalizedKey;
   }
 
   return { key, label, kind };
@@ -587,6 +613,9 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
     if (region.key === GOOGLE_RESULTS_REGION.key) {
       return actions.has(TASK_ACTION_GOOGLE_SEARCH);
     }
+    if (region.key === COMMENT_DRAFT_REGION.key) {
+      return actions.has(TASK_ACTION_COMMENT_DRAFT);
+    }
 
     return true;
   });
@@ -597,6 +626,10 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
 
   if (actions.has(TASK_ACTION_GOOGLE_SEARCH) && !regions.some((region) => region.key === GOOGLE_RESULTS_REGION.key)) {
     regions.push({ ...GOOGLE_RESULTS_REGION });
+  }
+
+  if (actions.has(TASK_ACTION_COMMENT_DRAFT) && !regions.some((region) => region.key === COMMENT_DRAFT_REGION.key)) {
+    regions.push({ ...COMMENT_DRAFT_REGION });
   }
 
   if (actions.has(TASK_ACTION_OCR) && !regions.some((region) => region.kind === TASK_REGION_KIND_OCR)) {
@@ -610,10 +643,25 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
   };
 }
 
-function sanitizeTaskTypeDefinitions(rawValue) {
+function shouldMigrateCommentDraftAction(rawValue, migrationDone) {
+  if (migrationDone === true || !Array.isArray(rawValue) || rawValue.length === 0) {
+    return false;
+  }
+
+  return !rawValue.some((definition) => (
+    definition
+    && typeof definition === "object"
+    && !Array.isArray(definition)
+    && Array.isArray(definition.actions)
+    && definition.actions.includes(TASK_ACTION_COMMENT_DRAFT)
+  ));
+}
+
+function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
   const sourceDefinitions = Array.isArray(rawValue) && rawValue.length > 0
     ? rawValue
     : cloneTaskTypeDefinitions();
+  const addCommentDraftAction = Boolean(options.addCommentDraftAction);
   const usedTaskKeys = new Set();
   const sanitizedDefinitions = [];
 
@@ -637,10 +685,15 @@ function sanitizeTaskTypeDefinitions(rawValue) {
         seenRegionKeys.add(region.key);
         return true;
       });
+    const actions = normalizeTaskActionKeys(rawDefinition.actions);
+    if (addCommentDraftAction && !actions.includes(TASK_ACTION_COMMENT_DRAFT)) {
+      actions.push(TASK_ACTION_COMMENT_DRAFT);
+    }
+
     const taskDefinition = ensureTaskDefinitionFeatures({
       key,
       label,
-      actions: normalizeTaskActionKeys(rawDefinition.actions),
+      actions,
       requireWebSearchChip: normalizeTaskRequireWebSearchChip(rawDefinition.requireWebSearchChip),
       regions,
       boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
@@ -2065,6 +2118,13 @@ function setTaskActionEnabled(taskDefinition, actionKey, enabled) {
   } else if (actionKey === TASK_ACTION_GOOGLE_SEARCH && !enabled) {
     regions = regions.filter((region) => region.key !== GOOGLE_RESULTS_REGION.key);
   }
+  if (actionKey === TASK_ACTION_COMMENT_DRAFT && enabled) {
+    regions = regions.some((region) => region.key === COMMENT_DRAFT_REGION.key)
+      ? regions
+      : [...regions, { ...COMMENT_DRAFT_REGION }];
+  } else if (actionKey === TASK_ACTION_COMMENT_DRAFT && !enabled) {
+    regions = regions.filter((region) => region.key !== COMMENT_DRAFT_REGION.key);
+  }
   if (actionKey === TASK_ACTION_OCR && enabled && !regions.some((region) => region.kind === TASK_REGION_KIND_OCR)) {
     regions = [...regions, { key: "fullTaskOcr", label: "Full task OCR", kind: TASK_REGION_KIND_OCR }];
   }
@@ -2431,6 +2491,7 @@ function renderTaskTypeConfiguration() {
   const screenshotInput = document.querySelector("#task-type-enable-screenshot");
   const googleInput = document.querySelector("#task-type-enable-google-results");
   const ocrInput = document.querySelector("#task-type-enable-ocr");
+  const commentDraftInput = document.querySelector("#task-type-enable-comment-draft");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
@@ -2451,6 +2512,9 @@ function renderTaskTypeConfiguration() {
   }
   if (ocrInput instanceof HTMLInputElement) {
     ocrInput.checked = taskDefinition.actions.includes(TASK_ACTION_OCR);
+  }
+  if (commentDraftInput instanceof HTMLInputElement) {
+    commentDraftInput.checked = taskDefinition.actions.includes(TASK_ACTION_COMMENT_DRAFT);
   }
   if (requireSearchChipInput instanceof HTMLInputElement) {
     requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
@@ -2473,10 +2537,11 @@ function addTaskTypeDefinition() {
   const taskDefinition = {
     key,
     label: "New task type",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     regions: [
       { ...FULL_TASK_SCREENSHOT_REGION },
       { key: `${key}-ocr`, label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
+      { ...COMMENT_DRAFT_REGION },
     ],
     boilerplatePrompt: `The attached screenshot contains a task.
 
@@ -3679,6 +3744,7 @@ async function deleteHighlightRule(ruleId) {
 async function loadOptions() {
   const localStored = await chrome.storage.local.get({
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
+    [STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED]: false,
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: null,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
@@ -3687,9 +3753,20 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
   });
+  const migrateCommentDraftAction = shouldMigrateCommentDraftAction(
+    localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+    localStored[STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED],
+  );
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+    { addCommentDraftAction: migrateCommentDraftAction },
   );
+  if (migrateCommentDraftAction) {
+    void chrome.storage.local.set({
+      [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: highlightState.taskTypeDefinitions,
+      [STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED]: true,
+    });
+  }
   highlightState.taskRegions = sanitizeTaskRegionsMap(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS],
   );
@@ -3928,6 +4005,7 @@ async function saveOptions(event) {
 
   await chrome.storage.local.set({
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: taskTypeDefinitions,
+    [STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED]: true,
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: taskRegions,
     [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: universalRegions,
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: zoneDividerOpacity,
@@ -4040,6 +4118,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const screenshotToggle = document.querySelector("#task-type-enable-screenshot");
   const googleResultsToggle = document.querySelector("#task-type-enable-google-results");
   const ocrToggle = document.querySelector("#task-type-enable-ocr");
+  const commentDraftToggle = document.querySelector("#task-type-enable-comment-draft");
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
@@ -4119,6 +4198,14 @@ document.addEventListener("DOMContentLoaded", () => {
       ocrToggle.checked,
     ));
     setStatus("OCR processing changed. Save settings to apply it.");
+  });
+  commentDraftToggle?.addEventListener("change", () => {
+    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
+      definition,
+      TASK_ACTION_COMMENT_DRAFT,
+      commentDraftToggle.checked,
+    ));
+    setStatus("Comment feedback processing changed. Save settings to apply it.");
   });
   addOcrRegionButton?.addEventListener("click", () => {
     addOcrRegionToActiveTaskType();

@@ -119,6 +119,7 @@ Task type switching sends a `/c` command, updates the active project settings in
 The options page also edits the control-menu task type definitions stored in Chrome local storage under `serverControlTaskTypeDefinitions`. For each task type, you can:
 - add or delete task types
 - enable Google search results, which adds the `Google search` processing button and `Google results` region
+- enable comment feedback, which adds the `Comment` processing button and `Rating comment` OCR region
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
 - enable OCR and add one or more OCR regions
 - toggle whether the ChatGPT `Search` chip must be present before the prompt is inserted
@@ -132,17 +133,17 @@ Prompt placeholder behavior:
 - If a placeholder starts with `!`, for example `[!query]`, it is required and submission is stopped when no value is available.
 - If the current processing button is `Screenshot`, all placeholders are treated as optional.
 
-The `Screenshot` processing button now queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button now queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `/c` endpoint still logs each control-menu command before dispatching those actions.
+The `Screenshot` processing button queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `Comment` processing button OCRs the configured `Rating comment` region and queues a text-only feedback prompt so you can iterate on rating-comment phrasing after the main task has already been sent. Comment feedback prompts do not increment the per-tab task reset counter. The `/c` endpoint still logs each control-menu command before dispatching those actions.
 
 Keyword highlight rules and Analysis TOC button settings are task-type-specific. In the options page, switching the selected task type changes the highlight/TOC settings being edited. In ChatGPT, switching the bridge control-menu task type reloads that task type's highlight rules and TOC button layout. The matched strings and adjacent terms editors have Paste buttons that append the clipboard as a new line and leave the caret at the end of the pasted text. They also have marker buttons for the current line: priority `!`, regex `r-`, ellipsis matching (`abc...`, `...abc`, `...abc...`), exact matching, and matched-string exclusions `--`. In ChatGPT, selecting visible non-editable text opens a compact highlight editor near the selection; if the selection starts or ends inside a word, it is expanded to include the whole first or last word. The editor lets you edit the selected phrase, use a Backspace button, choose one of the current task type's highlight-rule colors, apply the same marker buttons, add the line as either a matched string or adjacent term, create a new string TOC button for the current task type, or append the selected text as another detection pattern on an existing custom string TOC button. TOC column position, opacity, left/right scale, and latest-prompt re-check settings are also saved per task type and can be copied as one block from another task type. Legacy global highlight/TOC settings are used as fallback values for task types that do not have scoped settings yet. If a task type has no highlight rules, the options page offers a source-task dropdown that copies another task type's highlight rules into it.
 
 `Search Experience to Product Usefulness` keeps its built-in Analysis TOC targets and can also have custom string TOC buttons. Custom TOC entries define a button label plus one or more response text strings to find, one per line in options. Matching is case-insensitive by default, but each TOC button has a Case toggle that requires exact casing when enabled. Those custom targets are HTML-agnostic; the content script scans the latest assistant response text, so the target does not have to be rendered as an actual heading tag. Repeated clicks on a custom string button cycle through repeated occurrences in that latest response. If a task type has no custom TOC buttons yet, the options page offers a source-task dropdown that copies another task type's TOC buttons and settings into it.
 
 Configured task types:
-- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, and `Google search`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
-- `Get Rich Quick`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
-- `Video Games`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
-- `Weight Loss`: regions are `Full task screenshot` and `Full task OCR`; actions are `OCR` and `Screenshot`.
+- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, `Rating comment`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, `Google search`, and `Comment`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
+- `Get Rich Quick`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
+- `Video Games`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
+- `Weight Loss`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
 
 Region coordinates are stored in Chrome extension local storage as side coordinates:
 - `top`: top Y coordinate

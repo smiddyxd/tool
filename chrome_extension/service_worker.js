@@ -103,7 +103,13 @@ const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 10;
 const MAX_DELIVERY_ATTEMPTS = 3;
 const DELIVERY_RETRY_DELAY_MS = 1000;
-const CONTROL_PROCESSING_COMMANDS = new Set(["start_task_ocr", "start_task_screenshot", "ocr_google_results"]);
+const CONTROL_PROCESSING_COMMANDS = new Set([
+  "start_task_ocr",
+  "start_task_screenshot",
+  "ocr_google_results",
+  "draft_comment_feedback",
+]);
+const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback"]);
 
 const state = {
   isPolling: false,
@@ -113,6 +119,7 @@ const state = {
   pendingRepeatDraft: null,
   cancelledControlRunIds: new Set(),
   controlRunTabIds: new Map(),
+  nonCountingControlRunIds: new Set(),
   lastQueuedControlStatus: null,
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
@@ -143,6 +150,25 @@ function rememberControlRunTab(runId, tabId) {
   state.controlRunTabIds.set(normalizedRunId, normalizedTabId);
 }
 
+function rememberControlRunCountingBehavior(runId, commandName) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  const normalizedCommand = typeof commandName === "string" ? commandName.trim() : "";
+  if (!normalizedRunId) {
+    return;
+  }
+
+  if (NON_COUNTING_CONTROL_COMMANDS.has(normalizedCommand)) {
+    state.nonCountingControlRunIds.add(normalizedRunId);
+  } else {
+    state.nonCountingControlRunIds.delete(normalizedRunId);
+  }
+}
+
+function shouldCountControlRunSubmission(runId) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  return !normalizedRunId || !state.nonCountingControlRunIds.has(normalizedRunId);
+}
+
 function getControlRunTabId(runId) {
   const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
   if (!normalizedRunId) {
@@ -156,6 +182,7 @@ function forgetControlRunTab(runId) {
   const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
   if (normalizedRunId) {
     state.controlRunTabIds.delete(normalizedRunId);
+    state.nonCountingControlRunIds.delete(normalizedRunId);
   }
 }
 
@@ -1503,7 +1530,7 @@ async function deliverPendingSubmissionAttempt() {
     if (result.status === "fulfilled" && result.value === true) {
       successfulCount += 1;
       state.lastChatGptTabId = target.tabId;
-      if (!isAlertSubmission) {
+      if (!isAlertSubmission && shouldCountControlRunSubmission(controlRunId)) {
         await incrementTabSubmissionCount(target.tabId);
       }
       continue;
@@ -1931,6 +1958,7 @@ async function sendServerControlCommand(command, sender) {
   };
   if (controlRunId) {
     rememberControlRunTab(controlRunId, payload.tabId);
+    rememberControlRunCountingBehavior(controlRunId, payload.command);
   }
 
   try {
