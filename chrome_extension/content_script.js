@@ -5316,11 +5316,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       tab.tabIndex = isActive ? 0 : -1;
     }
 
+    const previousBodyScrollTop = body.scrollTop;
     body.replaceChildren();
     if (serverControlStatusLogState.activeTab === "traffic") {
       startBridgeTrafficHistoryRefresh();
       renderBridgeTrafficLogBody(body);
-      body.scrollTop = body.scrollHeight;
+      body.scrollTop = Math.min(previousBodyScrollTop, Math.max(0, body.scrollHeight - body.clientHeight));
       return;
     }
     stopBridgeTrafficHistoryRefresh();

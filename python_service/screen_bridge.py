@@ -47,7 +47,10 @@ BRIDGE_ACTION_REPEAT = "repeat"
 BRIDGE_ACTION_COUNTS = "counts"
 BRIDGE_ACTION_CONTROL = "control"
 BRIDGE_ACTION_COVER = "cover"
+BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes"
 BRIDGE_PADDING_MAX_EXTRA_BYTES = 262_144
+BRIDGE_REAL_RESPONSE_MIN_BYTES = 786_432
+BRIDGE_REAL_RESPONSE_MAX_BYTES = 3_145_728
 BRIDGE_COVER_RESPONSE_MIN_BYTES = 524_288
 BRIDGE_COVER_RESPONSE_MAX_BYTES = 4_194_304
 
@@ -1096,15 +1099,29 @@ def receive_obfuscated_bridge_request() -> Any:
         response = encode_bridge_operation_response({"ok": False, "error": str(exc)})
         return jsonify(response), 400
 
+    response_target_size = sanitize_optional_bridge_response_target_size(params.get(BRIDGE_RESPONSE_TARGET_PARAM))
+    if BRIDGE_RESPONSE_TARGET_PARAM in params:
+        params = dict(params)
+        params.pop(BRIDGE_RESPONSE_TARGET_PARAM, None)
+
     if action == BRIDGE_ACTION_POLL:
         maybe_log_handshake()
-        return jsonify(encode_bridge_operation_response(STATE.consume_event()))
+        event_payload = STATE.consume_event()
+        if response_target_size is None and not is_empty_bridge_event_payload(event_payload):
+            response_target_size = choose_real_bridge_response_target_size()
+        return jsonify(encode_bridge_operation_response(event_payload, target_size=response_target_size))
     if action == BRIDGE_ACTION_REPEAT:
-        return jsonify(encode_bridge_operation_response(build_repeat_capture_payload()))
+        return jsonify(encode_bridge_operation_response(build_repeat_capture_payload(), target_size=response_target_size))
     if action == BRIDGE_ACTION_COUNTS:
-        return jsonify(encode_bridge_operation_response(build_task_type_counts_payload(params.get("span") or "day")))
+        return jsonify(encode_bridge_operation_response(
+            build_task_type_counts_payload(params.get("span") or "day"),
+            target_size=response_target_size,
+        ))
     if action == BRIDGE_ACTION_CONTROL:
-        return jsonify(encode_bridge_operation_response(handle_control_command_payload(params)))
+        return jsonify(encode_bridge_operation_response(
+            handle_control_command_payload(params),
+            target_size=response_target_size,
+        ))
     if action == BRIDGE_ACTION_COVER:
         response_target_size = sanitize_cover_response_target_size(params.get("responseTargetBytes"))
         print(
@@ -1875,11 +1892,30 @@ def sanitize_cover_response_target_size(value: Any) -> int:
     return max(BRIDGE_COVER_RESPONSE_MIN_BYTES, min(requested_size, BRIDGE_COVER_RESPONSE_MAX_BYTES))
 
 
+def sanitize_optional_bridge_response_target_size(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return sanitize_cover_response_target_size(value)
+
+
+def choose_real_bridge_response_target_size() -> int:
+    return get_random_int_inclusive(BRIDGE_REAL_RESPONSE_MIN_BYTES, BRIDGE_REAL_RESPONSE_MAX_BYTES)
+
+
+def is_empty_bridge_event_payload(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return True
+    return not any(str(payload.get(key) or "") for key in ("a", "b", "c", "d", "e", "f"))
+
+
 def pad_bridge_operation_envelope(envelope: dict[str, str], target_size: int | None = None) -> dict[str, str]:
     padded = dict(envelope)
     padded["d"] = ""
     base_size = get_json_payload_size(padded)
-    effective_target_size = max(base_size, target_size) if target_size is not None else choose_padded_envelope_target_size(base_size)
+    if target_size is not None and target_size > base_size:
+        effective_target_size = target_size
+    else:
+        effective_target_size = choose_padded_envelope_target_size(base_size)
     padding_bytes = max(0, int((effective_target_size - base_size) * 0.72))
 
     for _attempt in range(4):

@@ -28,6 +28,11 @@ const BRIDGE_COVER_REQUEST_MIN_BYTES = 65536;
 const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
 const BRIDGE_COVER_RESPONSE_MIN_BYTES = 786432;
 const BRIDGE_COVER_RESPONSE_MAX_BYTES = 3145728;
+const BRIDGE_REAL_REQUEST_MIN_BYTES = BRIDGE_COVER_REQUEST_MIN_BYTES;
+const BRIDGE_REAL_REQUEST_MAX_BYTES = BRIDGE_COVER_REQUEST_MAX_BYTES;
+const BRIDGE_REAL_RESPONSE_MIN_BYTES = BRIDGE_COVER_RESPONSE_MIN_BYTES;
+const BRIDGE_REAL_RESPONSE_MAX_BYTES = BRIDGE_COVER_RESPONSE_MAX_BYTES;
+const BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes";
 const BRIDGE_COVER_TIMEOUT_MS = 30000;
 const BRIDGE_COVER_ALARM_PERIOD_MINUTES = 0.5;
 const BRIDGE_TRAFFIC_HISTORY_LIMIT = 1000;
@@ -464,6 +469,57 @@ function getRandomIntInclusive(minimum, maximum) {
   return min + (randomBytes[0] % range);
 }
 
+function normalizeBridgeTargetSize(value, minimum, maximum) {
+  const parsed = Number.parseInt(`${value ?? ""}`, 10);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(minimum, Math.min(parsed, maximum));
+}
+
+function shouldUseLargeBridgePadding(action, options = {}) {
+  if (options.useLargePadding === false) {
+    return false;
+  }
+
+  return action !== BRIDGE_ACTION_POLL;
+}
+
+function chooseLargeBridgeRequestTarget(action, options = {}) {
+  const explicitTarget = normalizeBridgeTargetSize(
+    options.requestTargetSize,
+    BRIDGE_REAL_REQUEST_MIN_BYTES,
+    BRIDGE_REAL_REQUEST_MAX_BYTES,
+  );
+  if (explicitTarget !== null) {
+    return explicitTarget;
+  }
+
+  if (!shouldUseLargeBridgePadding(action, options)) {
+    return null;
+  }
+
+  return getRandomIntInclusive(BRIDGE_REAL_REQUEST_MIN_BYTES, BRIDGE_REAL_REQUEST_MAX_BYTES);
+}
+
+function chooseLargeBridgeResponseTarget(action, params = {}, options = {}) {
+  const explicitTarget = normalizeBridgeTargetSize(
+    options.responseTargetBytes ?? params?.responseTargetBytes,
+    BRIDGE_REAL_RESPONSE_MIN_BYTES,
+    BRIDGE_REAL_RESPONSE_MAX_BYTES,
+  );
+  if (explicitTarget !== null) {
+    return explicitTarget;
+  }
+
+  if (!shouldUseLargeBridgePadding(action, options)) {
+    return null;
+  }
+
+  return getRandomIntInclusive(BRIDGE_REAL_RESPONSE_MIN_BYTES, BRIDGE_REAL_RESPONSE_MAX_BYTES);
+}
+
 function createRandomBytes(length) {
   const byteLength = Math.max(0, Math.floor(length));
   const bytes = new Uint8Array(byteLength);
@@ -749,7 +805,17 @@ async function broadcastBridgeTrafficSample(sample) {
 
 async function fetchBridgeOperation(action, params = {}, signal = undefined, options = {}) {
   const endpoint = getRandomBridgeOperationEndpoint();
-  const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, params, options));
+  const responseTargetBytes = chooseLargeBridgeResponseTarget(action, params, options);
+  const requestParams = params && typeof params === "object" && !Array.isArray(params)
+    ? { ...params }
+    : {};
+  if (responseTargetBytes !== null && action !== BRIDGE_ACTION_COVER) {
+    requestParams[BRIDGE_RESPONSE_TARGET_PARAM] = responseTargetBytes;
+  }
+  const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, requestParams, {
+    ...options,
+    requestTargetSize: chooseLargeBridgeRequestTarget(action, options),
+  }));
   const requestBytes = getStringByteLength(requestBody);
   const trafficDetails = {
     action: typeof options.logAction === "string" && options.logAction ? options.logAction : action,

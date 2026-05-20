@@ -2310,6 +2310,7 @@ function renderTrafficHistory() {
     return;
   }
 
+  const previousChartScrollTop = chart.scrollTop;
   summary.replaceChildren();
   chart.replaceChildren();
 
@@ -2335,6 +2336,7 @@ function renderTrafficHistory() {
   for (const sample of visibleSamples) {
     chart.append(createTrafficChartRow(sample, maxBytes));
   }
+  chart.scrollTop = Math.min(previousChartScrollTop, Math.max(0, chart.scrollHeight - chart.clientHeight));
 }
 
 async function readStoredTrafficHistory() {
