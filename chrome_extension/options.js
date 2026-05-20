@@ -2208,6 +2208,12 @@ function getTrafficDisplayLabel(sample) {
   }
 }
 
+function getTrafficEndpointLabel(sample) {
+  const method = typeof sample?.method === "string" && sample.method ? sample.method : "POST";
+  const path = typeof sample?.path === "string" && sample.path ? sample.path : "";
+  return path ? `${method} ${path}` : method;
+}
+
 function normalizeTrafficSample(sample) {
   const requestBytes = Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0);
   const responseBytes = Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0);
@@ -2272,7 +2278,13 @@ function createTrafficChartRow(sample, maxBytes) {
 
   const label = document.createElement("div");
   label.className = "traffic-chart-label";
-  label.textContent = `${sample.kind === "cover" ? "COVER" : "REAL"} ${formatTrafficTimestamp(sample.timestamp)} ${getTrafficDisplayLabel(sample)}`;
+  const labelMain = document.createElement("div");
+  labelMain.className = "traffic-chart-label-main";
+  labelMain.textContent = `${sample.kind === "cover" ? "COVER" : "REAL"} ${formatTrafficTimestamp(sample.timestamp)} ${getTrafficDisplayLabel(sample)}`;
+  const endpoint = document.createElement("div");
+  endpoint.className = "traffic-chart-label-endpoint";
+  endpoint.textContent = getTrafficEndpointLabel(sample);
+  label.append(labelMain, endpoint);
 
   const track = document.createElement("div");
   track.className = "traffic-chart-track";
@@ -2318,7 +2330,7 @@ function renderTrafficHistory() {
     return;
   }
 
-  const visibleSamples = samples.slice(-120);
+  const visibleSamples = samples.slice(-120).reverse();
   const maxBytes = visibleSamples.reduce((largest, sample) => Math.max(largest, sample.totalBytes), 1);
   for (const sample of visibleSamples) {
     chart.append(createTrafficChartRow(sample, maxBytes));

@@ -4500,6 +4500,27 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         white-space: nowrap;
       }
 
+      .local-query-bridge-traffic-label {
+        display: grid;
+        gap: 1px;
+        white-space: normal;
+      }
+
+      .local-query-bridge-traffic-label-main,
+      .local-query-bridge-traffic-label-endpoint {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .local-query-bridge-traffic-label-endpoint {
+        color: #334155;
+        font-family: Consolas, "Liberation Mono", monospace;
+        font-size: 9px;
+        font-weight: 700;
+      }
+
       .local-query-bridge-traffic-size {
         color: #0f172a;
         text-align: right;
@@ -4981,6 +5002,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  function getBridgeTrafficEndpointLabel(entry) {
+    const method = typeof entry?.method === "string" && entry.method ? entry.method : "POST";
+    const path = typeof entry?.path === "string" && entry.path ? entry.path : "";
+    return path ? `${method} ${path}` : method;
+  }
+
   function normalizeBridgeTrafficSample(sample) {
     const rawId = sample?.id;
     const id = typeof rawId === "string" && rawId
@@ -5073,7 +5100,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const label = document.createElement("div");
     label.className = "local-query-bridge-traffic-label";
-    label.textContent = `${entry.kind === "cover" ? "COVER" : "REAL"} ${formatBridgeTrafficTime(entry.timestamp)} ${getBridgeTrafficDisplayLabel(entry)}`;
+    const labelMain = document.createElement("div");
+    labelMain.className = "local-query-bridge-traffic-label-main";
+    labelMain.textContent = `${entry.kind === "cover" ? "COVER" : "REAL"} ${formatBridgeTrafficTime(entry.timestamp)} ${getBridgeTrafficDisplayLabel(entry)}`;
+    const endpoint = document.createElement("div");
+    endpoint.className = "local-query-bridge-traffic-label-endpoint";
+    endpoint.textContent = getBridgeTrafficEndpointLabel(entry);
+    label.append(labelMain, endpoint);
 
     const track = document.createElement("div");
     track.className = "local-query-bridge-traffic-bar-track";
@@ -5102,7 +5135,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
-    const latestEntries = entries.slice(-80);
+    const latestEntries = entries.slice(-80).reverse();
     const maxBytes = latestEntries.reduce((largest, entry) => Math.max(largest, entry.totalBytes), 1);
     const actualCount = entries.filter((entry) => entry.kind !== "cover").length;
     const coverCount = entries.length - actualCount;
