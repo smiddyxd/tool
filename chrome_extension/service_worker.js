@@ -24,14 +24,10 @@ const BRIDGE_COVER_MIN_INTERVAL_MS = 25000;
 const BRIDGE_COVER_MAX_INTERVAL_MS = 55000;
 const BRIDGE_COVER_RETRY_MIN_INTERVAL_MS = 10000;
 const BRIDGE_COVER_RETRY_MAX_INTERVAL_MS = 20000;
-const BRIDGE_COVER_REQUEST_MIN_BYTES = 262144;
-const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
-const BRIDGE_COVER_RESPONSE_MIN_BYTES = 2097152;
-const BRIDGE_COVER_RESPONSE_MAX_BYTES = 3145728;
-const BRIDGE_REAL_REQUEST_MIN_BYTES = BRIDGE_COVER_REQUEST_MIN_BYTES;
-const BRIDGE_REAL_REQUEST_MAX_BYTES = BRIDGE_COVER_REQUEST_MAX_BYTES;
-const BRIDGE_REAL_RESPONSE_MIN_BYTES = BRIDGE_COVER_RESPONSE_MIN_BYTES;
-const BRIDGE_REAL_RESPONSE_MAX_BYTES = BRIDGE_COVER_RESPONSE_MAX_BYTES;
+const BRIDGE_REAL_TOTAL_MIN_BYTES = 1363149;
+const BRIDGE_REAL_TOTAL_MAX_BYTES = 3145728;
+const BRIDGE_REAL_REQUEST_MIN_BYTES = 262144;
+const BRIDGE_REAL_REQUEST_MAX_BYTES = 393216;
 const BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes";
 const BRIDGE_COVER_TIMEOUT_MS = 30000;
 const BRIDGE_COVER_ALARM_PERIOD_MINUTES = 0.5;
@@ -503,11 +499,11 @@ function chooseLargeBridgeRequestTarget(action, options = {}) {
   return getRandomIntInclusive(BRIDGE_REAL_REQUEST_MIN_BYTES, BRIDGE_REAL_REQUEST_MAX_BYTES);
 }
 
-function chooseLargeBridgeResponseTarget(action, params = {}, options = {}) {
+function chooseLargeBridgeTotalTarget(action, params = {}, options = {}) {
   const explicitTarget = normalizeBridgeTargetSize(
-    options.responseTargetBytes ?? params?.responseTargetBytes,
-    BRIDGE_REAL_RESPONSE_MIN_BYTES,
-    BRIDGE_REAL_RESPONSE_MAX_BYTES,
+    options.totalTargetBytes,
+    0,
+    BRIDGE_REAL_TOTAL_MAX_BYTES,
   );
   if (explicitTarget !== null) {
     return explicitTarget;
@@ -517,7 +513,35 @@ function chooseLargeBridgeResponseTarget(action, params = {}, options = {}) {
     return null;
   }
 
-  return getRandomIntInclusive(BRIDGE_REAL_RESPONSE_MIN_BYTES, BRIDGE_REAL_RESPONSE_MAX_BYTES);
+  return getRandomIntInclusive(BRIDGE_REAL_TOTAL_MIN_BYTES, BRIDGE_REAL_TOTAL_MAX_BYTES);
+}
+
+function chooseLargeBridgePaddingTargets(action, params = {}, options = {}) {
+  if (!shouldUseLargeBridgePadding(action, options)) {
+    return {
+      requestTargetSize: null,
+      responseTargetBytes: null,
+    };
+  }
+
+  const requestTargetSize = chooseLargeBridgeRequestTarget(action, options);
+  const explicitResponseTarget = normalizeBridgeTargetSize(
+    options.responseTargetBytes ?? params?.responseTargetBytes,
+    0,
+    BRIDGE_REAL_TOTAL_MAX_BYTES,
+  );
+  if (explicitResponseTarget !== null) {
+    return {
+      requestTargetSize,
+      responseTargetBytes: explicitResponseTarget,
+    };
+  }
+
+  const totalTargetBytes = chooseLargeBridgeTotalTarget(action, params, options);
+  return {
+    requestTargetSize,
+    responseTargetBytes: Math.max(0, totalTargetBytes - requestTargetSize),
+  };
 }
 
 function createRandomBytes(length) {
@@ -805,16 +829,20 @@ async function broadcastBridgeTrafficSample(sample) {
 
 async function fetchBridgeOperation(action, params = {}, signal = undefined, options = {}) {
   const endpoint = getRandomBridgeOperationEndpoint();
-  const responseTargetBytes = chooseLargeBridgeResponseTarget(action, params, options);
+  const paddingTargets = chooseLargeBridgePaddingTargets(action, params, options);
   const requestParams = params && typeof params === "object" && !Array.isArray(params)
     ? { ...params }
     : {};
-  if (responseTargetBytes !== null && action !== BRIDGE_ACTION_COVER) {
-    requestParams[BRIDGE_RESPONSE_TARGET_PARAM] = responseTargetBytes;
+  if (paddingTargets.responseTargetBytes !== null) {
+    if (action === BRIDGE_ACTION_COVER) {
+      requestParams.responseTargetBytes = paddingTargets.responseTargetBytes;
+    } else {
+      requestParams[BRIDGE_RESPONSE_TARGET_PARAM] = paddingTargets.responseTargetBytes;
+    }
   }
   const requestBody = JSON.stringify(buildBridgeOperationEnvelope(action, requestParams, {
     ...options,
-    requestTargetSize: chooseLargeBridgeRequestTarget(action, options),
+    requestTargetSize: paddingTargets.requestTargetSize,
   }));
   const requestBytes = getStringByteLength(requestBody);
   const trafficDetails = {
@@ -2310,21 +2338,13 @@ async function maybeSendIdleCoverTraffic() {
   state.isSendingCoverTraffic = true;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), BRIDGE_COVER_TIMEOUT_MS);
-  const requestTargetSize = getRandomIntInclusive(
-    BRIDGE_COVER_REQUEST_MIN_BYTES,
-    BRIDGE_COVER_REQUEST_MAX_BYTES,
-  );
-  const responseTargetBytes = getRandomIntInclusive(
-    BRIDGE_COVER_RESPONSE_MIN_BYTES,
-    BRIDGE_COVER_RESPONSE_MAX_BYTES,
-  );
 
   try {
     await fetchBridgeOperation(
       BRIDGE_ACTION_COVER,
-      { responseTargetBytes },
+      {},
       controller.signal,
-      { requestTargetSize, logLabel: "cover request" },
+      { logLabel: "cover request" },
     );
   } catch (error) {
     console.warn("Local Query Bridge cover traffic failed", error);

@@ -49,10 +49,8 @@ BRIDGE_ACTION_CONTROL = "control"
 BRIDGE_ACTION_COVER = "cover"
 BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes"
 BRIDGE_PADDING_MAX_EXTRA_BYTES = 262_144
-BRIDGE_REAL_RESPONSE_MIN_BYTES = 2_097_152
-BRIDGE_REAL_RESPONSE_MAX_BYTES = 3_145_728
-BRIDGE_COVER_RESPONSE_MIN_BYTES = 2_097_152
-BRIDGE_COVER_RESPONSE_MAX_BYTES = 4_194_304
+BRIDGE_REAL_TOTAL_MIN_BYTES = 1_363_149
+BRIDGE_REAL_TOTAL_MAX_BYTES = 3_145_728
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -1108,7 +1106,7 @@ def receive_obfuscated_bridge_request() -> Any:
         maybe_log_handshake()
         event_payload = STATE.consume_event()
         if response_target_size is None and not is_empty_bridge_event_payload(event_payload):
-            response_target_size = choose_real_bridge_response_target_size()
+            response_target_size = choose_real_bridge_response_target_size(request.content_length)
         return jsonify(encode_bridge_operation_response(event_payload, target_size=response_target_size))
     if action == BRIDGE_ACTION_REPEAT:
         return jsonify(encode_bridge_operation_response(build_repeat_capture_payload(), target_size=response_target_size))
@@ -1123,7 +1121,9 @@ def receive_obfuscated_bridge_request() -> Any:
             target_size=response_target_size,
         ))
     if action == BRIDGE_ACTION_COVER:
-        response_target_size = sanitize_cover_response_target_size(params.get("responseTargetBytes"))
+        response_target_size = sanitize_optional_bridge_response_target_size(params.get("responseTargetBytes"))
+        if response_target_size is None:
+            response_target_size = choose_real_bridge_response_target_size(request.content_length)
         print(
             f"[traffic {timestamp_now()}] cover response_target={response_target_size}",
             flush=True,
@@ -1883,23 +1883,28 @@ def choose_padded_envelope_target_size(base_size: int) -> int:
     return base_size + get_random_int_inclusive(minimum_extra, maximum_extra)
 
 
-def sanitize_cover_response_target_size(value: Any) -> int:
+def sanitize_bridge_response_target_size(value: Any) -> int:
     try:
         requested_size = int(value)
     except (TypeError, ValueError):
-        requested_size = get_random_int_inclusive(BRIDGE_COVER_RESPONSE_MIN_BYTES, BRIDGE_COVER_RESPONSE_MAX_BYTES)
+        requested_size = choose_real_bridge_response_target_size()
 
-    return max(BRIDGE_COVER_RESPONSE_MIN_BYTES, min(requested_size, BRIDGE_COVER_RESPONSE_MAX_BYTES))
+    return max(0, min(requested_size, BRIDGE_REAL_TOTAL_MAX_BYTES))
 
 
 def sanitize_optional_bridge_response_target_size(value: Any) -> int | None:
     if value is None or value == "":
         return None
-    return sanitize_cover_response_target_size(value)
+    return sanitize_bridge_response_target_size(value)
 
 
-def choose_real_bridge_response_target_size() -> int:
-    return get_random_int_inclusive(BRIDGE_REAL_RESPONSE_MIN_BYTES, BRIDGE_REAL_RESPONSE_MAX_BYTES)
+def choose_real_bridge_response_target_size(request_size: Any = 0) -> int:
+    try:
+        request_bytes = max(0, int(request_size or 0))
+    except (TypeError, ValueError):
+        request_bytes = 0
+    total_target = get_random_int_inclusive(BRIDGE_REAL_TOTAL_MIN_BYTES, BRIDGE_REAL_TOTAL_MAX_BYTES)
+    return max(0, total_target - request_bytes)
 
 
 def is_empty_bridge_event_payload(payload: Any) -> bool:
@@ -1912,8 +1917,8 @@ def pad_bridge_operation_envelope(envelope: dict[str, str], target_size: int | N
     padded = dict(envelope)
     padded["d"] = ""
     base_size = get_json_payload_size(padded)
-    if target_size is not None and target_size > base_size:
-        effective_target_size = target_size
+    if target_size is not None:
+        effective_target_size = max(base_size, target_size)
     else:
         effective_target_size = choose_padded_envelope_target_size(base_size)
     padding_bytes = max(0, int((effective_target_size - base_size) * 0.72))
