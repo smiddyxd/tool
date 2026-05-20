@@ -25,7 +25,7 @@ const BRIDGE_COVER_REQUEST_MAX_BYTES = 393216;
 const BRIDGE_COVER_RESPONSE_MIN_BYTES = 786432;
 const BRIDGE_COVER_RESPONSE_MAX_BYTES = 3145728;
 const BRIDGE_COVER_TIMEOUT_MS = 30000;
-const BRIDGE_TRAFFIC_HISTORY_LIMIT = 180;
+const BRIDGE_TRAFFIC_HISTORY_LIMIT = 1000;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
@@ -60,6 +60,8 @@ const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeD
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
+const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
+const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
 
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
@@ -148,9 +150,11 @@ const state = {
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
   nextCoverTrafficAt: 0,
+  coverTrafficScheduleLoaded: false,
   isSendingCoverTraffic: false,
   trafficHistory: [],
-  nextTrafficSampleId: 1,
+  trafficHistoryLoaded: false,
+  trafficHistoryWritePromise: Promise.resolve(),
 };
 
 function createPollingAlarm() {
@@ -513,29 +517,103 @@ function decodeBridgeOperationEnvelope(payload) {
   }
 }
 
-function rememberBridgeTrafficSample(sample) {
+function createTrafficSampleId() {
+  const randomBytes = new Uint32Array(2);
+  crypto.getRandomValues(randomBytes);
+  return `${Date.now().toString(36)}-${randomBytes[0].toString(36)}-${randomBytes[1].toString(36)}`;
+}
+
+function normalizeBridgeTrafficSample(sample) {
+  const requestBytes = Number.isFinite(sample?.requestBytes) ? sample.requestBytes : 0;
+  const responseBytes = Number.isFinite(sample?.responseBytes) ? sample.responseBytes : 0;
+  const action = typeof sample?.action === "string" ? sample.action : "";
   const normalizedSample = {
-    id: state.nextTrafficSampleId++,
+    id: typeof sample?.id === "string" && sample.id ? sample.id : createTrafficSampleId(),
     timestamp: new Date().toISOString(),
-    action: typeof sample.action === "string" ? sample.action : "",
-    kind: sample.action === BRIDGE_ACTION_COVER ? "cover" : "actual",
-    path: typeof sample.path === "string" ? sample.path : "",
+    action,
+    kind: action === BRIDGE_ACTION_COVER ? "cover" : "actual",
+    path: typeof sample?.path === "string" ? sample.path : "",
     method: "POST",
-    requestBytes: Number.isFinite(sample.requestBytes) ? sample.requestBytes : 0,
-    responseBytes: Number.isFinite(sample.responseBytes) ? sample.responseBytes : 0,
-    durationMs: Number.isFinite(sample.durationMs) ? sample.durationMs : 0,
-    status: Number.isFinite(sample.status) ? sample.status : 0,
-    ok: sample.ok === true,
-    error: typeof sample.error === "string" ? sample.error : "",
+    requestBytes,
+    responseBytes,
+    durationMs: Number.isFinite(sample?.durationMs) ? sample.durationMs : 0,
+    status: Number.isFinite(sample?.status) ? sample.status : 0,
+    ok: sample?.ok === true,
+    error: typeof sample?.error === "string" ? sample.error : "",
   };
   normalizedSample.totalBytes = normalizedSample.requestBytes + normalizedSample.responseBytes;
+  return normalizedSample;
+}
 
-  state.trafficHistory.push(normalizedSample);
+function normalizeBridgeTrafficHistory(rawSamples) {
+  if (!Array.isArray(rawSamples)) {
+    return [];
+  }
+
+  return rawSamples
+    .map((sample) => {
+      if (!sample || typeof sample !== "object" || Array.isArray(sample)) {
+        return null;
+      }
+      const requestBytes = Math.max(0, Number.parseInt(`${sample.requestBytes ?? 0}`, 10) || 0);
+      const responseBytes = Math.max(0, Number.parseInt(`${sample.responseBytes ?? 0}`, 10) || 0);
+      const totalBytes = Math.max(
+        requestBytes + responseBytes,
+        Number.parseInt(`${sample.totalBytes ?? 0}`, 10) || 0,
+      );
+      return {
+        id: typeof sample.id === "string" && sample.id ? sample.id : createTrafficSampleId(),
+        timestamp: typeof sample.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
+        action: typeof sample.action === "string" ? sample.action : "",
+        kind: sample.kind === "cover" || sample.action === BRIDGE_ACTION_COVER ? "cover" : "actual",
+        path: typeof sample.path === "string" ? sample.path : "",
+        method: typeof sample.method === "string" ? sample.method : "POST",
+        requestBytes,
+        responseBytes,
+        totalBytes,
+        durationMs: Math.max(0, Number.parseInt(`${sample.durationMs ?? 0}`, 10) || 0),
+        status: Math.max(0, Number.parseInt(`${sample.status ?? 0}`, 10) || 0),
+        ok: sample.ok === true,
+        error: typeof sample.error === "string" ? sample.error : "",
+      };
+    })
+    .filter(Boolean)
+    .slice(-BRIDGE_TRAFFIC_HISTORY_LIMIT);
+}
+
+async function ensureBridgeTrafficHistoryLoaded() {
+  if (state.trafficHistoryLoaded) {
+    return;
+  }
+
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [] });
+  state.trafficHistory = normalizeBridgeTrafficHistory(stored[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]);
+  state.trafficHistoryLoaded = true;
+}
+
+function appendBridgeTrafficSampleToState(sample) {
+  state.trafficHistory.push(sample);
   if (state.trafficHistory.length > BRIDGE_TRAFFIC_HISTORY_LIMIT) {
     state.trafficHistory.splice(0, state.trafficHistory.length - BRIDGE_TRAFFIC_HISTORY_LIMIT);
   }
+}
 
-  void broadcastBridgeTrafficSample(normalizedSample);
+async function rememberBridgeTrafficSample(sample) {
+  const normalizedSample = normalizeBridgeTrafficSample(sample);
+  state.trafficHistoryWritePromise = state.trafficHistoryWritePromise
+    .catch(() => undefined)
+    .then(async () => {
+      await ensureBridgeTrafficHistoryLoaded();
+      appendBridgeTrafficSampleToState(normalizedSample);
+      await chrome.storage.local.set({
+        [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: state.trafficHistory,
+      });
+      void broadcastBridgeTrafficSample(normalizedSample);
+    })
+    .catch((error) => {
+      console.warn("Local Query Bridge traffic history write failed", error);
+    });
+  await state.trafficHistoryWritePromise;
 }
 
 async function broadcastBridgeTrafficSample(sample) {
@@ -605,7 +683,7 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
     errorText = `${error}`;
     throw error;
   } finally {
-    rememberBridgeTrafficSample({
+    await rememberBridgeTrafficSample({
       action,
       path: endpoint.path,
       requestBytes,
@@ -1960,12 +2038,33 @@ function scheduleNextCoverTraffic(now = Date.now()) {
     BRIDGE_COVER_MIN_INTERVAL_MS,
     BRIDGE_COVER_MAX_INTERVAL_MS,
   );
+  void chrome.storage.local.set({
+    [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: state.nextCoverTrafficAt,
+  });
+}
+
+async function ensureCoverTrafficScheduleLoaded() {
+  if (state.coverTrafficScheduleLoaded) {
+    return;
+  }
+
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT]: 0 });
+  const storedNextAt = Number.parseInt(`${stored[STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT] ?? 0}`, 10) || 0;
+  state.coverTrafficScheduleLoaded = true;
+  if (storedNextAt > Date.now()) {
+    state.nextCoverTrafficAt = storedNextAt;
+    return;
+  }
+
+  scheduleNextCoverTraffic();
 }
 
 async function maybeSendIdleCoverTraffic() {
   if (!BRIDGE_COVER_TRAFFIC_ENABLED) {
     return;
   }
+
+  await ensureCoverTrafficScheduleLoaded();
 
   if (!state.nextCoverTrafficAt) {
     scheduleNextCoverTraffic();
@@ -2808,14 +2907,12 @@ async function runBridgeAlarmTick() {
 chrome.runtime.onInstalled.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
-  scheduleNextCoverTraffic();
   void runBridgeAlarmTick();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureDefaultOptions();
   createPollingAlarm();
-  scheduleNextCoverTraffic();
   void runBridgeAlarmTick();
 });
 
@@ -2867,11 +2964,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === CONTENT_SCRIPT_TRAFFIC_HISTORY_TYPE) {
-    sendResponse({
-      ok: true,
-      samples: state.trafficHistory,
-    });
-    return false;
+    void state.trafficHistoryWritePromise
+      .catch(() => undefined)
+      .then(() => ensureBridgeTrafficHistoryLoaded())
+      .then(() => {
+        sendResponse({
+          ok: true,
+          samples: state.trafficHistory,
+        });
+      })
+      .catch((error) => {
+        console.warn("Local Query Bridge traffic history fetch failed", error);
+        sendResponse({
+          ok: false,
+          samples: state.trafficHistory,
+          error: `${error}`,
+        });
+      });
+    return true;
   }
 
   if (message?.type === REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE) {

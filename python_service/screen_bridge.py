@@ -1107,6 +1107,10 @@ def receive_obfuscated_bridge_request() -> Any:
         return jsonify(encode_bridge_operation_response(handle_control_command_payload(params)))
     if action == BRIDGE_ACTION_COVER:
         response_target_size = sanitize_cover_response_target_size(params.get("responseTargetBytes"))
+        print(
+            f"[traffic {timestamp_now()}] cover response_target={response_target_size}",
+            flush=True,
+        )
         return jsonify(encode_bridge_operation_response({"ok": True}, target_size=response_target_size))
 
     response = encode_bridge_operation_response({"ok": False, "error": "Unknown bridge operation."})

@@ -176,6 +176,7 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_TASK_COUNT_MESSAGE_TYPE = "getBridgeTaskTypeCounts";
   const SERVER_CONTROL_TASK_COUNT_DEFAULT_TIMESPAN = "day";
   const SERVER_CONTROL_TASK_COUNT_REFRESH_MS = 15000;
+  const SERVER_CONTROL_TRAFFIC_HISTORY_REFRESH_MS = 3000;
   const SERVER_CONTROL_TASK_COUNT_TIMESPANS = [
     { key: "week", label: "W", title: "Past week" },
     { key: "day", label: "D", title: "Today" },
@@ -576,8 +577,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     nextEntryId: 1,
     nextTrafficEntryId: 1,
     maxEntries: 240,
-    maxTrafficEntries: 180,
+    maxTrafficEntries: 1000,
     trafficHistoryRequested: false,
+    trafficHistoryLoading: false,
+    trafficRefreshTimerId: null,
     completedRunIds: new Set(),
     cancelledRunIds: new Set(),
     elapsedTimerId: null,
@@ -4920,17 +4923,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function normalizeBridgeTrafficSample(sample) {
-    const id = Number.isFinite(sample?.id) ? sample.id : serverControlStatusLogState.nextTrafficEntryId++;
+    const rawId = sample?.id;
+    const id = typeof rawId === "string" && rawId
+      ? rawId
+      : (Number.isFinite(rawId) ? `${rawId}` : `local-${serverControlStatusLogState.nextTrafficEntryId++}`);
+    const requestBytes = Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0);
+    const responseBytes = Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0);
+    const totalBytes = Math.max(
+      requestBytes + responseBytes,
+      Number.parseInt(`${sample?.totalBytes ?? 0}`, 10) || 0,
+    );
     return {
       id,
       timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : new Date().toISOString(),
       action: typeof sample?.action === "string" ? sample.action : "",
-      kind: sample?.kind === "cover" ? "cover" : "actual",
+      kind: sample?.kind === "cover" || sample?.action === "cover" ? "cover" : "actual",
       path: typeof sample?.path === "string" ? sample.path : "",
       method: typeof sample?.method === "string" ? sample.method : "POST",
-      requestBytes: Math.max(0, Number.parseInt(`${sample?.requestBytes ?? 0}`, 10) || 0),
-      responseBytes: Math.max(0, Number.parseInt(`${sample?.responseBytes ?? 0}`, 10) || 0),
-      totalBytes: Math.max(0, Number.parseInt(`${sample?.totalBytes ?? 0}`, 10) || 0),
+      requestBytes,
+      responseBytes,
+      totalBytes,
       durationMs: Math.max(0, Number.parseInt(`${sample?.durationMs ?? 0}`, 10) || 0),
       status: Math.max(0, Number.parseInt(`${sample?.status ?? 0}`, 10) || 0),
       ok: sample?.ok === true,
@@ -4981,7 +4993,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     const label = document.createElement("div");
     label.className = "local-query-bridge-traffic-label";
-    label.textContent = `${entry.kind === "cover" ? "cover" : "REAL"} ${formatBridgeTrafficTime(entry.timestamp)}`;
+    label.textContent = entry.kind === "cover"
+      ? `cover ${formatBridgeTrafficTime(entry.timestamp)}`
+      : `REAL ${entry.action || "operation"} ${formatBridgeTrafficTime(entry.timestamp)}`;
 
     const track = document.createElement("div");
     track.className = "local-query-bridge-traffic-bar-track";
@@ -5038,10 +5052,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     body.append(summary, chart);
   }
 
-  async function requestBridgeTrafficHistory() {
-    if (serverControlStatusLogState.trafficHistoryRequested) {
+  async function requestBridgeTrafficHistory(options = {}) {
+    if (serverControlStatusLogState.trafficHistoryLoading) {
       return;
     }
+    if (serverControlStatusLogState.trafficHistoryRequested && options.force !== true) {
+      return;
+    }
+    serverControlStatusLogState.trafficHistoryLoading = true;
     serverControlStatusLogState.trafficHistoryRequested = true;
 
     try {
@@ -5053,7 +5071,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       syncServerControlStatusLog();
     } catch (_error) {
       // Traffic history is diagnostic UI only.
+    } finally {
+      serverControlStatusLogState.trafficHistoryLoading = false;
     }
+  }
+
+  function startBridgeTrafficHistoryRefresh() {
+    if (serverControlStatusLogState.trafficRefreshTimerId !== null) {
+      return;
+    }
+    serverControlStatusLogState.trafficRefreshTimerId = window.setInterval(() => {
+      void requestBridgeTrafficHistory({ force: true });
+    }, SERVER_CONTROL_TRAFFIC_HISTORY_REFRESH_MS);
+  }
+
+  function stopBridgeTrafficHistoryRefresh() {
+    if (serverControlStatusLogState.trafficRefreshTimerId === null) {
+      return;
+    }
+    window.clearInterval(serverControlStatusLogState.trafficRefreshTimerId);
+    serverControlStatusLogState.trafficRefreshTimerId = null;
   }
 
   function isServerControlTerminalStatusType(type) {
@@ -5135,10 +5172,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     body.replaceChildren();
     if (serverControlStatusLogState.activeTab === "traffic") {
+      startBridgeTrafficHistoryRefresh();
       renderBridgeTrafficLogBody(body);
       body.scrollTop = body.scrollHeight;
       return;
     }
+    stopBridgeTrafficHistoryRefresh();
 
     if (serverControlStatusLogState.entries.length === 0) {
       const empty = document.createElement("div");
@@ -5210,7 +5249,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       tab.addEventListener("click", () => {
         serverControlStatusLogState.activeTab = tabKey;
         if (tabKey === "traffic") {
-          void requestBridgeTrafficHistory();
+          void requestBridgeTrafficHistory({ force: true });
         }
         syncServerControlStatusLog();
       });

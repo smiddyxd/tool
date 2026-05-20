@@ -2155,11 +2155,12 @@ function normalizeTrafficSample(sample) {
     requestBytes + responseBytes,
     Number.parseInt(`${sample?.totalBytes ?? 0}`, 10) || 0,
   );
+  const rawId = sample?.id;
   return {
-    id: Number.isFinite(sample?.id) ? sample.id : 0,
+    id: typeof rawId === "string" && rawId ? rawId : (Number.isFinite(rawId) ? `${rawId}` : ""),
     timestamp: typeof sample?.timestamp === "string" && sample.timestamp ? sample.timestamp : "",
     action: typeof sample?.action === "string" ? sample.action : "",
-    kind: sample?.kind === "cover" ? "cover" : "actual",
+    kind: sample?.kind === "cover" || sample?.action === "cover" ? "cover" : "actual",
     path: typeof sample?.path === "string" ? sample.path : "",
     method: typeof sample?.method === "string" ? sample.method : "POST",
     requestBytes,
@@ -2194,7 +2195,9 @@ function createTrafficChartRow(sample, maxBytes) {
 
   const label = document.createElement("div");
   label.className = "traffic-chart-label";
-  label.textContent = `${sample.kind === "cover" ? "cover" : "REAL"} ${formatTrafficTimestamp(sample.timestamp)}`;
+  label.textContent = sample.kind === "cover"
+    ? `cover ${formatTrafficTimestamp(sample.timestamp)}`
+    : `REAL ${sample.action || "operation"} ${formatTrafficTimestamp(sample.timestamp)}`;
 
   const track = document.createElement("div");
   track.className = "traffic-chart-track";
