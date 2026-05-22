@@ -127,6 +127,7 @@ const CONTENT_SCRIPT_CONTROL_STATUS_TYPE = "serverControlStatusLog";
 const CONTENT_SCRIPT_TRAFFIC_LOG_TYPE = "bridgeTrafficLog";
 const CONTENT_SCRIPT_TASK_TYPE_COUNTS_TYPE = "getBridgeTaskTypeCounts";
 const CONTENT_SCRIPT_TRAFFIC_HISTORY_TYPE = "getBridgeTrafficHistory";
+const CONTENT_SCRIPT_CLEAR_TRAFFIC_HISTORY_TYPE = "clearBridgeTrafficHistory";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -704,15 +705,27 @@ function normalizeBridgeTrafficSample(sample) {
   return normalizedSample;
 }
 
+function isTaskCheckTrafficSample(sample) {
+  return (
+    sample?.action === "task_queue_check"
+    || sample?.action === BRIDGE_ACTION_POLL
+    || sample?.operation === "task_queue_check"
+    || sample?.operation === BRIDGE_ACTION_POLL
+    || sample?.label === "task check"
+  );
+}
+
 function isRoutineBridgeTrafficSample(sample) {
+  if (isTaskCheckTrafficSample(sample)) {
+    return true;
+  }
   if (sample?.ok !== true || sample?.error) {
     return false;
   }
 
   return (
-    sample.action === "task_queue_check"
-    || sample.action === BRIDGE_ACTION_POLL
-    || sample.action === "control_status"
+    sample.action === "control_status"
+    || sample.operation === "control_status"
   );
 }
 
@@ -791,6 +804,19 @@ async function rememberBridgeTrafficSample(sample) {
     })
     .catch((error) => {
       console.warn("Local Query Bridge traffic history write failed", error);
+    });
+  await state.trafficHistoryWritePromise;
+}
+
+async function clearBridgeTrafficHistory() {
+  state.trafficHistoryWritePromise = state.trafficHistoryWritePromise
+    .catch(() => undefined)
+    .then(async () => {
+      state.trafficHistory = [];
+      state.trafficHistoryLoaded = true;
+      await chrome.storage.local.set({
+        [STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]: [],
+      });
     });
   await state.trafficHistoryWritePromise;
 }
@@ -2355,6 +2381,20 @@ async function maybeSendIdleCoverTraffic() {
   }
 }
 
+async function flushDueCoverTrafficForHistory() {
+  if (!BRIDGE_COVER_TRAFFIC_ENABLED) {
+    return;
+  }
+
+  await ensureCoverTrafficScheduleLoaded();
+  if (!state.nextCoverTrafficAt || Date.now() < state.nextCoverTrafficAt || state.isSendingCoverTraffic) {
+    return;
+  }
+
+  await maybeSendIdleCoverTraffic();
+  await state.trafficHistoryWritePromise.catch(() => undefined);
+}
+
 function decodeOptionalEventTaskType(payload, field = "e") {
   const taskType = xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
   return taskType ? sanitizeBridgeTaskType(taskType) : "";
@@ -3252,23 +3292,42 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch(() => undefined)
       .then(() => ensureBridgeTrafficHistoryLoaded())
       .then(() => ensureCoverTrafficScheduleLoaded())
+      .then(() => flushDueCoverTrafficForHistory())
       .then(() => {
+        const visibleSamples = state.trafficHistory.filter((sample) => !isRoutineBridgeTrafficSample(sample));
         sendResponse({
           ok: true,
-          samples: state.trafficHistory,
+          samples: visibleSamples,
           nextCoverTrafficAt: state.nextCoverTrafficAt,
           coverTrafficEnabled: BRIDGE_COVER_TRAFFIC_ENABLED,
           coverTrafficSending: state.isSendingCoverTraffic,
         });
-        void maybeSendIdleCoverTraffic().catch((error) => {
-          console.warn("Local Query Bridge traffic history cover kick failed", error);
-        });
       })
       .catch((error) => {
         console.warn("Local Query Bridge traffic history fetch failed", error);
+        const visibleSamples = state.trafficHistory.filter((sample) => !isRoutineBridgeTrafficSample(sample));
         sendResponse({
           ok: false,
-          samples: state.trafficHistory,
+          samples: visibleSamples,
+          error: `${error}`,
+        });
+      });
+    return true;
+  }
+
+  if (message?.type === CONTENT_SCRIPT_CLEAR_TRAFFIC_HISTORY_TYPE) {
+    void clearBridgeTrafficHistory()
+      .then(() => {
+        sendResponse({
+          ok: true,
+          samples: [],
+          nextCoverTrafficAt: state.nextCoverTrafficAt,
+        });
+      })
+      .catch((error) => {
+        console.warn("Local Query Bridge traffic history clear failed", error);
+        sendResponse({
+          ok: false,
           error: `${error}`,
         });
       });

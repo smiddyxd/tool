@@ -37,6 +37,7 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_STATUS_LOG_MESSAGE_TYPE = "serverControlStatusLog";
   const SERVER_CONTROL_TRAFFIC_LOG_MESSAGE_TYPE = "bridgeTrafficLog";
   const SERVER_CONTROL_TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
+  const SERVER_CONTROL_CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE = "clearBridgeTrafficHistory";
   const PING_MESSAGE_TYPE = "localQueryBridgePing";
   const ELEMENT_WAIT_TIMEOUT_MS = 10000;
   const ELEMENT_WAIT_INTERVAL_MS = 200;
@@ -4458,8 +4459,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
       .local-query-bridge-traffic-summary {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
         gap: 5px;
+        align-items: center;
         padding: 6px 8px;
         border-bottom: 1px solid rgba(51, 65, 85, 0.1);
         background: rgba(241, 245, 249, 0.72);
@@ -4473,6 +4475,21 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .local-query-bridge-traffic-clear-button {
+        min-height: 20px;
+        padding: 3px 7px;
+        border: 1px solid rgba(51, 65, 85, 0.18);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.82);
+        color: #334155;
+        cursor: pointer;
+        font: 800 10px/1 "Segoe UI", system-ui, sans-serif;
+      }
+
+      .local-query-bridge-traffic-clear-button:hover {
+        background: #ffffff;
       }
 
       .local-query-bridge-traffic-chart {
@@ -5039,16 +5056,67 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     };
   }
 
+  function isTaskCheckBridgeTrafficSample(sample) {
+    return (
+      sample?.action === "task_queue_check"
+      || sample?.action === "poll"
+      || sample?.operation === "task_queue_check"
+      || sample?.operation === "poll"
+      || sample?.label === "task check"
+    );
+  }
+
   function shouldShowBridgeTrafficSample(sample) {
+    if (isTaskCheckBridgeTrafficSample(sample)) {
+      return false;
+    }
     if (sample?.ok !== true || sample?.error) {
       return true;
     }
 
     return !(
-      sample.action === "task_queue_check"
-      || sample.action === "poll"
-      || sample.action === "control_status"
+      sample.action === "control_status"
+      || sample.operation === "control_status"
     );
+  }
+
+  function getBridgeTrafficSampleMergeKey(sample) {
+    if (sample.id) {
+      return sample.id;
+    }
+    return [
+      sample.timestamp,
+      sample.action,
+      sample.operation,
+      sample.path,
+      sample.requestBytes,
+      sample.responseBytes,
+      sample.durationMs,
+    ].join("|");
+  }
+
+  function getBridgeTrafficSampleTimestampMs(sample) {
+    const timestampMs = Date.parse(sample.timestamp);
+    return Number.isFinite(timestampMs) ? timestampMs : 0;
+  }
+
+  function mergeBridgeTrafficSamples(...sampleGroups) {
+    const mergedSamples = new Map();
+    for (const sampleGroup of sampleGroups) {
+      if (!Array.isArray(sampleGroup)) {
+        continue;
+      }
+      for (const rawSample of sampleGroup) {
+        const sample = normalizeBridgeTrafficSample(rawSample);
+        if (!shouldShowBridgeTrafficSample(sample)) {
+          continue;
+        }
+        mergedSamples.set(getBridgeTrafficSampleMergeKey(sample), sample);
+      }
+    }
+    return Array.from(mergedSamples.values()).sort((left, right) => (
+      getBridgeTrafficSampleTimestampMs(left) - getBridgeTrafficSampleTimestampMs(right)
+    ));
   }
 
   function appendBridgeTrafficLog(sample, options = {}) {
@@ -5080,6 +5148,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (options.sync !== false) {
       syncServerControlStatusLog();
+    }
+  }
+
+  function replaceBridgeTrafficLog(samples) {
+    serverControlStatusLogState.trafficEntries = mergeBridgeTrafficSamples(samples);
+  }
+
+  async function clearBridgeTrafficHistory() {
+    replaceBridgeTrafficLog([]);
+    syncServerControlStatusLog();
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: SERVER_CONTROL_CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE,
+      });
+      if (response?.ok !== true) {
+        throw new Error(response?.error || "clear failed");
+      }
+    } catch (error) {
+      console.warn("Local Query Bridge traffic history clear failed", error);
+      void requestBridgeTrafficHistory({ force: true });
     }
   }
 
@@ -5126,17 +5214,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function renderBridgeTrafficLogBody(body) {
-    const entries = serverControlStatusLogState.trafficEntries;
-    if (entries.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "local-query-bridge-status-log-empty";
-      empty.textContent = "No bridge traffic yet.";
-      body.append(empty);
-      return;
-    }
-
-    const latestEntries = entries.slice(-80).reverse();
-    const maxBytes = latestEntries.reduce((largest, entry) => Math.max(largest, entry.totalBytes), 1);
+    const entries = serverControlStatusLogState.trafficEntries.filter(shouldShowBridgeTrafficSample);
     const actualCount = entries.filter((entry) => entry.kind !== "cover").length;
     const coverCount = entries.length - actualCount;
 
@@ -5152,6 +5230,27 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       item.textContent = text;
       summary.append(item);
     }
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.className = "local-query-bridge-traffic-clear-button";
+    clearButton.textContent = "Clear";
+    clearButton.addEventListener("click", () => {
+      void clearBridgeTrafficHistory();
+    });
+    summary.append(clearButton);
+
+    body.append(summary);
+
+    if (entries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "local-query-bridge-status-log-empty";
+      empty.textContent = "No bridge traffic yet.";
+      body.append(empty);
+      return;
+    }
+
+    const latestEntries = entries.slice(-80).reverse();
+    const maxBytes = latestEntries.reduce((largest, entry) => Math.max(largest, entry.totalBytes), 1);
 
     const chart = document.createElement("div");
     chart.className = "local-query-bridge-traffic-chart";
@@ -5159,7 +5258,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       chart.append(createBridgeTrafficEntryElement(entry, maxBytes));
     }
 
-    body.append(summary, chart);
+    body.append(chart);
   }
 
   async function requestBridgeTrafficHistory(options = {}) {
@@ -5182,10 +5281,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         Number.parseInt(`${response?.nextCoverTrafficAt ?? 0}`, 10) || 0,
         serverControlStatusLogState.nextCoverTrafficAt,
       );
-      const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
-      for (const sample of samples) {
-        appendBridgeTrafficLog(sample, { sync: false });
-      }
+      serverControlStatusLogState.trafficEntries = mergeBridgeTrafficSamples(storedSamples, responseSamples);
       syncServerControlStatusLog();
     } catch (_error) {
       // Traffic history is diagnostic UI only.
@@ -9450,11 +9546,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]) {
       const samples = changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY].newValue;
-      if (Array.isArray(samples)) {
-        for (const sample of samples) {
-          appendBridgeTrafficLog(sample, { sync: false });
-        }
-      }
+      replaceBridgeTrafficLog(Array.isArray(samples) ? samples : []);
       if (serverControlStatusLogState.activeTab === "traffic") {
         syncServerControlStatusLog();
       }

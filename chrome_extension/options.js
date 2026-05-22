@@ -111,6 +111,7 @@ const OPTIONS_TAB_KEYS = [
 ];
 const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
 const TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
+const CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE = "clearBridgeTrafficHistory";
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
@@ -2242,16 +2243,67 @@ function normalizeTrafficSample(sample) {
   };
 }
 
+function isTaskCheckTrafficSample(sample) {
+  return (
+    sample?.action === "task_queue_check"
+    || sample?.action === "poll"
+    || sample?.operation === "task_queue_check"
+    || sample?.operation === "poll"
+    || sample?.label === "task check"
+  );
+}
+
 function shouldShowTrafficSample(sample) {
+  if (isTaskCheckTrafficSample(sample)) {
+    return false;
+  }
   if (sample?.ok !== true || sample?.error) {
     return true;
   }
 
   return !(
-    sample.action === "task_queue_check"
-    || sample.action === "poll"
-    || sample.action === "control_status"
+    sample.action === "control_status"
+    || sample.operation === "control_status"
   );
+}
+
+function getTrafficSampleMergeKey(sample) {
+  if (sample.id) {
+    return sample.id;
+  }
+  return [
+    sample.timestamp,
+    sample.action,
+    sample.operation,
+    sample.path,
+    sample.requestBytes,
+    sample.responseBytes,
+    sample.durationMs,
+  ].join("|");
+}
+
+function getTrafficSampleTimestampMs(sample) {
+  const timestampMs = Date.parse(sample.timestamp);
+  return Number.isFinite(timestampMs) ? timestampMs : 0;
+}
+
+function mergeTrafficSamples(...sampleGroups) {
+  const mergedSamples = new Map();
+  for (const sampleGroup of sampleGroups) {
+    if (!Array.isArray(sampleGroup)) {
+      continue;
+    }
+    for (const rawSample of sampleGroup) {
+      const sample = normalizeTrafficSample(rawSample);
+      if (!shouldShowTrafficSample(sample)) {
+        continue;
+      }
+      mergedSamples.set(getTrafficSampleMergeKey(sample), sample);
+    }
+  }
+  return Array.from(mergedSamples.values()).sort((left, right) => (
+    getTrafficSampleTimestampMs(left) - getTrafficSampleTimestampMs(right)
+  ));
 }
 
 function createTrafficSummaryItem(text) {
@@ -2364,8 +2416,7 @@ async function loadTrafficHistory() {
       Number.parseInt(`${response?.nextCoverTrafficAt ?? 0}`, 10) || 0,
       trafficHistoryState.nextCoverTrafficAt,
     );
-    const samples = storedSamples.length > responseSamples.length ? storedSamples : responseSamples;
-    trafficHistoryState.samples = samples.map(normalizeTrafficSample).filter(shouldShowTrafficSample);
+    trafficHistoryState.samples = mergeTrafficSamples(storedSamples, responseSamples);
     trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
     setStatus(`Traffic history refreshed: ${trafficHistoryState.samples.length} row(s).`);
@@ -2378,6 +2429,21 @@ async function loadTrafficHistory() {
       errorMessage.textContent = `Could not load traffic history: ${error}`;
       chart.replaceChildren(errorMessage);
     }
+  }
+}
+
+async function clearTrafficHistory() {
+  trafficHistoryState.samples = [];
+  renderTrafficHistory();
+  try {
+    const response = await chrome.runtime.sendMessage({ type: CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE });
+    if (response?.ok !== true) {
+      throw new Error(response?.error || "clear failed");
+    }
+    setStatus("Traffic history cleared.");
+  } catch (error) {
+    setStatus(`Could not clear traffic history: ${error}`);
+    void loadTrafficHistory();
   }
 }
 
@@ -4585,9 +4651,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   if (changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY]) {
     const samples = changes[STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY].newValue;
-    trafficHistoryState.samples = Array.isArray(samples)
-      ? samples.map(normalizeTrafficSample).filter(shouldShowTrafficSample)
-      : [];
+    trafficHistoryState.samples = mergeTrafficSamples(samples);
     trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
   }
@@ -4633,6 +4697,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const zoneDividerTopLengthInput = document.querySelector("#server-control-zone-divider-top-length");
   const zoneDividerBottomLengthInput = document.querySelector("#server-control-zone-divider-bottom-length");
   const refreshTrafficButton = document.querySelector("#refresh-traffic-history");
+  const clearTrafficButton = document.querySelector("#clear-traffic-history");
 
   initializeOptionsTabs();
   void loadOptions();
@@ -4645,6 +4710,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   refreshTrafficButton?.addEventListener("click", () => {
     void loadTrafficHistory();
+  });
+  clearTrafficButton?.addEventListener("click", () => {
+    void clearTrafficHistory();
   });
   for (const input of document.querySelectorAll("[data-project-account-input]")) {
     input.addEventListener("input", () => {
