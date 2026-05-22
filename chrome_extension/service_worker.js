@@ -15,6 +15,7 @@ const BRIDGE_ACTION_REPEAT = "repeat";
 const BRIDGE_ACTION_COUNTS = "counts";
 const BRIDGE_ACTION_CONTROL = "control";
 const BRIDGE_ACTION_COVER = "cover";
+const BRIDGE_ACTION_BATCH = "batch";
 const BRIDGE_PADDING_RANDOM_CHUNK_BYTES = 65536;
 const BRIDGE_PADDING_MAX_EXTRA_BYTES = 262144;
 const BRIDGE_COVER_TRAFFIC_ENABLED = true;
@@ -32,6 +33,7 @@ const BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes";
 const BRIDGE_COVER_TIMEOUT_MS = 30000;
 const BRIDGE_COVER_ALARM_PERIOD_MINUTES = 0.5;
 const BRIDGE_TRAFFIC_HISTORY_LIMIT = 1000;
+const BRIDGE_BATCH_DEBOUNCE_MS = 3000;
 
 // Poll cadence for the Chrome alarm. Unpacked extensions can use sub-30s alarms.
 const POLL_ALARM_NAME = "poll-local-query-bridge";
@@ -144,6 +146,11 @@ const CONTROL_PROCESSING_COMMANDS = new Set([
   "ocr_google_results",
   "draft_comment_feedback",
 ]);
+const BATCHABLE_CONTROL_COMMANDS = new Set([
+  "set_task_type",
+  "set_project_account",
+  "sync_task_type",
+]);
 const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback"]);
 
 const state = {
@@ -164,6 +171,9 @@ const state = {
   trafficHistory: [],
   trafficHistoryLoaded: false,
   trafficHistoryWritePromise: Promise.resolve(),
+  bridgeBatchQueue: [],
+  bridgeBatchTimerId: null,
+  bridgeBatchFlushPromise: null,
 };
 
 function createPollingAlarm() {
@@ -660,6 +670,8 @@ function getBridgeTrafficActionLabel(action) {
       return "scroll event";
     case BRIDGE_ACTION_COVER:
       return "cover request";
+    case BRIDGE_ACTION_BATCH:
+      return "batched update";
     case "sync_task_type":
       return "sync task type";
     case "control:start_task_ocr":
@@ -2253,6 +2265,7 @@ async function fetchBridgePayload(timeoutMs = REQUEST_TIMEOUT_MS) {
 }
 
 async function fetchRepeatCapturePayload() {
+  await flushBridgeOperationBatch();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -2267,32 +2280,162 @@ async function fetchRepeatCapturePayload() {
   }
 }
 
+function isBatchableServerControlCommand(command) {
+  return (
+    BATCHABLE_CONTROL_COMMANDS.has(command?.command)
+    && !(typeof command?.controlRunId === "string" && command.controlRunId.trim())
+  );
+}
+
+function buildBridgeBatchRequest(entry) {
+  if (entry.type === "counts") {
+    return {
+      type: "counts",
+      span: sanitizeTaskTypeCountSpan(entry.span),
+    };
+  }
+
+  return {
+    type: "control",
+    payload: entry.payload && typeof entry.payload === "object" && !Array.isArray(entry.payload)
+      ? entry.payload
+      : {},
+  };
+}
+
+function unwrapBridgeBatchResult(batchResult, entry) {
+  if (!batchResult || typeof batchResult !== "object" || Array.isArray(batchResult)) {
+    return {
+      ok: false,
+      error: "Missing batched bridge operation result",
+    };
+  }
+
+  const result = batchResult?.result && typeof batchResult.result === "object" && !Array.isArray(batchResult.result)
+    ? batchResult.result
+    : {};
+  if (batchResult?.ok === false || result.ok === false) {
+    return {
+      ok: false,
+      error: typeof batchResult?.error === "string" && batchResult.error
+        ? batchResult.error
+        : (typeof result.error === "string" ? result.error : "Batched bridge operation failed"),
+      ...result,
+    };
+  }
+
+  if (entry.type === "counts") {
+    return {
+      ok: true,
+      span: sanitizeTaskTypeCountSpan(result.span ?? entry.span),
+      counts: result.counts && typeof result.counts === "object" && !Array.isArray(result.counts)
+        ? result.counts
+        : {},
+      since: typeof result.since === "string" ? result.since : "",
+      until: typeof result.until === "string" ? result.until : "",
+      skippedRows: Number.isFinite(result.skippedRows) ? result.skippedRows : 0,
+      error: typeof result.error === "string" ? result.error : "",
+    };
+  }
+
+  return {
+    ok: true,
+    ...result,
+  };
+}
+
+function getBridgeBatchLogSource(entries) {
+  const actionCounts = new Map();
+  for (const entry of entries) {
+    const key = entry.type === "counts"
+      ? "counts"
+      : (typeof entry.payload?.command === "string" && entry.payload.command ? entry.payload.command : "control");
+    actionCounts.set(key, (actionCounts.get(key) ?? 0) + 1);
+  }
+  return Array.from(actionCounts.entries())
+    .map(([key, count]) => `${key}:${count}`)
+    .join(",");
+}
+
+function scheduleBridgeOperationBatchFlush() {
+  if (state.bridgeBatchTimerId !== null) {
+    return;
+  }
+
+  state.bridgeBatchTimerId = setTimeout(() => {
+    state.bridgeBatchTimerId = null;
+    void flushBridgeOperationBatch().catch((error) => {
+      console.warn("Local Query Bridge batched update failed", error);
+    });
+  }, BRIDGE_BATCH_DEBOUNCE_MS);
+}
+
+function queueBridgeOperationBatchEntry(entry) {
+  return new Promise((resolve, reject) => {
+    state.bridgeBatchQueue.push({
+      ...entry,
+      resolve,
+      reject,
+    });
+    scheduleBridgeOperationBatchFlush();
+  });
+}
+
+async function flushBridgeOperationBatch() {
+  if (state.bridgeBatchFlushPromise) {
+    return state.bridgeBatchFlushPromise;
+  }
+  if (state.bridgeBatchTimerId !== null) {
+    clearTimeout(state.bridgeBatchTimerId);
+    state.bridgeBatchTimerId = null;
+  }
+
+  const entries = state.bridgeBatchQueue.splice(0);
+  if (entries.length === 0) {
+    return [];
+  }
+
+  state.bridgeBatchFlushPromise = (async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const payload = await fetchBridgeOperation(
+        BRIDGE_ACTION_BATCH,
+        { requests: entries.map(buildBridgeBatchRequest) },
+        controller.signal,
+        {
+          logLabel: `batched update (${entries.length})`,
+          logSource: getBridgeBatchLogSource(entries),
+        },
+      );
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      entries.forEach((entry, index) => {
+        entry.resolve(unwrapBridgeBatchResult(results[index], entry));
+      });
+      return results;
+    } catch (error) {
+      entries.forEach((entry) => {
+        entry.reject(error);
+      });
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+      state.bridgeBatchFlushPromise = null;
+      if (state.bridgeBatchQueue.length > 0) {
+        scheduleBridgeOperationBatchFlush();
+      }
+    }
+  })();
+
+  return state.bridgeBatchFlushPromise;
+}
+
 async function fetchTaskTypeCounts(span = "day") {
   const normalizedSpan = sanitizeTaskTypeCountSpan(span);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const payload = await fetchBridgeOperation(
-      BRIDGE_ACTION_COUNTS,
-      { span: normalizedSpan },
-      controller.signal,
-      { logLabel: "check count" },
-    );
-    return {
-      ok: payload?.ok !== false,
-      span: sanitizeTaskTypeCountSpan(payload?.span ?? normalizedSpan),
-      counts: payload?.counts && typeof payload.counts === "object" && !Array.isArray(payload.counts)
-        ? payload.counts
-        : {},
-      since: typeof payload?.since === "string" ? payload.since : "",
-      until: typeof payload?.until === "string" ? payload.until : "",
-      skippedRows: Number.isFinite(payload?.skippedRows) ? payload.skippedRows : 0,
-      error: typeof payload?.error === "string" ? payload.error : "",
-    };
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return queueBridgeOperationBatchEntry({
+    type: "counts",
+    span: normalizedSpan,
+  });
 }
 
 function isIdleForCoverTraffic() {
@@ -2671,6 +2814,25 @@ async function sendServerControlCommand(command, sender) {
   const logSource = typeof payload.source === "string" ? payload.source : "";
 
   try {
+    if (isBatchableServerControlCommand(payload)) {
+      const batchResult = await queueBridgeOperationBatchEntry({
+        type: "control",
+        payload,
+      });
+      if (batchResult?.ok === false) {
+        throw new Error(batchResult.error || "Batched server control command was not accepted");
+      }
+      console.log("Local Query Bridge queued server control command in batch", {
+        command: payload.command,
+        value: payload.value,
+        group: payload.group,
+        tabId: payload.tabId,
+      });
+      const navigationOk = await navigationPromise;
+      return isProjectSwitchCommand(command) ? navigationOk : batchResult;
+    }
+
+    await flushBridgeOperationBatch();
     await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal, {
       logAction,
       logLabel,

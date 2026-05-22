@@ -47,10 +47,12 @@ BRIDGE_ACTION_REPEAT = "repeat"
 BRIDGE_ACTION_COUNTS = "counts"
 BRIDGE_ACTION_CONTROL = "control"
 BRIDGE_ACTION_COVER = "cover"
+BRIDGE_ACTION_BATCH = "batch"
 BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes"
 BRIDGE_PADDING_MAX_EXTRA_BYTES = 262_144
 BRIDGE_REAL_TOTAL_MIN_BYTES = 1_363_149
 BRIDGE_REAL_TOTAL_MAX_BYTES = 3_145_728
+BRIDGE_BATCH_MAX_REQUESTS = 12
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -934,6 +936,58 @@ def build_task_type_counts_payload(span_value: Any = "day") -> dict[str, Any]:
     return TASK_TYPE_COUNTERS.get_counts(span)
 
 
+def handle_bridge_batch_payload(params: dict[str, Any]) -> dict[str, Any]:
+    raw_requests = params.get("requests")
+    if not isinstance(raw_requests, list):
+        return {"ok": False, "error": "Batch requests must be a list.", "results": []}
+
+    results: list[dict[str, Any]] = []
+    for index, raw_request in enumerate(raw_requests[:BRIDGE_BATCH_MAX_REQUESTS]):
+        if not isinstance(raw_request, dict):
+            results.append({
+                "ok": False,
+                "type": "",
+                "error": "Batch request must be an object.",
+                "result": {"ok": False, "error": "Batch request must be an object."},
+            })
+            continue
+
+        request_type = sanitize_control_command_field(raw_request.get("type"), 40)
+        try:
+            if request_type == "counts":
+                result = build_task_type_counts_payload(raw_request.get("span") or "day")
+            elif request_type == "control":
+                payload = raw_request.get("payload")
+                if not isinstance(payload, dict):
+                    payload = {}
+                result = handle_control_command_payload(payload)
+            else:
+                result = {"ok": False, "error": f"Unknown batch request type: {request_type or '-'}"}
+        except Exception as exc:
+            print(
+                f"[batch {timestamp_now()}] request={index} type={request_type or '-'} error={exc}",
+                flush=True,
+            )
+            result = {"ok": False, "error": str(exc)}
+
+        results.append({
+            "ok": result.get("ok") is not False,
+            "type": request_type,
+            "result": result,
+        })
+
+    print(
+        f"[batch {timestamp_now()}] requests={len(results)} truncated={len(raw_requests) > BRIDGE_BATCH_MAX_REQUESTS}",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "results": results,
+        "count": len(results),
+        "truncated": len(raw_requests) > BRIDGE_BATCH_MAX_REQUESTS,
+    }
+
+
 @app.get(TASK_TYPE_COUNTS_ENDPOINT_PATH)
 def get_task_type_counts() -> Any:
     return jsonify(build_task_type_counts_payload(request.args.get("span") or "day"))
@@ -1118,6 +1172,11 @@ def receive_obfuscated_bridge_request() -> Any:
     if action == BRIDGE_ACTION_CONTROL:
         return jsonify(encode_bridge_operation_response(
             handle_control_command_payload(params),
+            target_size=response_target_size,
+        ))
+    if action == BRIDGE_ACTION_BATCH:
+        return jsonify(encode_bridge_operation_response(
+            handle_bridge_batch_payload(params),
             target_size=response_target_size,
         ))
     if action == BRIDGE_ACTION_COVER:
