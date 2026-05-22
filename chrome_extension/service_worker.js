@@ -2297,10 +2297,8 @@ async function fetchTaskTypeCounts(span = "day") {
 
 function isIdleForCoverTraffic() {
   return (
-    !state.isPolling
-    && !state.isDelivering
+    !state.isDelivering
     && !state.pendingSubmission
-    && !state.pendingRepeatDraft
   );
 }
 
