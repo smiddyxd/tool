@@ -1175,6 +1175,8 @@ def receive_obfuscated_bridge_request() -> Any:
             target_size=response_target_size,
         ))
     if action == BRIDGE_ACTION_BATCH:
+        if response_target_size is None:
+            response_target_size = choose_real_bridge_response_target_size(request.content_length)
         return jsonify(encode_bridge_operation_response(
             handle_bridge_batch_payload(params),
             target_size=response_target_size,

@@ -555,6 +555,16 @@ function chooseLargeBridgePaddingTargets(action, params = {}, options = {}) {
   };
 }
 
+function createExplicitLargeBridgePaddingOptions() {
+  const requestTargetSize = getRandomIntInclusive(BRIDGE_REAL_REQUEST_MIN_BYTES, BRIDGE_REAL_REQUEST_MAX_BYTES);
+  const totalTargetBytes = getRandomIntInclusive(BRIDGE_REAL_TOTAL_MIN_BYTES, BRIDGE_REAL_TOTAL_MAX_BYTES);
+  return {
+    useLargePadding: true,
+    requestTargetSize,
+    responseTargetBytes: Math.max(0, totalTargetBytes - requestTargetSize),
+  };
+}
+
 function createRandomBytes(length) {
   const byteLength = Math.max(0, Math.floor(length));
   const bytes = new Uint8Array(byteLength);
@@ -2406,6 +2416,7 @@ async function flushBridgeOperationBatch() {
         {
           logLabel: `batched update (${entries.length})`,
           logSource: getBridgeBatchLogSource(entries),
+          ...createExplicitLargeBridgePaddingOptions(),
         },
       );
       const results = Array.isArray(payload?.results) ? payload.results : [];
