@@ -77,10 +77,12 @@ COMMENT_DRAFT_INPUT_HEADER = "Draft comment OCR:"
 MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
 CONTROL_CANCEL_COMMAND = "cancel_control_processing"
 COMMENT_DRAFT_FEEDBACK_COMMAND = "draft_comment_feedback"
+PROCESS_CHAT_COMMAND = "process_chat"
 ASYNC_CONTROL_PROCESSING_COMMANDS = {
     "start_task_screenshot",
     "start_task_ocr",
     COMMENT_DRAFT_FEEDBACK_COMMAND,
+    PROCESS_CHAT_COMMAND,
 }
 
 
@@ -1768,6 +1770,8 @@ def queue_comment_draft_feedback(payload: dict[str, Any]) -> bool:
             "promptCount": 1,
             "commentChars": len(comment_text),
             "selectedRegionLabel": region_label,
+            "command": COMMENT_DRAFT_FEEDBACK_COMMAND,
+            "requiresCurrentChat": True,
         },
         tab_id=get_control_payload_tab_id(payload),
         status_task_type=task_type,
@@ -1798,6 +1802,54 @@ def queue_comment_draft_feedback(payload: dict[str, Any]) -> bool:
     return True
 
 
+def queue_process_chat_prompt(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    task_type = settings.task_type if settings is not None else get_control_payload_task_type(payload)
+    run_id = get_control_run_id(payload)
+    prompt = str(payload.get("chatProcessingPrompt") or "").strip()
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Process chat request cancelled before queueing prompt.", task_type=task_type)
+        return False
+
+    if not prompt:
+        publish_control_status(
+            payload,
+            "error",
+            "Process chat prompt is empty. Set the Chat processing prompt in Options before using Process chat.",
+            task_type=task_type,
+        )
+        return False
+
+    STATE.publish_control_status_and_text_payload(
+        run_id,
+        "queued",
+        "Process chat prompt queued for ChatGPT.",
+        details={
+            "taskCount": 0,
+            "promptCount": 1,
+            "promptChars": len(prompt),
+            "command": PROCESS_CHAT_COMMAND,
+            "requiresCurrentChat": True,
+        },
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=task_type,
+        task_count=0,
+        prompts=(prompt,),
+        payload_task_type=get_control_payload_task_type_key(payload, task_type),
+        control_run_id=run_id,
+        task_text_record={
+            "source": "process_chat",
+            "promptChars": len(prompt),
+        },
+    )
+    print(
+        f"[control {timestamp_now()}] queued-process-chat type={task_type} chars={len(prompt)}",
+        flush=True,
+    )
+    return True
+
+
 def handle_control_processing_command(command: str, payload: dict[str, Any]) -> bool:
     if command == "start_task_screenshot":
         return queue_control_screenshot(payload)
@@ -1805,6 +1857,8 @@ def handle_control_processing_command(command: str, payload: dict[str, Any]) -> 
         return queue_control_ocr(payload)
     if command == COMMENT_DRAFT_FEEDBACK_COMMAND:
         return queue_comment_draft_feedback(payload)
+    if command == PROCESS_CHAT_COMMAND:
+        return queue_process_chat_prompt(payload)
     if get_control_run_id(payload):
         publish_control_status(
             payload,

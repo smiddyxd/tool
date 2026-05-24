@@ -226,18 +226,31 @@ const TASK_ACTION_OCR = "ocr";
 const TASK_ACTION_SCREENSHOT = "screenshot";
 const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
 const TASK_ACTION_COMMENT_DRAFT = "commentDraft";
+const TASK_ACTION_PROCESS_CHAT = "processChat";
 const TASK_ACTION_KEYS = [
   TASK_ACTION_OCR,
   TASK_ACTION_SCREENSHOT,
   TASK_ACTION_GOOGLE_SEARCH,
   TASK_ACTION_COMMENT_DRAFT,
+  TASK_ACTION_PROCESS_CHAT,
 ];
 const TASK_ACTION_LABELS = {
   [TASK_ACTION_OCR]: "OCR",
   [TASK_ACTION_SCREENSHOT]: "Screenshot",
   [TASK_ACTION_GOOGLE_SEARCH]: "Google search",
   [TASK_ACTION_COMMENT_DRAFT]: "Comment",
+  [TASK_ACTION_PROCESS_CHAT]: "Process chat",
 };
+const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
+
+Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract a reusable case-derived reasoning node.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
+
+Create the node according to the framework. Treat the final comment as the verdict anchor, and extract the useful reasoning path, abandoned interpretations, boundary conditions, and reusable phrasing from the chat. Use the screenshot/OCR only for grounding visible evidence; do not assume hidden landing-page behavior.
+
+Output a reusable node that can be inserted into the Video Games manual or case-node library.`;
 const FULL_TASK_SCREENSHOT_REGION = {
   key: "fullTaskScreenshot",
   label: "Full task screenshot",
@@ -269,6 +282,7 @@ const DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS = [
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH, TASK_ACTION_COMMENT_DRAFT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       { key: "query", label: "Query", kind: TASK_REGION_KIND_OCR },
@@ -286,11 +300,13 @@ Product description: [product description]
 Google results: [google results]
 
 Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
+    chatProcessingPrompt: "",
   },
   {
     key: "get-rich-quick",
     label: "Get Rich Quick",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -302,11 +318,13 @@ Use the screenshot and any OCR text above to judge how useful the product is for
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
+    chatProcessingPrompt: "",
   },
   {
     key: "video-games",
     label: "Video Games",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_PROCESS_CHAT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_PROCESS_CHAT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -318,11 +336,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
+    chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
   },
   {
     key: "weight-loss",
     label: "Weight Loss",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -334,6 +354,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
+    chatProcessingPrompt: "",
   },
 ];
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
@@ -497,6 +518,9 @@ function cloneTaskTypeDefinitions(definitions = DEFAULT_BRIDGE_TASK_TYPE_DEFINIT
     ...definition,
     requireWebSearchChip: definition.requireWebSearchChip !== false,
     actions: Array.isArray(definition.actions) ? [...definition.actions] : [],
+    visibleActions: Array.isArray(definition.visibleActions)
+      ? [...definition.visibleActions]
+      : (Array.isArray(definition.actions) ? [...definition.actions] : []),
     regions: Array.isArray(definition.regions)
       ? definition.regions.map((region) => ({ ...region }))
       : [],
@@ -537,6 +561,23 @@ function normalizeTaskActionKeys(rawValue) {
   return source
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter((value) => TASK_ACTION_KEYS.includes(value))
+    .filter((value) => {
+      if (seenKeys.has(value)) {
+        return false;
+      }
+
+      seenKeys.add(value);
+      return true;
+    });
+}
+
+function normalizeVisibleTaskActionKeys(rawValue, actions) {
+  const allowedActions = new Set(normalizeTaskActionKeys(actions));
+  const source = Array.isArray(rawValue) ? rawValue : Array.from(allowedActions);
+  const seenKeys = new Set();
+  return source
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => allowedActions.has(value))
     .filter((value) => {
       if (seenKeys.has(value)) {
         return false;
@@ -635,6 +676,7 @@ function getTaskOcrRegions(taskDefinition) {
 
 function ensureTaskDefinitionFeatures(taskDefinition) {
   const actions = new Set(normalizeTaskActionKeys(taskDefinition.actions));
+  const visibleActions = normalizeVisibleTaskActionKeys(taskDefinition.visibleActions, Array.from(actions));
   const regions = taskDefinition.regions.filter((region) => {
     if (region.key === FULL_TASK_SCREENSHOT_REGION.key) {
       return actions.has(TASK_ACTION_SCREENSHOT);
@@ -668,6 +710,7 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
   return {
     ...taskDefinition,
     actions: Array.from(actions),
+    visibleActions,
     regions,
   };
 }
@@ -718,16 +761,23 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
     if (addCommentDraftAction && !actions.includes(TASK_ACTION_COMMENT_DRAFT)) {
       actions.push(TASK_ACTION_COMMENT_DRAFT);
     }
+    if (key === "video-games" && !actions.includes(TASK_ACTION_PROCESS_CHAT)) {
+      actions.push(TASK_ACTION_PROCESS_CHAT);
+    }
 
     const taskDefinition = ensureTaskDefinitionFeatures({
       key,
       label,
       actions,
+      visibleActions: normalizeVisibleTaskActionKeys(rawDefinition.visibleActions, actions),
       requireWebSearchChip: normalizeTaskRequireWebSearchChip(rawDefinition.requireWebSearchChip),
       regions,
       boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
         ? rawDefinition.boilerplatePrompt.trim()
         : "",
+      chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
+        ? rawDefinition.chatProcessingPrompt.trim()
+        : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT : ""),
     });
 
     sanitizedDefinitions.push(taskDefinition);
@@ -2202,6 +2252,8 @@ function getTrafficDisplayLabel(sample) {
       return "Google results OCR";
     case "control:draft_comment_feedback":
       return "rating comment";
+    case "control:process_chat":
+      return "process chat";
     case "control:cancel_control_processing":
       return "cancel processing";
     default:
@@ -2606,10 +2658,13 @@ function getPromptPlaceholderText(region) {
 
 function setTaskActionEnabled(taskDefinition, actionKey, enabled) {
   const actions = new Set(normalizeTaskActionKeys(taskDefinition.actions));
+  const visibleActions = new Set(normalizeVisibleTaskActionKeys(taskDefinition.visibleActions, taskDefinition.actions));
   if (enabled) {
     actions.add(actionKey);
+    visibleActions.add(actionKey);
   } else {
     actions.delete(actionKey);
+    visibleActions.delete(actionKey);
   }
 
   let regions = [...taskDefinition.regions];
@@ -2641,8 +2696,69 @@ function setTaskActionEnabled(taskDefinition, actionKey, enabled) {
   return ensureTaskDefinitionFeatures({
     ...taskDefinition,
     actions: Array.from(actions),
+    visibleActions: Array.from(visibleActions),
     regions,
   });
+}
+
+function setTaskActionVisible(taskDefinition, actionKey, visible) {
+  const actions = normalizeTaskActionKeys(taskDefinition.actions);
+  const visibleActions = new Set(normalizeVisibleTaskActionKeys(taskDefinition.visibleActions, actions));
+  if (visible && actions.includes(actionKey)) {
+    visibleActions.add(actionKey);
+  } else {
+    visibleActions.delete(actionKey);
+  }
+
+  return ensureTaskDefinitionFeatures({
+    ...taskDefinition,
+    visibleActions: Array.from(visibleActions),
+  });
+}
+
+function renderProcessingActionEditor(taskDefinition) {
+  const container = document.querySelector("#task-type-processing-actions");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  container.replaceChildren();
+  const enabledActions = new Set(normalizeTaskActionKeys(taskDefinition.actions));
+  const visibleActions = new Set(normalizeVisibleTaskActionKeys(taskDefinition.visibleActions, taskDefinition.actions));
+  for (const actionKey of TASK_ACTION_KEYS) {
+    const row = document.createElement("div");
+    row.className = "task-action-row";
+
+    const label = document.createElement("div");
+    label.className = "task-action-label";
+    label.textContent = TASK_ACTION_LABELS[actionKey] ?? actionKey;
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "feature-toggle";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = enabledActions.has(actionKey);
+    enabledInput.addEventListener("change", () => {
+      updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(definition, actionKey, enabledInput.checked));
+      setStatus(`${TASK_ACTION_LABELS[actionKey] ?? actionKey} processing changed. Save settings to apply it.`);
+    });
+    enabledLabel.append(enabledInput, document.createTextNode("Enabled"));
+
+    const visibleLabel = document.createElement("label");
+    visibleLabel.className = "feature-toggle";
+    const visibleInput = document.createElement("input");
+    visibleInput.type = "checkbox";
+    visibleInput.checked = enabledActions.has(actionKey) && visibleActions.has(actionKey);
+    visibleInput.disabled = !enabledActions.has(actionKey);
+    visibleInput.addEventListener("change", () => {
+      updateActiveTaskTypeDefinition((definition) => setTaskActionVisible(definition, actionKey, visibleInput.checked));
+      setStatus(`${TASK_ACTION_LABELS[actionKey] ?? actionKey} bridge-control visibility changed. Save settings to apply it.`);
+    });
+    visibleLabel.append(visibleInput, document.createTextNode("Show"));
+
+    row.append(label, enabledLabel, visibleLabel);
+    container.append(row);
+  }
 }
 
 function updateActiveTaskTypeDefinition(updater) {
@@ -2667,10 +2783,12 @@ function syncTaskTypeDefinitionEditorValues() {
   const activeTaskType = highlightState.activeBridgeTaskType;
   const labelInput = document.querySelector("#task-type-label");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   if (
     !(labelInput instanceof HTMLInputElement)
     && !(promptInput instanceof HTMLTextAreaElement)
+    && !(chatPromptInput instanceof HTMLTextAreaElement)
     && !(requireSearchChipInput instanceof HTMLInputElement)
   ) {
     return;
@@ -2692,6 +2810,9 @@ function syncTaskTypeDefinitionEditorValues() {
       boilerplatePrompt: promptInput instanceof HTMLTextAreaElement
         ? promptInput.value
         : definition.boilerplatePrompt,
+      chatProcessingPrompt: chatPromptInput instanceof HTMLTextAreaElement
+        ? chatPromptInput.value
+        : (definition.chatProcessingPrompt ?? ""),
     };
   });
 }
@@ -3044,10 +3165,7 @@ function renderTaskTypeConfiguration() {
   const labelInput = document.querySelector("#task-type-label");
   const keyText = document.querySelector("#task-type-key");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
-  const screenshotInput = document.querySelector("#task-type-enable-screenshot");
-  const googleInput = document.querySelector("#task-type-enable-google-results");
-  const ocrInput = document.querySelector("#task-type-enable-ocr");
-  const commentDraftInput = document.querySelector("#task-type-enable-comment-draft");
+  const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
@@ -3060,17 +3178,8 @@ function renderTaskTypeConfiguration() {
   if (promptInput instanceof HTMLTextAreaElement) {
     promptInput.value = taskDefinition.boilerplatePrompt || "";
   }
-  if (screenshotInput instanceof HTMLInputElement) {
-    screenshotInput.checked = taskDefinition.actions.includes(TASK_ACTION_SCREENSHOT);
-  }
-  if (googleInput instanceof HTMLInputElement) {
-    googleInput.checked = taskDefinition.actions.includes(TASK_ACTION_GOOGLE_SEARCH);
-  }
-  if (ocrInput instanceof HTMLInputElement) {
-    ocrInput.checked = taskDefinition.actions.includes(TASK_ACTION_OCR);
-  }
-  if (commentDraftInput instanceof HTMLInputElement) {
-    commentDraftInput.checked = taskDefinition.actions.includes(TASK_ACTION_COMMENT_DRAFT);
+  if (chatPromptInput instanceof HTMLTextAreaElement) {
+    chatPromptInput.value = taskDefinition.chatProcessingPrompt || "";
   }
   if (requireSearchChipInput instanceof HTMLInputElement) {
     requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
@@ -3079,6 +3188,7 @@ function renderTaskTypeConfiguration() {
     deleteButton.disabled = getTaskTypeDefinitions().length <= 1;
   }
 
+  renderProcessingActionEditor(taskDefinition);
   renderOcrRegionEditor(taskDefinition);
   renderRegionCoordinateEditor(taskDefinition);
   renderPromptPlaceholderButtons(taskDefinition);
@@ -3094,6 +3204,7 @@ function addTaskTypeDefinition() {
     key,
     label: "New task type",
     actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
     regions: [
       { ...FULL_TASK_SCREENSHOT_REGION },
       { key: `${key}-ocr`, label: "Full task OCR", kind: TASK_REGION_KIND_OCR },
@@ -3104,6 +3215,7 @@ function addTaskTypeDefinition() {
 Full task OCR: [full task ocr]
 
 Use the screenshot and OCR text above to complete the task.`,
+    chatProcessingPrompt: "",
   };
 
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions([
@@ -4670,10 +4782,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const deleteTaskTypeButton = document.querySelector("#delete-task-type");
   const taskTypeLabelInput = document.querySelector("#task-type-label");
   const taskTypePromptInput = document.querySelector("#task-type-boilerplate-prompt");
-  const screenshotToggle = document.querySelector("#task-type-enable-screenshot");
-  const googleResultsToggle = document.querySelector("#task-type-enable-google-results");
-  const ocrToggle = document.querySelector("#task-type-enable-ocr");
-  const commentDraftToggle = document.querySelector("#task-type-enable-comment-draft");
+  const taskTypeChatProcessingPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
@@ -4735,41 +4844,13 @@ document.addEventListener("DOMContentLoaded", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Boilerplate prompt changed. Save settings to apply it.");
   });
+  taskTypeChatProcessingPromptInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Chat processing prompt changed. Save settings to apply it.");
+  });
   requireSearchChipToggle?.addEventListener("change", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Search chip requirement changed. Save settings to apply it.");
-  });
-  screenshotToggle?.addEventListener("change", () => {
-    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
-      definition,
-      TASK_ACTION_SCREENSHOT,
-      screenshotToggle.checked,
-    ));
-    setStatus("Screenshot processing changed. Save settings to apply it.");
-  });
-  googleResultsToggle?.addEventListener("change", () => {
-    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
-      definition,
-      TASK_ACTION_GOOGLE_SEARCH,
-      googleResultsToggle.checked,
-    ));
-    setStatus("Google search results processing changed. Save settings to apply it.");
-  });
-  ocrToggle?.addEventListener("change", () => {
-    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
-      definition,
-      TASK_ACTION_OCR,
-      ocrToggle.checked,
-    ));
-    setStatus("OCR processing changed. Save settings to apply it.");
-  });
-  commentDraftToggle?.addEventListener("change", () => {
-    updateActiveTaskTypeDefinition((definition) => setTaskActionEnabled(
-      definition,
-      TASK_ACTION_COMMENT_DRAFT,
-      commentDraftToggle.checked,
-    ));
-    setStatus("Comment feedback processing changed. Save settings to apply it.");
   });
   addOcrRegionButton?.addEventListener("click", () => {
     addOcrRegionToActiveTaskType();

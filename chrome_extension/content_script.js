@@ -169,6 +169,17 @@ Base everything strictly on the screenshot attachment.`;
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
   const SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY = "ratingComment";
+  const SERVER_CONTROL_ACTION_PROCESS_CHAT = "processChat";
+  const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
+
+Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract a reusable case-derived reasoning node.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
+
+Create the node according to the framework. Treat the final comment as the verdict anchor, and extract the useful reasoning path, abandoned interpretations, boundary conditions, and reusable phrasing from the chat. Use the screenshot/OCR only for grounding visible evidence; do not assume hidden landing-page behavior.
+
+Output a reusable node that can be inserted into the Video Games manual or case-node library.`;
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
   const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
@@ -365,6 +376,11 @@ Base everything strictly on the screenshot attachment.`;
       value: "comment-draft",
       regionKey: SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
     },
+    [SERVER_CONTROL_ACTION_PROCESS_CHAT]: {
+      label: "Process chat",
+      command: "process_chat",
+      value: "process-chat",
+    },
   };
   const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
@@ -379,6 +395,7 @@ Base everything strictly on the screenshot attachment.`;
         SERVER_CONTROL_REGION_DEFAULT_KEY,
       ],
       actions: ["ocr", "screenshot", "googleSearch", "commentDraft"],
+      visibleActions: ["ocr", "screenshot", "googleSearch", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
 
@@ -388,49 +405,58 @@ Product description: [product description]
 Google results: [google results]
 
 Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
+      chatProcessingPrompt: "",
     },
     {
       key: "get-rich-quick",
       label: "Get Rich Quick",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
       actions: ["ocr", "screenshot", "commentDraft"],
+      visibleActions: ["ocr", "screenshot", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
+      chatProcessingPrompt: "",
     },
     {
       key: "video-games",
       label: "Video Games",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft"],
+      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_PROCESS_CHAT],
+      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_PROCESS_CHAT],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Video Games task.
 
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
+      chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
     },
     {
       key: "weight-loss",
       label: "Weight Loss",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
       actions: ["ocr", "screenshot", "commentDraft"],
+      visibleActions: ["ocr", "screenshot", "commentDraft"],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
+      chatProcessingPrompt: "",
     },
   ];
   let SERVER_CONTROL_TASK_TYPE_DEFINITIONS = DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((definition) => ({
     ...definition,
     regions: [...definition.regions],
     actions: [...definition.actions],
+    visibleActions: Array.isArray(definition.visibleActions) ? [...definition.visibleActions] : [...definition.actions],
     requireWebSearchChip: definition.requireWebSearchChip !== false,
+    chatProcessingPrompt: typeof definition.chatProcessingPrompt === "string" ? definition.chatProcessingPrompt : "",
   }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
@@ -5012,6 +5038,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         return "Google results OCR";
       case "control:draft_comment_feedback":
         return "rating comment";
+      case "control:process_chat":
+        return "process chat";
       case "control:cancel_control_processing":
         return "cancel processing";
       default:
@@ -6252,7 +6280,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function getCurrentServerControlActionEntries() {
-    return getCurrentServerControlTaskTypeDefinition().actions
+    const taskDefinition = getCurrentServerControlTaskTypeDefinition();
+    const visibleActions = normalizeVisibleServerControlActionKeys(taskDefinition.visibleActions, taskDefinition.actions);
+    return visibleActions
       .map((actionKey) => {
         const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
         return actionDefinition ? { ...actionDefinition, actionKey } : null;
@@ -6687,12 +6717,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       });
   }
 
+  function normalizeVisibleServerControlActionKeys(rawValue, actions) {
+    const allowedActions = new Set(normalizeServerControlActionKeys(actions));
+    const source = Array.isArray(rawValue) ? rawValue : Array.from(allowedActions);
+    const seenKeys = new Set();
+    return source
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => allowedActions.has(value))
+      .filter((value) => {
+        if (seenKeys.has(value)) {
+          return false;
+        }
+
+        seenKeys.add(value);
+        return true;
+      });
+  }
+
   function normalizeServerControlRequireWebSearchChip(value) {
     return value !== false;
   }
 
   function ensureServerControlTaskDefinitionFeatures(taskDefinition, regionDefinitionsByKey) {
     const actions = new Set(normalizeServerControlActionKeys(taskDefinition.actions));
+    const visibleActions = normalizeVisibleServerControlActionKeys(taskDefinition.visibleActions, Array.from(actions));
     const regions = taskDefinition.regions.filter((regionKey) => {
       if (regionKey === SERVER_CONTROL_REGION_DEFAULT_KEY) {
         return actions.has("screenshot");
@@ -6742,6 +6790,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return {
       ...taskDefinition,
       actions: Array.from(actions),
+      visibleActions,
       regions,
     };
   }
@@ -6805,16 +6854,23 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (addCommentDraftAction && !actions.includes("commentDraft")) {
         actions.push("commentDraft");
       }
+      if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_PROCESS_CHAT)) {
+        actions.push(SERVER_CONTROL_ACTION_PROCESS_CHAT);
+      }
 
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
         key,
         label,
         regions,
         actions,
+        visibleActions: normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions),
         requireWebSearchChip: normalizeServerControlRequireWebSearchChip(rawDefinition.requireWebSearchChip),
         boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
           ? rawDefinition.boilerplatePrompt.trim()
           : "",
+        chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
+          ? rawDefinition.chatProcessingPrompt.trim()
+          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT : ""),
       }, regionDefinitionsByKey));
     }
 
@@ -7346,6 +7402,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
   }
 
+  function getActiveServerControlChatProcessingPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().chatProcessingPrompt || "";
+  }
+
   function normalizePromptPlaceholderKey(value) {
     return (typeof value === "string" ? value : "")
       .replace(/^!/, "")
@@ -7583,11 +7643,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       return;
     }
 
-    const currentTaskDefinition = getCurrentServerControlTaskTypeDefinition();
+    const actionEntries = getCurrentServerControlActionEntries();
     container.replaceChildren();
     container.style.setProperty(
       "--local-query-bridge-action-count",
-      `${Math.max(1, currentTaskDefinition.actions.length)}`,
+      `${Math.max(1, actionEntries.length)}`,
     );
     container.classList.toggle(
       SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS,
@@ -7598,19 +7658,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       : (serverControlMenuState.zoneClickEnabled
         ? "Zone click mode is on. Click to turn it off."
         : "Zone click mode is off. Click to turn it on.");
-    for (const actionKey of currentTaskDefinition.actions) {
-      const actionDefinition = SERVER_CONTROL_ACTION_DEFINITIONS[actionKey];
-      if (!actionDefinition) {
-        continue;
-      }
-
+    for (const actionDefinition of actionEntries) {
       const button = document.createElement("button");
       button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-action-button";
       button.type = "button";
       button.textContent = actionDefinition.label;
       button.dataset.command = actionDefinition.command;
       button.dataset.value = actionDefinition.value;
-      button.dataset.controlActionKey = actionKey;
+      button.dataset.controlActionKey = actionDefinition.actionKey;
       button.classList.toggle(
         SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
         isServerControlZoneClickActive(),
@@ -7800,6 +7855,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
       processingMode: serverControlMenuState.processingMode,
       boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
+      chatProcessingPrompt: getActiveServerControlChatProcessingPrompt(),
       activeProjectAccount,
       activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
       activeProjectId,

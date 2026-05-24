@@ -367539,6 +367539,4524 @@
           ]
         }
       ]
+    },
+    "2026-05-23": {
+      "11": [
+        {
+          "timestamp": "2026-05-23T11:53:57",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\control_ocr_20260523_115347_658090.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\control_ocr_20260523_115347_658090.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 9,
+              "total_text_length": 148,
+              "average_confidence": 0.9267,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 9,
+              "total_text_length": 148,
+              "average_confidence": 0.9176,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 9,
+              "total_text_length": 148,
+              "average_confidence": 0.9585,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 8,
+              "total_text_length": 137,
+              "average_confidence": 0.9622,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 9,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: [2015 ford escape battery]\nDuracell Ultra Flooded 600CCA\nBCI Group 96R Car Battery -\nVehicle Batteries\nC\n$206.99\nBatteries Plus",
+            "query_line": {
+              "text": "Query: [2015 ford escape battery]",
+              "confidence": 0.986,
+              "bbox": [
+                [
+                  189.0,
+                  124.0
+                ],
+                [
+                  624.0,
+                  124.0
+                ],
+                [
+                  624.0,
+                  162.0
+                ],
+                [
+                  189.0,
+                  162.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 406.5,
+                  "y": 143.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Duracell Ultra Flooded 600CCA\nBCI Group 96R Car Battery -\nVehicle Batteries\nC\n$206.99\nBatteries Plus",
+            "selected_lines": [
+              {
+                "text": "Query: [2015 ford escape battery]",
+                "confidence": 0.986,
+                "bbox": [
+                  [
+                    189.0,
+                    124.0
+                  ],
+                  [
+                    624.0,
+                    124.0
+                  ],
+                  [
+                    624.0,
+                    162.0
+                  ],
+                  [
+                    189.0,
+                    162.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 406.5,
+                    "y": 143.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Duracell Ultra Flooded 600CCA",
+                "confidence": 0.9868,
+                "bbox": [
+                  [
+                    301.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    509.0
+                  ],
+                  [
+                    301.0,
+                    509.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 441.0,
+                    "y": 496.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "BCI Group 96R Car Battery -",
+                "confidence": 0.9779,
+                "bbox": [
+                  [
+                    299.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    547.0
+                  ],
+                  [
+                    299.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 425.0,
+                    "y": 532.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Vehicle Batteries",
+                "confidence": 0.9829,
+                "bbox": [
+                  [
+                    301.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    578.0
+                  ],
+                  [
+                    301.0,
+                    578.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 565.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "C",
+                "confidence": 0.8482,
+                "bbox": [
+                  [
+                    644.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    579.0
+                  ],
+                  [
+                    644.0,
+                    579.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 648.0,
+                    "y": 574.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$206.99",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    299.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    614.0
+                  ],
+                  [
+                    299.0,
+                    614.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 342.0,
+                    "y": 599.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Batteries Plus",
+                "confidence": 0.9676,
+                "bbox": [
+                  [
+                    299.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    649.0
+                  ],
+                  [
+                    299.0,
+                    649.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 366.0,
+                    "y": 635.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Duracell Ultra Flooded 600CCA",
+                "confidence": 0.9868,
+                "bbox": [
+                  [
+                    301.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    509.0
+                  ],
+                  [
+                    301.0,
+                    509.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 441.0,
+                    "y": 496.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "BCI Group 96R Car Battery -",
+                "confidence": 0.9779,
+                "bbox": [
+                  [
+                    299.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    547.0
+                  ],
+                  [
+                    299.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 425.0,
+                    "y": 532.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Vehicle Batteries",
+                "confidence": 0.9829,
+                "bbox": [
+                  [
+                    301.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    578.0
+                  ],
+                  [
+                    301.0,
+                    578.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 565.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "C",
+                "confidence": 0.8482,
+                "bbox": [
+                  [
+                    644.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    579.0
+                  ],
+                  [
+                    644.0,
+                    579.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 648.0,
+                    "y": 574.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$206.99",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    299.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    614.0
+                  ],
+                  [
+                    299.0,
+                    614.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 342.0,
+                    "y": 599.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Batteries Plus",
+                "confidence": 0.9676,
+                "bbox": [
+                  [
+                    299.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    649.0
+                  ],
+                  [
+                    299.0,
+                    649.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 366.0,
+                    "y": 635.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 6,
+              "price_line_indexes": [
+                0,
+                4
+              ],
+              "dark_price_line_indexes": [
+                4
+              ],
+              "price_anchor_index": 4,
+              "blue_title_line_indexes": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "has_title_like_first_line": false,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.651,
+                  "ratios": {
+                    "blue": 0.651,
+                    "green": 0.002,
+                    "dark": 0.006
+                  },
+                  "ink_pixel_count": 2665
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.675,
+                  "ratios": {
+                    "blue": 0.675,
+                    "green": 0.001,
+                    "dark": 0.007
+                  },
+                  "ink_pixel_count": 2295
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.657,
+                  "ratios": {
+                    "blue": 0.657,
+                    "green": 0.0,
+                    "dark": 0.015
+                  },
+                  "ink_pixel_count": 1465
+                },
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.569,
+                  "ratios": {
+                    "blue": 0.569,
+                    "green": 0.0,
+                    "dark": 0.0
+                  },
+                  "ink_pixel_count": 51
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.581,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.0,
+                    "dark": 0.581
+                  },
+                  "ink_pixel_count": 916
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.753,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.753,
+                    "dark": 0.078
+                  },
+                  "ink_pixel_count": 1341
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "AUTO BATTERY",
+                "confidence": 0.8781,
+                "bbox": [
+                  [
+                    352.0,
+                    376.0
+                  ],
+                  [
+                    449.0,
+                    376.0
+                  ],
+                  [
+                    449.0,
+                    402.0
+                  ],
+                  [
+                    352.0,
+                    402.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 400.5,
+                    "y": 389.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 82.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: [2015 ford escape battery]",
+                "confidence": 0.986,
+                "bbox": [
+                  [
+                    189.0,
+                    124.0
+                  ],
+                  [
+                    624.0,
+                    124.0
+                  ],
+                  [
+                    624.0,
+                    162.0
+                  ],
+                  [
+                    189.0,
+                    162.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 406.5,
+                    "y": 143.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "DURACELL",
+                "confidence": 0.9989,
+                "bbox": [
+                  [
+                    358.0,
+                    344.0
+                  ],
+                  [
+                    471.0,
+                    344.0
+                  ],
+                  [
+                    471.0,
+                    376.0
+                  ],
+                  [
+                    358.0,
+                    376.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 414.5,
+                    "y": 360.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "AUTO BATTERY",
+                "confidence": 0.8781,
+                "bbox": [
+                  [
+                    352.0,
+                    376.0
+                  ],
+                  [
+                    449.0,
+                    376.0
+                  ],
+                  [
+                    449.0,
+                    402.0
+                  ],
+                  [
+                    352.0,
+                    402.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 400.5,
+                    "y": 389.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Duracell Ultra Flooded 600CCA",
+                "confidence": 0.9868,
+                "bbox": [
+                  [
+                    301.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    484.0
+                  ],
+                  [
+                    581.0,
+                    509.0
+                  ],
+                  [
+                    301.0,
+                    509.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 441.0,
+                    "y": 496.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "BCI Group 96R Car Battery -",
+                "confidence": 0.9779,
+                "bbox": [
+                  [
+                    299.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    517.0
+                  ],
+                  [
+                    551.0,
+                    547.0
+                  ],
+                  [
+                    299.0,
+                    547.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 425.0,
+                    "y": 532.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Vehicle Batteries",
+                "confidence": 0.9829,
+                "bbox": [
+                  [
+                    301.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    553.0
+                  ],
+                  [
+                    456.0,
+                    578.0
+                  ],
+                  [
+                    301.0,
+                    578.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 378.5,
+                    "y": 565.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "C",
+                "confidence": 0.8482,
+                "bbox": [
+                  [
+                    644.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    570.0
+                  ],
+                  [
+                    652.0,
+                    579.0
+                  ],
+                  [
+                    644.0,
+                    579.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 648.0,
+                    "y": 574.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$206.99",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    299.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    584.0
+                  ],
+                  [
+                    385.0,
+                    614.0
+                  ],
+                  [
+                    299.0,
+                    614.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 342.0,
+                    "y": 599.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Batteries Plus",
+                "confidence": 0.9676,
+                "bbox": [
+                  [
+                    299.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    621.0
+                  ],
+                  [
+                    433.0,
+                    649.0
+                  ],
+                  [
+                    299.0,
+                    649.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 366.0,
+                    "y": 635.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: [2015 ford escape battery]"
+            ],
+            "mid-mid": [
+              "DURACELL\nAUTO BATTERY"
+            ],
+            "bottom-mid": [
+              "Duracell Ultra Flooded 600CCA\nBCI Group 96R Car Battery -\nVehicle Batteries\n$206.99\nBatteries Plus",
+              "C"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: [2015 ford escape battery]",
+              "confidence": 0.986,
+              "bbox": [
+                [
+                  189.0,
+                  124.0
+                ],
+                [
+                  624.0,
+                  124.0
+                ],
+                [
+                  624.0,
+                  162.0
+                ],
+                [
+                  189.0,
+                  162.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 406.5,
+                  "y": 143.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "DURACELL\nAUTO BATTERY",
+              "confidence": 0.9385,
+              "bbox": [
+                [
+                  352.0,
+                  344.0
+                ],
+                [
+                  471.0,
+                  344.0
+                ],
+                [
+                  471.0,
+                  402.0
+                ],
+                [
+                  352.0,
+                  402.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 411.5,
+                  "y": 373.0
+                }
+              },
+              "raw_item_count": 2
+            },
+            {
+              "text": "Duracell Ultra Flooded 600CCA\nBCI Group 96R Car Battery -\nVehicle Batteries\n$206.99\nBatteries Plus",
+              "confidence": 0.983,
+              "bbox": [
+                [
+                  299.0,
+                  484.0
+                ],
+                [
+                  581.0,
+                  484.0
+                ],
+                [
+                  581.0,
+                  649.0
+                ],
+                [
+                  299.0,
+                  649.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 440.0,
+                  "y": 566.5
+                }
+              },
+              "raw_item_count": 5
+            },
+            {
+              "text": "C",
+              "confidence": 0.8482,
+              "bbox": [
+                [
+                  644.0,
+                  570.0
+                ],
+                [
+                  652.0,
+                  570.0
+                ],
+                [
+                  652.0,
+                  579.0
+                ],
+                [
+                  644.0,
+                  579.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 648.0,
+                  "y": 574.5
+                }
+              },
+              "raw_item_count": 1
+            }
+          ]
+        }
+      ],
+      "12": [
+        {
+          "timestamp": "2026-05-23T12:21:32",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\control_ocr_20260523_122110_252393.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "retry_threshold_1_35x",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\control_ocr_20260523_122110_252393.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9947,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9932,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9871,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "contrast_native",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9949,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "dark_text_native",
+              "raw_line_count": 6,
+              "total_text_length": 142,
+              "average_confidence": 0.8208,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "blue_text_native",
+              "raw_line_count": 7,
+              "total_text_length": 177,
+              "average_confidence": 0.8664,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "green_text_native",
+              "raw_line_count": 5,
+              "total_text_length": 55,
+              "average_confidence": 0.5122,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_upscaled_1_35x",
+              "raw_line_count": 9,
+              "total_text_length": 211,
+              "average_confidence": 0.9607,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_threshold_1_35x",
+              "raw_line_count": 8,
+              "total_text_length": 210,
+              "average_confidence": 0.9954,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 8,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Positive and Negative Signals\ngive me a complete list of positive and nega",
+            "query_line": null,
+            "bottom_block_text": "Positive and Negative Signals\ngive me a complete list of positive and nega",
+            "selected_lines": [
+              {
+                "text": "Positive and Negative Signals",
+                "confidence": 0.9918,
+                "bbox": [
+                  [
+                    951.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    525.0
+                  ],
+                  [
+                    951.0,
+                    525.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1080.0,
+                    "y": 512.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "give me a complete list of positive and nega",
+                "confidence": 0.9882,
+                "bbox": [
+                  [
+                    954.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    550.0
+                  ],
+                  [
+                    954.0,
+                    550.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1138.0,
+                    "y": 540.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Positive and Negative Signals",
+                "confidence": 0.9918,
+                "bbox": [
+                  [
+                    951.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    525.0
+                  ],
+                  [
+                    951.0,
+                    525.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1080.0,
+                    "y": 512.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "give me a complete list of positive and nega",
+                "confidence": 0.9882,
+                "bbox": [
+                  [
+                    954.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    550.0
+                  ],
+                  [
+                    954.0,
+                    550.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1138.0,
+                    "y": 540.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": false,
+              "line_count": 2,
+              "price_line_indexes": [],
+              "dark_price_line_indexes": [],
+              "price_anchor_index": null,
+              "blue_title_line_indexes": [],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": false,
+              "has_retailer_like_bottom_line": false,
+              "has_blue_like_title_line": false,
+              "has_lettered_blue_title_line": false,
+              "has_dark_like_price_line": false,
+              "has_green_like_retailer_line": false,
+              "line_color_hints": [
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 1.0,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.0,
+                    "dark": 1.0
+                  },
+                  "ink_pixel_count": 754
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 1.0,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.0,
+                    "dark": 1.0
+                  },
+                  "ink_pixel_count": 520
+                }
+              ],
+              "reasons": [
+                "expected 3-6 product lines, got 2",
+                "missing price-like line above retailer",
+                "missing dark price-like line above retailer",
+                "missing retailer-like bottom line",
+                "missing green retailer line",
+                "missing blue title line above price",
+                "missing letters in blue title lines"
+              ]
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "was it successful? (attached before and after",
+                "confidence": 0.9925,
+                "bbox": [
+                  [
+                    954.0,
+                    443.0
+                  ],
+                  [
+                    1322.0,
+                    443.0
+                  ],
+                  [
+                    1322.0,
+                    461.0
+                  ],
+                  [
+                    954.0,
+                    461.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1138.0,
+                    "y": 452.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 38.0
+            },
+            "row_lines": [
+              {
+                "text": "Downloadable Utilit",
+                "confidence": 0.9944,
+                "bbox": [
+                  [
+                    947.0,
+                    103.0
+                  ],
+                  [
+                    1322.0,
+                    103.0
+                  ],
+                  [
+                    1322.0,
+                    145.0
+                  ],
+                  [
+                    947.0,
+                    145.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-right",
+                  "vertical_band": "top",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1134.5,
+                    "y": 124.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "New chat in Downloadable Utiliti",
+                "confidence": 0.9963,
+                "bbox": [
+                  [
+                    1006.0,
+                    226.0
+                  ],
+                  [
+                    1322.0,
+                    226.0
+                  ],
+                  [
+                    1322.0,
+                    255.0
+                  ],
+                  [
+                    1006.0,
+                    255.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-right",
+                  "vertical_band": "top",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1164.0,
+                    "y": 240.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Chats Sources",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    956.0,
+                    333.0
+                  ],
+                  [
+                    1129.0,
+                    333.0
+                  ],
+                  [
+                    1129.0,
+                    362.0
+                  ],
+                  [
+                    956.0,
+                    362.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1042.5,
+                    "y": 347.5
+                  }
+                },
+                "raw_item_count": 2
+              },
+              {
+                "text": "Boilerplate Prompt Refinement",
+                "confidence": 0.9997,
+                "bbox": [
+                  [
+                    951.0,
+                    411.0
+                  ],
+                  [
+                    1225.0,
+                    411.0
+                  ],
+                  [
+                    1225.0,
+                    436.0
+                  ],
+                  [
+                    951.0,
+                    436.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1088.0,
+                    "y": 423.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "was it successful? (attached before and after",
+                "confidence": 0.9925,
+                "bbox": [
+                  [
+                    954.0,
+                    443.0
+                  ],
+                  [
+                    1322.0,
+                    443.0
+                  ],
+                  [
+                    1322.0,
+                    461.0
+                  ],
+                  [
+                    954.0,
+                    461.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1138.0,
+                    "y": 452.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Positive and Negative Signals",
+                "confidence": 0.9918,
+                "bbox": [
+                  [
+                    951.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    499.0
+                  ],
+                  [
+                    1209.0,
+                    525.0
+                  ],
+                  [
+                    951.0,
+                    525.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1080.0,
+                    "y": 512.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "give me a complete list of positive and nega",
+                "confidence": 0.9882,
+                "bbox": [
+                  [
+                    954.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    530.0
+                  ],
+                  [
+                    1322.0,
+                    550.0
+                  ],
+                  [
+                    954.0,
+                    550.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 1138.0,
+                    "y": 540.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": true,
+            "selected_variant_retry_phase": "retry"
+          },
+          "summary_by_region": {
+            "top-right": [
+              "Downloadable Utilit",
+              "New chat in Downloadable Utiliti"
+            ],
+            "mid-right": [
+              "Chats Sources",
+              "Boilerplate Prompt Refinement\nwas it successful? (attached before and after",
+              "Positive and Negative Signals\ngive me a complete list of positive and nega"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Downloadable Utilit",
+              "confidence": 0.9944,
+              "bbox": [
+                [
+                  947.0,
+                  103.0
+                ],
+                [
+                  1322.0,
+                  103.0
+                ],
+                [
+                  1322.0,
+                  145.0
+                ],
+                [
+                  947.0,
+                  145.0
+                ]
+              ],
+              "position": {
+                "label": "top-right",
+                "vertical_band": "top",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1134.5,
+                  "y": 124.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "New chat in Downloadable Utiliti",
+              "confidence": 0.9963,
+              "bbox": [
+                [
+                  1006.0,
+                  226.0
+                ],
+                [
+                  1322.0,
+                  226.0
+                ],
+                [
+                  1322.0,
+                  255.0
+                ],
+                [
+                  1006.0,
+                  255.0
+                ]
+              ],
+              "position": {
+                "label": "top-right",
+                "vertical_band": "top",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1164.0,
+                  "y": 240.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Chats Sources",
+              "confidence": 0.9999,
+              "bbox": [
+                [
+                  956.0,
+                  333.0
+                ],
+                [
+                  1129.0,
+                  333.0
+                ],
+                [
+                  1129.0,
+                  362.0
+                ],
+                [
+                  956.0,
+                  362.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1042.5,
+                  "y": 347.5
+                }
+              },
+              "raw_item_count": 2
+            },
+            {
+              "text": "Boilerplate Prompt Refinement\nwas it successful? (attached before and after",
+              "confidence": 0.9961,
+              "bbox": [
+                [
+                  951.0,
+                  411.0
+                ],
+                [
+                  1322.0,
+                  411.0
+                ],
+                [
+                  1322.0,
+                  461.0
+                ],
+                [
+                  951.0,
+                  461.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1136.5,
+                  "y": 436.0
+                }
+              },
+              "raw_item_count": 2
+            },
+            {
+              "text": "Positive and Negative Signals\ngive me a complete list of positive and nega",
+              "confidence": 0.99,
+              "bbox": [
+                [
+                  951.0,
+                  499.0
+                ],
+                [
+                  1322.0,
+                  499.0
+                ],
+                [
+                  1322.0,
+                  550.0
+                ],
+                [
+                  951.0,
+                  550.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 1136.5,
+                  "y": 524.5
+                }
+              },
+              "raw_item_count": 2
+            }
+          ]
+        }
+      ],
+      "17": [
+        {
+          "timestamp": "2026-05-23T17:36:44",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\control_ocr_20260523_173610_038392.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "dark_text_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\control_ocr_20260523_173610_038392.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 33,
+              "total_text_length": 873,
+              "average_confidence": 0.9363,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 30,
+              "total_text_length": 870,
+              "average_confidence": 0.9394,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 30,
+              "total_text_length": 868,
+              "average_confidence": 0.9349,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 28,
+              "total_text_length": 858,
+              "average_confidence": 0.9357,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "contrast_native",
+              "raw_line_count": 29,
+              "total_text_length": 867,
+              "average_confidence": 0.9636,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "dark_text_native",
+              "raw_line_count": 14,
+              "total_text_length": 477,
+              "average_confidence": 0.7947,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "blue_text_native",
+              "raw_line_count": 1,
+              "total_text_length": 1,
+              "average_confidence": 0.424,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "green_text_native",
+              "raw_line_count": 7,
+              "total_text_length": 183,
+              "average_confidence": 0.6998,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_upscaled_1_35x",
+              "raw_line_count": 28,
+              "total_text_length": 868,
+              "average_confidence": 0.9909,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_threshold_1_35x",
+              "raw_line_count": 29,
+              "total_text_length": 863,
+              "average_confidence": 0.9242,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 14,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "malto nus:\ntuana taho gum:\nmotle garios\nvidee q9rio tofai ot slo\nvdeo qrio piolia & rokrofco\nvidee qarro cheads & hints:\nvidee qriok*:krionf:",
+            "query_line": null,
+            "bottom_block_text": "malto nus:\ntuana taho gum:\nmotle garios\nvidee q9rio tofai ot slo\nvdeo qrio piolia & rokrofco\nvidee qarro cheads & hints:\nvidee qriok*:krionf:",
+            "selected_lines": [
+              {
+                "text": "malto nus:",
+                "confidence": 0.6603,
+                "bbox": [
+                  [
+                    0.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    403.0
+                  ],
+                  [
+                    0.0,
+                    403.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 51.0,
+                    "y": 391.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "tuana taho gum:",
+                "confidence": 0.624,
+                "bbox": [
+                  [
+                    0.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    421.0
+                  ],
+                  [
+                    0.0,
+                    421.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 79.0,
+                    "y": 410.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "motle garios",
+                "confidence": 0.7338,
+                "bbox": [
+                  [
+                    0.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    441.0
+                  ],
+                  [
+                    0.0,
+                    441.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 54.0,
+                    "y": 430.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe q9rio tofai ot slo",
+                "confidence": 0.7981,
+                "bbox": [
+                  [
+                    1.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    457.0
+                  ],
+                  [
+                    1.0,
+                    457.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 91.5,
+                    "y": 448.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "vdeo qrio piolia & rokrofco",
+                "confidence": 0.7835,
+                "bbox": [
+                  [
+                    1.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    476.0
+                  ],
+                  [
+                    1.0,
+                    476.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 113.5,
+                    "y": 467.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qarro cheads & hints:",
+                "confidence": 0.8963,
+                "bbox": [
+                  [
+                    0.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    497.0
+                  ],
+                  [
+                    0.0,
+                    497.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 97.5,
+                    "y": 486.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qriok*:krionf:",
+                "confidence": 0.5586,
+                "bbox": [
+                  [
+                    1.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    515.0
+                  ],
+                  [
+                    1.0,
+                    515.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 94.5,
+                    "y": 506.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "malto nus:",
+                "confidence": 0.6603,
+                "bbox": [
+                  [
+                    0.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    403.0
+                  ],
+                  [
+                    0.0,
+                    403.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 51.0,
+                    "y": 391.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "tuana taho gum:",
+                "confidence": 0.624,
+                "bbox": [
+                  [
+                    0.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    421.0
+                  ],
+                  [
+                    0.0,
+                    421.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 79.0,
+                    "y": 410.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "motle garios",
+                "confidence": 0.7338,
+                "bbox": [
+                  [
+                    0.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    441.0
+                  ],
+                  [
+                    0.0,
+                    441.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 54.0,
+                    "y": 430.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe q9rio tofai ot slo",
+                "confidence": 0.7981,
+                "bbox": [
+                  [
+                    1.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    457.0
+                  ],
+                  [
+                    1.0,
+                    457.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 91.5,
+                    "y": 448.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "vdeo qrio piolia & rokrofco",
+                "confidence": 0.7835,
+                "bbox": [
+                  [
+                    1.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    476.0
+                  ],
+                  [
+                    1.0,
+                    476.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 113.5,
+                    "y": 467.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qarro cheads & hints:",
+                "confidence": 0.8963,
+                "bbox": [
+                  [
+                    0.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    497.0
+                  ],
+                  [
+                    0.0,
+                    497.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 97.5,
+                    "y": 486.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qriok*:krionf:",
+                "confidence": 0.5586,
+                "bbox": [
+                  [
+                    1.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    515.0
+                  ],
+                  [
+                    1.0,
+                    515.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 94.5,
+                    "y": 506.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": false,
+              "line_count": 7,
+              "price_line_indexes": [],
+              "dark_price_line_indexes": [],
+              "price_anchor_index": null,
+              "blue_title_line_indexes": [],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": false,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": false,
+              "has_lettered_blue_title_line": false,
+              "has_dark_like_price_line": false,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.921,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.921,
+                    "dark": 0.026
+                  },
+                  "ink_pixel_count": 2326
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.885,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.885,
+                    "dark": 0.028
+                  },
+                  "ink_pixel_count": 3135
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.91,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.91,
+                    "dark": 0.02
+                  },
+                  "ink_pixel_count": 2132
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.899,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.899,
+                    "dark": 0.027
+                  },
+                  "ink_pixel_count": 2850
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.912,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.912,
+                    "dark": 0.031
+                  },
+                  "ink_pixel_count": 3732
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.92,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.92,
+                    "dark": 0.026
+                  },
+                  "ink_pixel_count": 3844
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.906,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.906,
+                    "dark": 0.034
+                  },
+                  "ink_pixel_count": 3107
+                }
+              ],
+              "reasons": [
+                "expected 3-6 product lines, got 7",
+                "missing price-like line above retailer",
+                "missing dark price-like line above retailer",
+                "missing blue title line above price",
+                "missing letters in blue title lines"
+              ]
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Video Games category does i",
+                "confidence": 0.9884,
+                "bbox": [
+                  [
+                    751.0,
+                    335.0
+                  ],
+                  [
+                    980.0,
+                    335.0
+                  ],
+                  [
+                    980.0,
+                    354.0
+                  ],
+                  [
+                    751.0,
+                    354.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 865.5,
+                    "y": 344.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 25.0
+            },
+            "row_lines": [
+              {
+                "text": "Aumeldan um",
+                "confidence": 0.8116,
+                "bbox": [
+                  [
+                    167.0,
+                    81.0
+                  ],
+                  [
+                    262.0,
+                    81.0
+                  ],
+                  [
+                    262.0,
+                    99.0
+                  ],
+                  [
+                    167.0,
+                    99.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 214.5,
+                    "y": 90.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "fortmrfahwren",
+                "confidence": 0.8317,
+                "bbox": [
+                  [
+                    173.0,
+                    102.0
+                  ],
+                  [
+                    256.0,
+                    102.0
+                  ],
+                  [
+                    256.0,
+                    117.0
+                  ],
+                  [
+                    173.0,
+                    117.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 214.5,
+                    "y": 109.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "puld this creative be classified as related to Video Games?",
+                "confidence": 0.99,
+                "bbox": [
+                  [
+                    0.0,
+                    229.0
+                  ],
+                  [
+                    528.0,
+                    229.0
+                  ],
+                  [
+                    528.0,
+                    251.0
+                  ],
+                  [
+                    0.0,
+                    251.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-left",
+                  "vertical_band": "top",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 264.0,
+                    "y": 240.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "The V ceo Games cacegc\"y rcludes conten: re sted to video gaves, console games, cn ine are dovrloadable games. reza lers",
+                "confidence": 0.9257,
+                "bbox": [
+                  [
+                    0.0,
+                    279.0
+                  ],
+                  [
+                    980.0,
+                    279.0
+                  ],
+                  [
+                    980.0,
+                    301.0
+                  ],
+                  [
+                    0.0,
+                    301.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 490.0,
+                    "y": 290.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "\"srketing. but coes no: include ccntert related to v ceo gare consolea a",
+                "confidence": 0.9307,
+                "bbox": [
+                  [
+                    408.0,
+                    301.0
+                  ],
+                  [
+                    978.0,
+                    301.0
+                  ],
+                  [
+                    978.0,
+                    319.0
+                  ],
+                  [
+                    408.0,
+                    319.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 693.0,
+                    "y": 310.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "e ¿tsmooscxeyTimekpib ce: iticet:dail ia",
+                "confidence": 0.5935,
+                "bbox": [
+                  [
+                    0.0,
+                    333.0
+                  ],
+                  [
+                    349.0,
+                    333.0
+                  ],
+                  [
+                    349.0,
+                    355.0
+                  ],
+                  [
+                    0.0,
+                    355.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 174.5,
+                    "y": 344.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Video Games category does i",
+                "confidence": 0.9884,
+                "bbox": [
+                  [
+                    751.0,
+                    335.0
+                  ],
+                  [
+                    980.0,
+                    335.0
+                  ],
+                  [
+                    980.0,
+                    354.0
+                  ],
+                  [
+                    751.0,
+                    354.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 865.5,
+                    "y": 344.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "malto nus:",
+                "confidence": 0.6603,
+                "bbox": [
+                  [
+                    0.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    379.0
+                  ],
+                  [
+                    102.0,
+                    403.0
+                  ],
+                  [
+                    0.0,
+                    403.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 51.0,
+                    "y": 391.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "tuana taho gum:",
+                "confidence": 0.624,
+                "bbox": [
+                  [
+                    0.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    400.0
+                  ],
+                  [
+                    158.0,
+                    421.0
+                  ],
+                  [
+                    0.0,
+                    421.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 79.0,
+                    "y": 410.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "motle garios",
+                "confidence": 0.7338,
+                "bbox": [
+                  [
+                    0.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    420.0
+                  ],
+                  [
+                    108.0,
+                    441.0
+                  ],
+                  [
+                    0.0,
+                    441.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 54.0,
+                    "y": 430.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe q9rio tofai ot slo",
+                "confidence": 0.7981,
+                "bbox": [
+                  [
+                    1.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    440.0
+                  ],
+                  [
+                    182.0,
+                    457.0
+                  ],
+                  [
+                    1.0,
+                    457.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 91.5,
+                    "y": 448.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "vdeo qrio piolia & rokrofco",
+                "confidence": 0.7835,
+                "bbox": [
+                  [
+                    1.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    458.0
+                  ],
+                  [
+                    226.0,
+                    476.0
+                  ],
+                  [
+                    1.0,
+                    476.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 113.5,
+                    "y": 467.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qarro cheads & hints:",
+                "confidence": 0.8963,
+                "bbox": [
+                  [
+                    0.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    476.0
+                  ],
+                  [
+                    195.0,
+                    497.0
+                  ],
+                  [
+                    0.0,
+                    497.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 97.5,
+                    "y": 486.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "videe qriok*:krionf:",
+                "confidence": 0.5586,
+                "bbox": [
+                  [
+                    1.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    497.0
+                  ],
+                  [
+                    188.0,
+                    515.0
+                  ],
+                  [
+                    1.0,
+                    515.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-left",
+                  "vertical_band": "mid",
+                  "horizontal_band": "left",
+                  "center": {
+                    "x": 94.5,
+                    "y": 506.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": true,
+            "selected_variant_retry_phase": "retry"
+          },
+          "summary_by_region": {
+            "top-left": [
+              "Aumeldan um\nfortmrfahwren"
+            ],
+            "mid-mid": [
+              "puld this creative be classified as related to Video Games?\nThe V ceo Games cacegc\"y rcludes conten: re sted to video gaves, console games, cn ine are dovrloadable games. reza lers\n\"srketing. but coes no: include ccntert related to v ceo gare consolea a\ne ¿tsmooscxeyTimekpib ce: iticet:dail ia Video Games category does i\nmalto nus:\ntuana taho gum:\nmotle garios videe q9rio tofai ot slo\nvdeo qrio piolia & rokrofco\nvidee qarro cheads & hints:\nvidee qriok*:krionf:"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Aumeldan um\nfortmrfahwren",
+              "confidence": 0.8216,
+              "bbox": [
+                [
+                  167.0,
+                  81.0
+                ],
+                [
+                  262.0,
+                  81.0
+                ],
+                [
+                  262.0,
+                  117.0
+                ],
+                [
+                  167.0,
+                  117.0
+                ]
+              ],
+              "position": {
+                "label": "top-left",
+                "vertical_band": "top",
+                "horizontal_band": "left",
+                "center": {
+                  "x": 214.5,
+                  "y": 99.0
+                }
+              },
+              "raw_item_count": 2
+            },
+            {
+              "text": "puld this creative be classified as related to Video Games?\nThe V ceo Games cacegc\"y rcludes conten: re sted to video gaves, console games, cn ine are dovrloadable games. reza lers\n\"srketing. but coes no: include ccntert related to v ceo gare consolea a\ne ¿tsmooscxeyTimekpib ce: iticet:dail ia Video Games category does i\nmalto nus:\ntuana taho gum:\nmotle garios videe q9rio tofai ot slo\nvdeo qrio piolia & rokrofco\nvidee qarro cheads & hints:\nvidee qriok*:krionf:",
+              "confidence": 0.7902,
+              "bbox": [
+                [
+                  0.0,
+                  229.0
+                ],
+                [
+                  980.0,
+                  229.0
+                ],
+                [
+                  980.0,
+                  515.0
+                ],
+                [
+                  0.0,
+                  515.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 490.0,
+                  "y": 372.0
+                }
+              },
+              "raw_item_count": 12
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-05-23T17:57:01",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\control_ocr_20260523_175627_544120.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "contrast_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\control_ocr_20260523_175627_544120.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 21,
+              "total_text_length": 615,
+              "average_confidence": 0.9138,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 20,
+              "total_text_length": 614,
+              "average_confidence": 0.9063,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 20,
+              "total_text_length": 618,
+              "average_confidence": 0.9276,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 19,
+              "total_text_length": 613,
+              "average_confidence": 0.9495,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "contrast_native",
+              "raw_line_count": 20,
+              "total_text_length": 617,
+              "average_confidence": 0.8926,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "dark_text_native",
+              "raw_line_count": 17,
+              "total_text_length": 589,
+              "average_confidence": 0.9168,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "blue_text_native",
+              "raw_line_count": 17,
+              "total_text_length": 592,
+              "average_confidence": 0.9664,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "green_text_native",
+              "raw_line_count": 1,
+              "total_text_length": 1,
+              "average_confidence": 0.7261,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_upscaled_1_35x",
+              "raw_line_count": 20,
+              "total_text_length": 617,
+              "average_confidence": 0.9402,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "retry_threshold_1_35x",
+              "raw_line_count": 19,
+              "total_text_length": 616,
+              "average_confidence": 0.9607,
+              "image_size": {
+                "width": 1323,
+                "height": 1080
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 17,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Mit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -\nverbinden wir Wissen, Abenteuer und digitale Innovation zu einem\neinzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive\nGeografie-Expedition quer durch Thun! Die Geo-Odyssee besteht\naus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+            "query_line": null,
+            "bottom_block_text": "Mit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -\nverbinden wir Wissen, Abenteuer und digitale Innovation zu einem\neinzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive\nGeografie-Expedition quer durch Thun! Die Geo-Odyssee besteht\naus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+            "selected_lines": [
+              {
+                "text": "Mit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -",
+                "confidence": 0.9891,
+                "bbox": [
+                  [
+                    391.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    683.0
+                  ],
+                  [
+                    391.0,
+                    683.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 650.0,
+                    "y": 674.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "verbinden wir Wissen, Abenteuer und digitale Innovation zu einem",
+                "confidence": 0.9871,
+                "bbox": [
+                  [
+                    389.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    714.0
+                  ],
+                  [
+                    389.0,
+                    714.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 654.5,
+                    "y": 703.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "einzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive",
+                "confidence": 0.9985,
+                "bbox": [
+                  [
+                    390.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    742.0
+                  ],
+                  [
+                    390.0,
+                    742.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 637.0,
+                    "y": 732.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Geografie-Expedition quer durch Thun! Die Geo-Odyssee besteht",
+                "confidence": 0.9758,
+                "bbox": [
+                  [
+                    389.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    772.0
+                  ],
+                  [
+                    389.0,
+                    772.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 659.0,
+                    "y": 761.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "aus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    391.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    799.0
+                  ],
+                  [
+                    391.0,
+                    799.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 657.0,
+                    "y": 790.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Mit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -",
+                "confidence": 0.9891,
+                "bbox": [
+                  [
+                    391.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    683.0
+                  ],
+                  [
+                    391.0,
+                    683.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 650.0,
+                    "y": 674.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "verbinden wir Wissen, Abenteuer und digitale Innovation zu einem",
+                "confidence": 0.9871,
+                "bbox": [
+                  [
+                    389.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    714.0
+                  ],
+                  [
+                    389.0,
+                    714.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 654.5,
+                    "y": 703.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "einzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive",
+                "confidence": 0.9985,
+                "bbox": [
+                  [
+                    390.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    742.0
+                  ],
+                  [
+                    390.0,
+                    742.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 637.0,
+                    "y": 732.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Geografie-Expedition quer durch Thun! Die Geo-Odyssee besteht",
+                "confidence": 0.9758,
+                "bbox": [
+                  [
+                    389.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    772.0
+                  ],
+                  [
+                    389.0,
+                    772.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 659.0,
+                    "y": 761.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "aus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    391.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    799.0
+                  ],
+                  [
+                    391.0,
+                    799.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 657.0,
+                    "y": 790.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": false,
+              "line_count": 5,
+              "price_line_indexes": [],
+              "dark_price_line_indexes": [],
+              "price_anchor_index": null,
+              "blue_title_line_indexes": [],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": false,
+              "has_retailer_like_bottom_line": false,
+              "has_blue_like_title_line": false,
+              "has_lettered_blue_title_line": false,
+              "has_dark_like_price_line": false,
+              "has_green_like_retailer_line": false,
+              "line_color_hints": [
+                {
+                  "dominant": "other",
+                  "dominant_ratio": 0.143,
+                  "ratios": {
+                    "blue": 0.143,
+                    "green": 0.0,
+                    "dark": 0.053
+                  },
+                  "ink_pixel_count": 8806
+                },
+                {
+                  "dominant": "other",
+                  "dominant_ratio": 0.113,
+                  "ratios": {
+                    "blue": 0.113,
+                    "green": 0.0,
+                    "dark": 0.05
+                  },
+                  "ink_pixel_count": 11682
+                },
+                {
+                  "dominant": "other",
+                  "dominant_ratio": 0.128,
+                  "ratios": {
+                    "blue": 0.128,
+                    "green": 0.0,
+                    "dark": 0.05
+                  },
+                  "ink_pixel_count": 9880
+                },
+                {
+                  "dominant": "other",
+                  "dominant_ratio": 0.115,
+                  "ratios": {
+                    "blue": 0.115,
+                    "green": 0.0,
+                    "dark": 0.045
+                  },
+                  "ink_pixel_count": 11880
+                },
+                {
+                  "dominant": "other",
+                  "dominant_ratio": 0.218,
+                  "ratios": {
+                    "blue": 0.218,
+                    "green": 0.0,
+                    "dark": 0.048
+                  },
+                  "ink_pixel_count": 9576
+                }
+              ],
+              "reasons": [
+                "missing price-like line above retailer",
+                "missing dark price-like line above retailer",
+                "missing retailer-like bottom line",
+                "missing green retailer line",
+                "missing blue title line above price",
+                "missing letters in blue title lines"
+              ]
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Worum geht's?",
+                "confidence": 0.9993,
+                "bbox": [
+                  [
+                    416.0,
+                    618.0
+                  ],
+                  [
+                    545.0,
+                    618.0
+                  ],
+                  [
+                    545.0,
+                    639.0
+                  ],
+                  [
+                    416.0,
+                    639.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 480.5,
+                    "y": 628.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 27.0
+            },
+            "row_lines": [
+              {
+                "text": "Inkl. Steuern. Versand wird beim Checkout berechnet",
+                "confidence": 0.9953,
+                "bbox": [
+                  [
+                    391.0,
+                    1.0
+                  ],
+                  [
+                    727.0,
+                    1.0
+                  ],
+                  [
+                    727.0,
+                    16.0
+                  ],
+                  [
+                    391.0,
+                    16.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 559.0,
+                    "y": 8.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Teilnehmer",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    388.0,
+                    33.0
+                  ],
+                  [
+                    465.0,
+                    33.0
+                  ],
+                  [
+                    465.0,
+                    52.0
+                  ],
+                  [
+                    388.0,
+                    52.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 426.5,
+                    "y": 42.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Basic (1 Smartphone = 1 QR Code)",
+                "confidence": 0.983,
+                "bbox": [
+                  [
+                    411.0,
+                    75.0
+                  ],
+                  [
+                    616.0,
+                    75.0
+                  ],
+                  [
+                    616.0,
+                    90.0
+                  ],
+                  [
+                    411.0,
+                    90.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 513.5,
+                    "y": 82.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Anzahl",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    388.0,
+                    121.0
+                  ],
+                  [
+                    438.0,
+                    121.0
+                  ],
+                  [
+                    438.0,
+                    141.0
+                  ],
+                  [
+                    388.0,
+                    141.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 413.0,
+                    "y": 131.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "1",
+                "confidence": 0.9884,
+                "bbox": [
+                  [
+                    456.0,
+                    162.0
+                  ],
+                  [
+                    470.0,
+                    162.0
+                  ],
+                  [
+                    470.0,
+                    180.0
+                  ],
+                  [
+                    456.0,
+                    180.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 463.0,
+                    "y": 171.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "In den Warenkorb legen",
+                "confidence": 0.997,
+                "bbox": [
+                  [
+                    513.0,
+                    231.0
+                  ],
+                  [
+                    709.0,
+                    231.0
+                  ],
+                  [
+                    709.0,
+                    254.0
+                  ],
+                  [
+                    513.0,
+                    254.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 611.0,
+                    "y": 242.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Jetzt zum Checkout",
+                "confidence": 0.9977,
+                "bbox": [
+                  [
+                    532.0,
+                    293.0
+                  ],
+                  [
+                    691.0,
+                    293.0
+                  ],
+                  [
+                    691.0,
+                    310.0
+                  ],
+                  [
+                    532.0,
+                    310.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 611.5,
+                    "y": 301.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Geo-Odyssee Quiz-Trail in Thun Die ultimative",
+                "confidence": 0.9946,
+                "bbox": [
+                  [
+                    391.0,
+                    350.0
+                  ],
+                  [
+                    860.0,
+                    350.0
+                  ],
+                  [
+                    860.0,
+                    371.0
+                  ],
+                  [
+                    391.0,
+                    371.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 625.5,
+                    "y": 360.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Geografie-Challenge für Entdecker!",
+                "confidence": 0.9907,
+                "bbox": [
+                  [
+                    390.0,
+                    374.0
+                  ],
+                  [
+                    773.0,
+                    374.0
+                  ],
+                  [
+                    773.0,
+                    398.0
+                  ],
+                  [
+                    390.0,
+                    398.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 581.5,
+                    "y": 386.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Unser erstes Highlight der Serie: Der GEO-ODYSSEE QUIZ-TRAIL in",
+                "confidence": 0.9889,
+                "bbox": [
+                  [
+                    389.0,
+                    422.0
+                  ],
+                  [
+                    944.0,
+                    422.0
+                  ],
+                  [
+                    944.0,
+                    444.0
+                  ],
+                  [
+                    389.0,
+                    444.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-right",
+                  "vertical_band": "mid",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 666.5,
+                    "y": 433.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Thun!",
+                "confidence": 0.9998,
+                "bbox": [
+                  [
+                    388.0,
+                    451.0
+                  ],
+                  [
+                    441.0,
+                    451.0
+                  ],
+                  [
+                    441.0,
+                    473.0
+                  ],
+                  [
+                    388.0,
+                    473.0
+                  ]
+                ],
+                "position": {
+                  "label": "mid-mid",
+                  "vertical_band": "mid",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 414.5,
+                    "y": 462.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Worum geht's?",
+                "confidence": 0.9993,
+                "bbox": [
+                  [
+                    416.0,
+                    618.0
+                  ],
+                  [
+                    545.0,
+                    618.0
+                  ],
+                  [
+                    545.0,
+                    639.0
+                  ],
+                  [
+                    416.0,
+                    639.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 480.5,
+                    "y": 628.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Mit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -",
+                "confidence": 0.9891,
+                "bbox": [
+                  [
+                    391.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    666.0
+                  ],
+                  [
+                    909.0,
+                    683.0
+                  ],
+                  [
+                    391.0,
+                    683.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 650.0,
+                    "y": 674.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "verbinden wir Wissen, Abenteuer und digitale Innovation zu einem",
+                "confidence": 0.9871,
+                "bbox": [
+                  [
+                    389.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    692.0
+                  ],
+                  [
+                    920.0,
+                    714.0
+                  ],
+                  [
+                    389.0,
+                    714.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 654.5,
+                    "y": 703.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "einzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive",
+                "confidence": 0.9985,
+                "bbox": [
+                  [
+                    390.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    722.0
+                  ],
+                  [
+                    884.0,
+                    742.0
+                  ],
+                  [
+                    390.0,
+                    742.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 637.0,
+                    "y": 732.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Geografie-Expedition quer durch Thun! Die Geo-Odyssee besteht",
+                "confidence": 0.9758,
+                "bbox": [
+                  [
+                    389.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    750.0
+                  ],
+                  [
+                    929.0,
+                    772.0
+                  ],
+                  [
+                    389.0,
+                    772.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 659.0,
+                    "y": 761.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "aus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+                "confidence": 0.9879,
+                "bbox": [
+                  [
+                    391.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    781.0
+                  ],
+                  [
+                    923.0,
+                    799.0
+                  ],
+                  [
+                    391.0,
+                    799.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-right",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "right",
+                  "center": {
+                    "x": 657.0,
+                    "y": 790.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": true,
+            "selected_variant_retry_phase": "retry"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Inkl. Steuern. Versand wird beim Checkout berechnet\nTeilnehmer\nBasic (1 Smartphone = 1 QR Code)",
+              "Anzahl",
+              "1",
+              "In den Warenkorb legen"
+            ],
+            "mid-mid": [
+              "Jetzt zum Checkout"
+            ],
+            "mid-right": [
+              "Geo-Odyssee Quiz-Trail in Thun Die ultimative\nGeografie-Challenge für Entdecker!\nUnser erstes Highlight der Serie: Der GEO-ODYSSEE QUIZ-TRAIL in\nThun!"
+            ],
+            "bottom-right": [
+              "Worum geht's?\nMit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -\nverbinden wir Wissen, Abenteuer und digitale Innovation zu einem\neinzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive\nGeografie-Expedition quer durch Thun! Die Geo-Odyssee besteht\naus 12 herausfordernden Posten mit über 60 spannenden Fragen"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Inkl. Steuern. Versand wird beim Checkout berechnet\nTeilnehmer\nBasic (1 Smartphone = 1 QR Code)",
+              "confidence": 0.9927,
+              "bbox": [
+                [
+                  388.0,
+                  1.0
+                ],
+                [
+                  727.0,
+                  1.0
+                ],
+                [
+                  727.0,
+                  90.0
+                ],
+                [
+                  388.0,
+                  90.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 557.5,
+                  "y": 45.5
+                }
+              },
+              "raw_item_count": 3
+            },
+            {
+              "text": "Anzahl",
+              "confidence": 0.9998,
+              "bbox": [
+                [
+                  388.0,
+                  121.0
+                ],
+                [
+                  438.0,
+                  121.0
+                ],
+                [
+                  438.0,
+                  141.0
+                ],
+                [
+                  388.0,
+                  141.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 413.0,
+                  "y": 131.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "1",
+              "confidence": 0.9884,
+              "bbox": [
+                [
+                  456.0,
+                  162.0
+                ],
+                [
+                  470.0,
+                  162.0
+                ],
+                [
+                  470.0,
+                  180.0
+                ],
+                [
+                  456.0,
+                  180.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 463.0,
+                  "y": 171.0
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "In den Warenkorb legen",
+              "confidence": 0.997,
+              "bbox": [
+                [
+                  513.0,
+                  231.0
+                ],
+                [
+                  709.0,
+                  231.0
+                ],
+                [
+                  709.0,
+                  254.0
+                ],
+                [
+                  513.0,
+                  254.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 611.0,
+                  "y": 242.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Jetzt zum Checkout",
+              "confidence": 0.9977,
+              "bbox": [
+                [
+                  532.0,
+                  293.0
+                ],
+                [
+                  691.0,
+                  293.0
+                ],
+                [
+                  691.0,
+                  310.0
+                ],
+                [
+                  532.0,
+                  310.0
+                ]
+              ],
+              "position": {
+                "label": "mid-mid",
+                "vertical_band": "mid",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 611.5,
+                  "y": 301.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Geo-Odyssee Quiz-Trail in Thun Die ultimative\nGeografie-Challenge für Entdecker!\nUnser erstes Highlight der Serie: Der GEO-ODYSSEE QUIZ-TRAIL in\nThun!",
+              "confidence": 0.9935,
+              "bbox": [
+                [
+                  388.0,
+                  350.0
+                ],
+                [
+                  944.0,
+                  350.0
+                ],
+                [
+                  944.0,
+                  473.0
+                ],
+                [
+                  388.0,
+                  473.0
+                ]
+              ],
+              "position": {
+                "label": "mid-right",
+                "vertical_band": "mid",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 666.0,
+                  "y": 411.5
+                }
+              },
+              "raw_item_count": 4
+            },
+            {
+              "text": "Worum geht's?\nMit unserer neusten Erlebnisreihe - den interaktiven Quiz-Trails -\nverbinden wir Wissen, Abenteuer und digitale Innovation zu einem\neinzigartigen Outdoor-Erlebnis! Tauche ein in eine interaktive\nGeografie-Expedition quer durch Thun! Die Geo-Odyssee besteht\naus 12 herausfordernden Posten mit über 60 spannenden Fragen",
+              "confidence": 0.9896,
+              "bbox": [
+                [
+                  389.0,
+                  618.0
+                ],
+                [
+                  929.0,
+                  618.0
+                ],
+                [
+                  929.0,
+                  799.0
+                ],
+                [
+                  389.0,
+                  799.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-right",
+                "vertical_band": "bottom",
+                "horizontal_band": "right",
+                "center": {
+                  "x": 659.0,
+                  "y": 708.5
+                }
+              },
+              "raw_item_count": 6
+            }
+          ]
+        }
+      ]
     }
   }
 }

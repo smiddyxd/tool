@@ -146,13 +146,15 @@ const CONTROL_PROCESSING_COMMANDS = new Set([
   "start_task_screenshot",
   "ocr_google_results",
   "draft_comment_feedback",
+  "process_chat",
 ]);
 const BATCHABLE_CONTROL_COMMANDS = new Set([
   "set_task_type",
   "set_project_account",
   "sync_task_type",
 ]);
-const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback"]);
+const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat"]);
+const CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat"]);
 
 const state = {
   isPolling: false,
@@ -163,6 +165,7 @@ const state = {
   cancelledControlRunIds: new Set(),
   controlRunTabIds: new Map(),
   nonCountingControlRunIds: new Set(),
+  currentChatRequiredControlRunIds: new Set(),
   lastQueuedControlStatus: null,
   lastHandshakeLogAt: 0,
   lastChatGptTabId: null,
@@ -247,6 +250,25 @@ function shouldCountControlRunSubmission(runId) {
   return !normalizedRunId || !state.nonCountingControlRunIds.has(normalizedRunId);
 }
 
+function rememberControlRunCurrentChatRequirement(runId, commandName, requiresCurrentChat = false) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  const normalizedCommand = typeof commandName === "string" ? commandName.trim() : "";
+  if (!normalizedRunId) {
+    return;
+  }
+
+  if (requiresCurrentChat || CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS.has(normalizedCommand)) {
+    state.currentChatRequiredControlRunIds.add(normalizedRunId);
+  } else if (normalizedCommand) {
+    state.currentChatRequiredControlRunIds.delete(normalizedRunId);
+  }
+}
+
+function controlRunRequiresCurrentChat(runId) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  return Boolean(normalizedRunId && state.currentChatRequiredControlRunIds.has(normalizedRunId));
+}
+
 function getControlRunTabId(runId) {
   const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
   if (!normalizedRunId) {
@@ -261,6 +283,7 @@ function forgetControlRunTab(runId) {
   if (normalizedRunId) {
     state.controlRunTabIds.delete(normalizedRunId);
     state.nonCountingControlRunIds.delete(normalizedRunId);
+    state.currentChatRequiredControlRunIds.delete(normalizedRunId);
   }
 }
 
@@ -693,6 +716,8 @@ function getBridgeTrafficActionLabel(action) {
       return "Google results OCR";
     case "control:draft_comment_feedback":
       return "rating comment";
+    case "control:process_chat":
+      return "process chat";
     case "control:cancel_control_processing":
       return "cancel processing";
     case BRIDGE_ACTION_CONTROL:
@@ -1915,6 +1940,27 @@ async function buildSubmissionTargets(promptTexts, taskType = "", preferredTabId
   return assignPromptTargets(resolvedTabs, promptTexts, "Local Query Bridge resolved submission targets", settings.activeBridgeTaskType);
 }
 
+async function buildCurrentChatSubmissionTargets(promptTexts, taskType = "", preferredTabId = null) {
+  const settings = await getRoutingOptionsForTaskType(taskType);
+  const tab = await getChatGptTabById(preferredTabId);
+  if (!tab?.id) {
+    console.warn("Local Query Bridge has no original ChatGPT tab for current-chat submission", {
+      preferredTabId: preferredTabId ?? "",
+    });
+    return [];
+  }
+
+  console.log("Local Query Bridge resolved current-chat submission target", {
+    preferredTabId,
+    target: tab.id,
+  });
+  return [{
+    tabId: tab.id,
+    promptText: selectPromptForIndex(promptTexts, 0),
+    taskType: settings.activeBridgeTaskType,
+  }];
+}
+
 async function buildRepeatTargets(promptTexts, taskType = "") {
   const settings = await getRoutingOptionsForTaskType(taskType);
   let baseTabs = await getActiveChatGptTabsAcrossWindows(settings.defaultStartPageUrl);
@@ -1989,17 +2035,26 @@ async function getOrCreatePendingTargets() {
     }
   }
 
-  const nextTargets = state.pendingSubmission.submissionMode === EVENT_TYPE_ALERT_TASK
-    ? await buildAlertTargets(
-      state.pendingSubmission.promptTexts,
-      state.pendingSubmission.taskType,
-      state.pendingSubmission.preferredTabId,
-    )
-    : await buildSubmissionTargets(
+  let nextTargets = [];
+  if (state.pendingSubmission.requiresCurrentChat) {
+    nextTargets = await buildCurrentChatSubmissionTargets(
       state.pendingSubmission.promptTexts,
       state.pendingSubmission.taskType,
       state.pendingSubmission.preferredTabId,
     );
+  } else if (state.pendingSubmission.submissionMode === EVENT_TYPE_ALERT_TASK) {
+    nextTargets = await buildAlertTargets(
+      state.pendingSubmission.promptTexts,
+      state.pendingSubmission.taskType,
+      state.pendingSubmission.preferredTabId,
+    );
+  } else {
+    nextTargets = await buildSubmissionTargets(
+      state.pendingSubmission.promptTexts,
+      state.pendingSubmission.taskType,
+      state.pendingSubmission.preferredTabId,
+    );
+  }
   state.pendingSubmission.targets = nextTargets;
   return nextTargets;
 }
@@ -2066,12 +2121,20 @@ async function deliverPendingSubmissionAttempt() {
   }
 
   if (targets.length === 0) {
-    console.warn("Local Query Bridge has no eligible ChatGPT submission targets");
+    const noTargetMessage = pendingSubmission.requiresCurrentChat
+      ? "The original ChatGPT tab for this context-dependent action was not available."
+      : "No eligible ChatGPT tab was available for delivery.";
+    console.warn("Local Query Bridge has no eligible ChatGPT submission targets", {
+      requiresCurrentChat: Boolean(pendingSubmission.requiresCurrentChat),
+      preferredTabId: pendingSubmission.preferredTabId ?? "",
+    });
     if (deliveryAttempt < MAX_DELIVERY_ATTEMPTS) {
       await reportControlDeliveryStatus(
         pendingSubmission,
         "worker-send",
-        "No eligible ChatGPT target yet; retrying delivery.",
+        pendingSubmission.requiresCurrentChat
+          ? "Original ChatGPT tab unavailable; retrying without opening another chat."
+          : "No eligible ChatGPT target yet; retrying delivery.",
         {
           attempt: deliveryAttempt,
           attemptTotal: MAX_DELIVERY_ATTEMPTS,
@@ -2084,7 +2147,7 @@ async function deliverPendingSubmissionAttempt() {
     await reportControlDeliveryStatus(
       pendingSubmission,
       "error",
-      "No eligible ChatGPT tab was available for delivery.",
+      noTargetMessage,
       {
         attempt: deliveryAttempt,
         attemptTotal: MAX_DELIVERY_ATTEMPTS,
@@ -2112,6 +2175,7 @@ async function deliverPendingSubmissionAttempt() {
     screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
     deliveryAttempt,
     preferredTabId: pendingSubmission.preferredTabId ?? "",
+    requiresCurrentChat: Boolean(pendingSubmission.requiresCurrentChat),
     targets: targets.map((target) => target.tabId),
   });
   await reportControlDeliveryStatus(
@@ -2122,6 +2186,7 @@ async function deliverPendingSubmissionAttempt() {
       attempt: deliveryAttempt,
       attemptTotal: MAX_DELIVERY_ATTEMPTS,
       screenshotCount: Array.isArray(imageDataUrls) ? imageDataUrls.length : 0,
+      requiresCurrentChat: Boolean(pendingSubmission.requiresCurrentChat),
     },
   );
   const results = await Promise.allSettled(
@@ -2817,6 +2882,7 @@ async function sendServerControlCommand(command, sender) {
   if (controlRunId) {
     rememberControlRunTab(controlRunId, payload.tabId);
     rememberControlRunCountingBehavior(controlRunId, payload.command);
+    rememberControlRunCurrentChatRequirement(controlRunId, payload.command);
   }
   const commandName = typeof payload.command === "string" && payload.command ? payload.command : "";
   const logAction = commandName === "sync_task_type"
@@ -3080,6 +3146,13 @@ async function pollLocalBridge() {
           if (status.runId && status.tabId) {
             rememberControlRunTab(status.runId, status.tabId);
           }
+          if (status.runId && status.details && typeof status.details === "object") {
+            rememberControlRunCurrentChatRequirement(
+              status.runId,
+              status.details.command,
+              status.details.requiresCurrentChat === true,
+            );
+          }
           if (status.type === "cancel" && status.runId) {
             state.cancelledControlRunIds.add(status.runId);
             forgetControlRunTab(status.runId);
@@ -3190,6 +3263,7 @@ async function pollLocalBridge() {
           taskType: eventTaskType,
           controlRunId,
           preferredTabId: getControlRunTabId(controlRunId),
+          requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
         };
 
         await deliverPendingSubmission();
@@ -3260,6 +3334,7 @@ async function pollLocalBridge() {
           taskType: eventTaskType,
           controlRunId,
           preferredTabId: getControlRunTabId(controlRunId),
+          requiresCurrentChat: false,
         };
 
         await deliverPendingSubmission();
@@ -3356,6 +3431,7 @@ async function pollLocalBridge() {
         taskType: eventTaskType,
         controlRunId,
         preferredTabId: getControlRunTabId(controlRunId),
+        requiresCurrentChat: false,
       };
 
       await deliverPendingSubmission();
