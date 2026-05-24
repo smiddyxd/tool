@@ -48,11 +48,15 @@ BRIDGE_ACTION_COUNTS = "counts"
 BRIDGE_ACTION_CONTROL = "control"
 BRIDGE_ACTION_COVER = "cover"
 BRIDGE_ACTION_BATCH = "batch"
+BRIDGE_ACTION_SETTINGS_PUSH = "settings_push"
+BRIDGE_ACTION_SETTINGS_PULL = "settings_pull"
 BRIDGE_RESPONSE_TARGET_PARAM = "__bridgeResponseTargetBytes"
 BRIDGE_PADDING_MAX_EXTRA_BYTES = 262_144
 BRIDGE_REAL_TOTAL_MIN_BYTES = 1_363_149
 BRIDGE_REAL_TOTAL_MAX_BYTES = 3_145_728
 BRIDGE_BATCH_MAX_REQUESTS = 12
+BRIDGE_SETTINGS_SYNC_PATH = Path(__file__).resolve().parent.parent / "chrome_extension" / "bridge_synced_settings.json"
+BRIDGE_SETTINGS_SYNC_MAX_BYTES = 5_000_000
 
 # Tesseract tuning. Adjust the binary path if Tesseract is not on PATH.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -990,6 +994,100 @@ def handle_bridge_batch_payload(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_bridge_settings_snapshot(raw_snapshot: Any) -> dict[str, Any] | None:
+    if not isinstance(raw_snapshot, dict):
+        return None
+
+    storage = raw_snapshot.get("storage")
+    if not isinstance(storage, dict):
+        return None
+
+    local_settings = storage.get("local")
+    sync_settings = storage.get("sync")
+    if not isinstance(local_settings, dict) and not isinstance(sync_settings, dict):
+        return None
+
+    return {
+        **raw_snapshot,
+        "schemaVersion": raw_snapshot.get("schemaVersion") or 1,
+        "savedAtServer": timestamp_now(),
+        "storage": {
+            "local": local_settings if isinstance(local_settings, dict) else {},
+            "sync": sync_settings if isinstance(sync_settings, dict) else {},
+        },
+    }
+
+
+def write_bridge_settings_snapshot(raw_snapshot: Any) -> dict[str, Any]:
+    snapshot = normalize_bridge_settings_snapshot(raw_snapshot)
+    if snapshot is None:
+        return {"ok": False, "error": "Settings snapshot must contain storage.local or storage.sync objects."}
+
+    serialized = json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True)
+    byte_count = len(serialized.encode("utf-8"))
+    if byte_count > BRIDGE_SETTINGS_SYNC_MAX_BYTES:
+        return {
+            "ok": False,
+            "error": f"Settings snapshot is too large: {byte_count} bytes.",
+            "maxBytes": BRIDGE_SETTINGS_SYNC_MAX_BYTES,
+        }
+
+    BRIDGE_SETTINGS_SYNC_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = BRIDGE_SETTINGS_SYNC_PATH.with_name(f"{BRIDGE_SETTINGS_SYNC_PATH.name}.tmp")
+    temp_path.write_text(serialized, encoding="utf-8")
+    temp_path.replace(BRIDGE_SETTINGS_SYNC_PATH)
+    print(
+        f"[settings {timestamp_now()}] saved path={BRIDGE_SETTINGS_SYNC_PATH} bytes={byte_count}",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "exists": True,
+        "path": str(BRIDGE_SETTINGS_SYNC_PATH),
+        "savedAtServer": snapshot["savedAtServer"],
+        "bytes": byte_count,
+    }
+
+
+def read_bridge_settings_snapshot() -> dict[str, Any]:
+    if not BRIDGE_SETTINGS_SYNC_PATH.exists():
+        return {
+            "ok": True,
+            "exists": False,
+            "path": str(BRIDGE_SETTINGS_SYNC_PATH),
+        }
+
+    try:
+        text = BRIDGE_SETTINGS_SYNC_PATH.read_text(encoding="utf-8")
+        snapshot = json.loads(text)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "exists": True,
+            "path": str(BRIDGE_SETTINGS_SYNC_PATH),
+            "error": str(exc),
+        }
+
+    if not isinstance(snapshot, dict):
+        return {
+            "ok": False,
+            "exists": True,
+            "path": str(BRIDGE_SETTINGS_SYNC_PATH),
+            "error": "Settings file does not contain a JSON object.",
+        }
+
+    print(
+        f"[settings {timestamp_now()}] served path={BRIDGE_SETTINGS_SYNC_PATH}",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "exists": True,
+        "path": str(BRIDGE_SETTINGS_SYNC_PATH),
+        "snapshot": snapshot,
+    }
+
+
 @app.get(TASK_TYPE_COUNTS_ENDPOINT_PATH)
 def get_task_type_counts() -> Any:
     return jsonify(build_task_type_counts_payload(request.args.get("span") or "day"))
@@ -1181,6 +1279,16 @@ def receive_obfuscated_bridge_request() -> Any:
             response_target_size = choose_real_bridge_response_target_size(request.content_length)
         return jsonify(encode_bridge_operation_response(
             handle_bridge_batch_payload(params),
+            target_size=response_target_size,
+        ))
+    if action == BRIDGE_ACTION_SETTINGS_PUSH:
+        return jsonify(encode_bridge_operation_response(
+            write_bridge_settings_snapshot(params.get("snapshot")),
+            target_size=response_target_size,
+        ))
+    if action == BRIDGE_ACTION_SETTINGS_PULL:
+        return jsonify(encode_bridge_operation_response(
+            read_bridge_settings_snapshot(),
             target_size=response_target_size,
         ))
     if action == BRIDGE_ACTION_COVER:

@@ -112,6 +112,8 @@ const OPTIONS_TAB_KEYS = [
 const DEFAULT_OPTIONS_TAB_KEY = OPTIONS_TAB_KEYS[0];
 const TRAFFIC_HISTORY_MESSAGE_TYPE = "getBridgeTrafficHistory";
 const CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE = "clearBridgeTrafficHistory";
+const SETTINGS_SYNC_MESSAGE_TYPE = "bridgeSettingsSync";
+const SETTINGS_SYNC_SCHEMA_VERSION = 1;
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
@@ -154,6 +156,56 @@ const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMe
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
 const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
+const SETTINGS_SYNC_LOCAL_KEYS = [
+  STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS,
+  STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED,
+  STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS,
+  STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
+  STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+  STORAGE_KEY_HIGHLIGHT_RULES,
+];
+const SETTINGS_SYNC_SYNC_KEYS = [
+  STORAGE_KEY_START_PAGE_URL,
+  STORAGE_KEY_PROJECT_IDS,
+  STORAGE_KEY_ACTIVE_PROJECT_ID,
+  STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE,
+  STORAGE_KEY_TASK_TYPE_PROJECT_IDS,
+  STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
+  STORAGE_KEY_RESET_LIMIT,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE,
+  STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES,
+  STORAGE_KEY_ANALYSIS_TOC_COLORS,
+  STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS,
+  STORAGE_KEY_ANALYSIS_TOC_LABELS,
+  STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE,
+  STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT,
+];
+const SETTINGS_SYNC_REMOVED_SYNC_KEYS = [
+  STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+  STORAGE_KEY_HIGHLIGHT_RULES,
+];
+const SETTINGS_SYNC_REMOVABLE_SYNC_KEYS = [
+  ...SETTINGS_SYNC_SYNC_KEYS,
+  ...SETTINGS_SYNC_REMOVED_SYNC_KEYS,
+];
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -2242,6 +2294,10 @@ function getTrafficDisplayLabel(sample) {
       return "scroll event";
     case "cover":
       return "cover request";
+    case "settings_push":
+      return "settings upload";
+    case "settings_pull":
+      return "settings sync";
     case "sync_task_type":
       return "sync task type";
     case "control:start_task_ocr":
@@ -4557,6 +4613,125 @@ async function loadOptions() {
   renderActiveTaskTypeScopedSettings();
 }
 
+function pickSettingsKeys(source, allowedKeys) {
+  const output = {};
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return output;
+  }
+
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      output[key] = source[key];
+    }
+  }
+  return output;
+}
+
+function createSettingsSyncSnapshot(localSettings, syncSettings) {
+  return {
+    schemaVersion: SETTINGS_SYNC_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    extensionVersion: chrome.runtime.getManifest?.()?.version ?? "",
+    storage: {
+      local: pickSettingsKeys(localSettings, SETTINGS_SYNC_LOCAL_KEYS),
+      sync: pickSettingsKeys(syncSettings, SETTINGS_SYNC_SYNC_KEYS),
+    },
+    removed: {
+      local: [],
+      sync: [...SETTINGS_SYNC_REMOVED_SYNC_KEYS],
+    },
+  };
+}
+
+function normalizeSettingsSyncSnapshot(rawSnapshot) {
+  const snapshot = rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot)
+    ? rawSnapshot
+    : {};
+  const storage = snapshot.storage && typeof snapshot.storage === "object" && !Array.isArray(snapshot.storage)
+    ? snapshot.storage
+    : {};
+  const localSettings = pickSettingsKeys(storage.local, SETTINGS_SYNC_LOCAL_KEYS);
+  const syncSettings = pickSettingsKeys(storage.sync, SETTINGS_SYNC_SYNC_KEYS);
+  if (Object.keys(localSettings).length === 0 && Object.keys(syncSettings).length === 0) {
+    return null;
+  }
+
+  const removed = snapshot.removed && typeof snapshot.removed === "object" && !Array.isArray(snapshot.removed)
+    ? snapshot.removed
+    : {};
+  return {
+    ...snapshot,
+    storage: {
+      local: localSettings,
+      sync: syncSettings,
+    },
+    removed: {
+      local: Array.isArray(removed.local) ? removed.local.filter((key) => SETTINGS_SYNC_LOCAL_KEYS.includes(key)) : [],
+      sync: Array.isArray(removed.sync) ? removed.sync.filter((key) => SETTINGS_SYNC_REMOVABLE_SYNC_KEYS.includes(key)) : [],
+    },
+  };
+}
+
+async function pushSettingsSnapshotToBridge(snapshot) {
+  const response = await chrome.runtime.sendMessage({
+    type: SETTINGS_SYNC_MESSAGE_TYPE,
+    mode: "push",
+    snapshot,
+  });
+  if (!response?.ok) {
+    throw new Error(response?.error || "Bridge did not accept the settings snapshot.");
+  }
+  return response;
+}
+
+async function applySettingsSyncSnapshot(rawSnapshot) {
+  const snapshot = normalizeSettingsSyncSnapshot(rawSnapshot);
+  if (!snapshot) {
+    throw new Error("The bridge settings file did not contain extension settings.");
+  }
+
+  const localSettings = snapshot.storage.local;
+  const syncSettings = snapshot.storage.sync;
+  if (Object.keys(localSettings).length > 0) {
+    await chrome.storage.local.set(localSettings);
+  }
+  if (Object.keys(syncSettings).length > 0) {
+    await chrome.storage.sync.set(syncSettings);
+  }
+  if (snapshot.removed.local.length > 0) {
+    await chrome.storage.local.remove(snapshot.removed.local);
+  }
+  if (snapshot.removed.sync.length > 0) {
+    await chrome.storage.sync.remove(snapshot.removed.sync);
+  }
+
+  return snapshot;
+}
+
+async function syncSettingsFromBridge() {
+  setStatus("Syncing settings from bridge...");
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: SETTINGS_SYNC_MESSAGE_TYPE,
+      mode: "pull",
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Bridge settings sync failed.");
+    }
+    if (response.exists === false) {
+      setStatus("No bridge settings file exists yet. Save settings once on the source extension first.");
+      return;
+    }
+
+    const snapshot = await applySettingsSyncSnapshot(response.snapshot);
+    await loadOptions();
+    setStatus(`Settings synced from bridge file saved ${snapshot.savedAtServer || snapshot.exportedAt || "earlier"}.`);
+  } catch (error) {
+    console.error("Local Query Bridge settings sync failed", error);
+    setStatus(`Settings sync failed: ${error}`);
+  }
+}
+
 async function saveOptions(event) {
   event.preventDefault();
   syncTaskTypeDefinitionEditorValues();
@@ -4649,7 +4824,7 @@ async function saveOptions(event) {
     || searchProjectIds[0]
     || DEFAULT_PROJECT_ID;
 
-  await chrome.storage.local.set({
+  const localStorageSettings = {
     [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: taskTypeDefinitions,
     [STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED]: true,
     [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: taskRegions,
@@ -4659,9 +4834,9 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: zoneDividerLengths.bottomLengthPx,
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: taskTypeHighlightRules,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
-  });
+  };
 
-  await chrome.storage.sync.set({
+  const syncStorageSettings = {
     [STORAGE_KEY_START_PAGE_URL]: buildProjectStartPageUrl(activeProjectId),
     [STORAGE_KEY_PROJECT_IDS]: searchProjectIds.length > 0 ? searchProjectIds : [DEFAULT_PROJECT_ID],
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: activeProjectId,
@@ -4691,7 +4866,10 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: statusLogIdleOpacity,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]: statusLogWidthPx,
     [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]: statusLogLeftPx,
-  });
+  };
+
+  await chrome.storage.local.set(localStorageSettings);
+  await chrome.storage.sync.set(syncStorageSettings);
   await chrome.storage.sync.remove([
     STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
     STORAGE_KEY_HIGHLIGHT_RULES,
@@ -4740,12 +4918,17 @@ async function saveOptions(event) {
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   renderAnalysisTocColumnSettingsCopyControl();
   renderAnalysisTocSettings();
-  setStatus("Settings saved.");
-}
-
-async function resetChanges() {
-  await loadOptions();
-  setStatus("Unsaved changes reset.");
+  try {
+    const syncResult = await pushSettingsSnapshotToBridge(
+      createSettingsSyncSnapshot(localStorageSettings, syncStorageSettings),
+    );
+    setStatus(syncResult.path
+      ? `Settings saved and synced to bridge file: ${syncResult.path}`
+      : "Settings saved and synced to bridge.");
+  } catch (error) {
+    console.warn("Local Query Bridge settings were saved locally but not synced to the bridge", error);
+    setStatus(`Settings saved locally, but bridge sync failed: ${error}`);
+  }
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -4771,7 +4954,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");
-  const resetButton = document.querySelector("#reset-changes");
+  const syncSettingsButton = document.querySelector("#sync-settings");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
   const pasteHighlightMatchesButton = document.querySelector("#paste-highlight-rule-matches");
@@ -4814,8 +4997,8 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", (event) => {
     void saveOptions(event);
   });
-  resetButton.addEventListener("click", () => {
-    void resetChanges();
+  syncSettingsButton?.addEventListener("click", () => {
+    void syncSettingsFromBridge();
   });
   refreshTrafficButton?.addEventListener("click", () => {
     void loadTrafficHistory();

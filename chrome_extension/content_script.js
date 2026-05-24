@@ -4240,7 +4240,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return command === "start_task_ocr"
       || command === "start_task_screenshot"
       || command === "ocr_google_results"
-      || command === "draft_comment_feedback";
+      || command === "draft_comment_feedback"
+      || command === "process_chat";
   }
 
   function getServerControlStatusLogColor(type) {
@@ -4643,6 +4644,104 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         background: rgba(254, 242, 242, 0.88);
       }
 
+      #${SERVER_CONTROL_STATUS_LOG_ID} {
+        border-color: rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.72);
+        color: #e5e7eb;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+      }
+
+      #${SERVER_CONTROL_STATUS_LOG_ID}.${SERVER_CONTROL_STATUS_LOG_ACTIVE_CLASS},
+      #${SERVER_CONTROL_STATUS_LOG_ID}:hover,
+      #${SERVER_CONTROL_STATUS_LOG_ID}:focus-within {
+        background: rgba(15, 23, 42, 0.97);
+        box-shadow: 0 22px 52px rgba(0, 0, 0, 0.42);
+      }
+
+      .local-query-bridge-status-log-header,
+      .local-query-bridge-status-log-tabs,
+      .local-query-bridge-traffic-summary {
+        border-color: rgba(148, 163, 184, 0.16);
+        background: rgba(17, 24, 39, 0.82);
+      }
+
+      .local-query-bridge-status-log-toggle,
+      .local-query-bridge-status-log-cancel,
+      .local-query-bridge-status-log-tab,
+      .local-query-bridge-traffic-clear-button {
+        border-color: rgba(148, 163, 184, 0.24);
+        background: rgba(30, 41, 59, 0.92);
+        color: #e5e7eb;
+      }
+
+      .local-query-bridge-status-log-toggle:hover,
+      .local-query-bridge-status-log-cancel:hover,
+      .local-query-bridge-traffic-clear-button:hover {
+        background: rgba(51, 65, 85, 0.96);
+      }
+
+      .local-query-bridge-status-log-tab.${SERVER_CONTROL_STATUS_LOG_TAB_ACTIVE_CLASS} {
+        border-color: rgba(96, 165, 250, 0.48);
+        background: rgba(37, 99, 235, 0.28);
+        color: #bfdbfe;
+      }
+
+      .local-query-bridge-status-log-title,
+      .local-query-bridge-status-log-message-text,
+      .local-query-bridge-traffic-size,
+      #${TASK_COUNTER_BADGE_ID} {
+        color: #e5e7eb;
+      }
+
+      .local-query-bridge-status-log-entry {
+        border-bottom-color: rgba(148, 163, 184, 0.14);
+        background: rgba(15, 23, 42, 0.54);
+      }
+
+      .local-query-bridge-status-log-time,
+      .local-query-bridge-status-log-excerpt,
+      .local-query-bridge-status-log-details,
+      .local-query-bridge-status-log-empty,
+      .local-query-bridge-traffic-summary-item,
+      .local-query-bridge-traffic-label,
+      .local-query-bridge-traffic-size,
+      #${TASK_COUNTER_BADGE_ID} .local-query-bridge-task-counter-sub {
+        color: #94a3b8;
+      }
+
+      .local-query-bridge-status-log-details pre {
+        border-color: rgba(148, 163, 184, 0.2);
+        background: rgba(2, 6, 23, 0.8);
+        color: #e5e7eb;
+      }
+
+      .local-query-bridge-traffic-label-endpoint {
+        color: #cbd5e1;
+      }
+
+      .local-query-bridge-traffic-bar-track {
+        border-color: rgba(148, 163, 184, 0.18);
+        background: rgba(30, 41, 59, 0.88);
+      }
+
+      #${TASK_COUNTER_BADGE_ID} {
+        border-color: rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.82);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+      }
+
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="queued"],
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="waiting-for-edge"] {
+        border-color: rgba(34, 197, 94, 0.4);
+        background: rgba(20, 83, 45, 0.78);
+      }
+
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="missing"],
+      #${TASK_COUNTER_BADGE_ID}[data-counter-status="error"] {
+        border-color: rgba(248, 113, 113, 0.44);
+        background: rgba(127, 29, 29, 0.78);
+      }
+
       @media (max-width: 720px) {
         #${SERVER_CONTROL_STATUS_LOG_ID} {
           bottom: 8px;
@@ -5028,6 +5127,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         return "scroll event";
       case "cover":
         return "cover request";
+      case "settings_push":
+        return "settings upload";
+      case "settings_pull":
+        return "settings sync";
       case "sync_task_type":
         return "sync task type";
       case "control:start_task_ocr":
@@ -6175,6 +6278,94 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       .local-query-bridge-server-control-review textarea:focus {
         outline: 3px solid rgba(37, 99, 235, 0.18);
         outline-offset: 1px;
+      }
+
+      #${SERVER_CONTROL_MENU_ID} {
+        border-bottom-color: rgba(148, 163, 184, 0.24);
+        background: rgba(15, 23, 42, 0.98);
+        color: #e5e7eb;
+        box-shadow: 0 22px 62px rgba(0, 0, 0, 0.46);
+      }
+
+      .local-query-bridge-server-control-region-panel,
+      .local-query-bridge-server-control-column-header,
+      .local-query-bridge-server-control-action-column,
+      .local-query-bridge-server-control-action-grid.${SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS} {
+        background: #0f172a;
+      }
+
+      .local-query-bridge-server-control-column,
+      .local-query-bridge-server-control-segment-bar,
+      .local-query-bridge-server-control-region-picker,
+      .local-query-bridge-server-control-count-span-bar,
+      .local-query-bridge-server-control-project-panel {
+        border-color: rgba(148, 163, 184, 0.2);
+        background: #111827;
+      }
+
+      .local-query-bridge-server-control-column {
+        border-right-color: rgba(148, 163, 184, 0.18);
+      }
+
+      .local-query-bridge-server-control-column-header,
+      .local-query-bridge-server-control-button,
+      .local-query-bridge-server-control-count-span-button,
+      .local-query-bridge-server-control-task-count,
+      .local-query-bridge-server-control-action-button {
+        border-color: rgba(148, 163, 184, 0.16);
+      }
+
+      .local-query-bridge-server-control-button,
+      .local-query-bridge-server-control-count-span-button,
+      .local-query-bridge-server-control-project-toggle,
+      .local-query-bridge-server-control-action-button,
+      .local-query-bridge-server-control-coordinate input,
+      .local-query-bridge-server-control-review textarea {
+        background: #111827;
+        color: #e5e7eb;
+      }
+
+      .local-query-bridge-server-control-button:hover,
+      .local-query-bridge-server-control-count-span-button:hover,
+      .local-query-bridge-server-control-project-toggle:hover {
+        background: #1e293b;
+      }
+
+      .local-query-bridge-server-control-button.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS},
+      .local-query-bridge-server-control-action-grid.${SERVER_CONTROL_ZONE_LEGEND_ACTIVE_CLASS} .local-query-bridge-server-control-action-button {
+        background: rgba(37, 99, 235, 0.26);
+        color: #bfdbfe;
+      }
+
+      .local-query-bridge-server-control-count-span-button.${SERVER_CONTROL_TASK_COUNT_SPAN_ACTIVE_CLASS},
+      .local-query-bridge-server-control-project-toggle.${SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS} {
+        border-color: rgba(96, 165, 250, 0.54);
+        background: #2563eb;
+        color: #ffffff;
+      }
+
+      .local-query-bridge-server-control-count-header,
+      .local-query-bridge-server-control-group-title,
+      .local-query-bridge-server-control-project-panel-title,
+      .local-query-bridge-server-control-task-count,
+      .local-query-bridge-server-control-coordinate-label,
+      .local-query-bridge-server-control-review label {
+        color: #94a3b8;
+      }
+
+      .local-query-bridge-server-control-project-account-id {
+        color: #cbd5e1;
+      }
+
+      .local-query-bridge-server-control-region-center {
+        border-color: rgba(148, 163, 184, 0.28);
+        background: rgba(30, 41, 59, 0.72);
+        color: #e5e7eb;
+      }
+
+      .local-query-bridge-server-control-coordinate input,
+      .local-query-bridge-server-control-review textarea {
+        border-color: rgba(148, 163, 184, 0.24);
       }
 
       @media (max-width: 720px) {

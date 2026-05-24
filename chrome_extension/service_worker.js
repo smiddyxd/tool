@@ -16,6 +16,8 @@ const BRIDGE_ACTION_COUNTS = "counts";
 const BRIDGE_ACTION_CONTROL = "control";
 const BRIDGE_ACTION_COVER = "cover";
 const BRIDGE_ACTION_BATCH = "batch";
+const BRIDGE_ACTION_SETTINGS_PUSH = "settings_push";
+const BRIDGE_ACTION_SETTINGS_PULL = "settings_pull";
 const BRIDGE_PADDING_RANDOM_CHUNK_BYTES = 65536;
 const BRIDGE_PADDING_MAX_EXTRA_BYTES = 262144;
 const BRIDGE_COVER_TRAFFIC_ENABLED = true;
@@ -131,6 +133,7 @@ const CONTENT_SCRIPT_TRAFFIC_LOG_TYPE = "bridgeTrafficLog";
 const CONTENT_SCRIPT_TASK_TYPE_COUNTS_TYPE = "getBridgeTaskTypeCounts";
 const CONTENT_SCRIPT_TRAFFIC_HISTORY_TYPE = "getBridgeTrafficHistory";
 const CONTENT_SCRIPT_CLEAR_TRAFFIC_HISTORY_TYPE = "clearBridgeTrafficHistory";
+const SETTINGS_SYNC_MESSAGE_TYPE = "bridgeSettingsSync";
 const REPEAT_CAPTURE_HOTKEY_MESSAGE_TYPE = "repeatCaptureHotkey";
 const REPEAT_CONFIRM_HOTKEY_MESSAGE_TYPE = "repeatConfirmHotkey";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -706,6 +709,10 @@ function getBridgeTrafficActionLabel(action) {
       return "cover request";
     case BRIDGE_ACTION_BATCH:
       return "batched update";
+    case BRIDGE_ACTION_SETTINGS_PUSH:
+      return "settings upload";
+    case BRIDGE_ACTION_SETTINGS_PULL:
+      return "settings sync";
     case "sync_task_type":
       return "sync task type";
     case "control:start_task_ocr":
@@ -867,6 +874,38 @@ async function clearBridgeTrafficHistory() {
       });
     });
   await state.trafficHistoryWritePromise;
+}
+
+async function pushBridgeSettingsSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return { ok: false, error: "Settings snapshot must be an object." };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CONTROL_COMMAND_TIMEOUT_MS);
+  try {
+    return await fetchBridgeOperation(BRIDGE_ACTION_SETTINGS_PUSH, { snapshot }, controller.signal, {
+      logAction: BRIDGE_ACTION_SETTINGS_PUSH,
+      logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PUSH),
+      logSource: "options",
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function pullBridgeSettingsSnapshot() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CONTROL_COMMAND_TIMEOUT_MS);
+  try {
+    return await fetchBridgeOperation(BRIDGE_ACTION_SETTINGS_PULL, {}, controller.signal, {
+      logAction: BRIDGE_ACTION_SETTINGS_PULL,
+      logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PULL),
+      logSource: "options",
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function broadcastBridgeTrafficSample(sample) {
@@ -3529,6 +3568,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           ok: false,
           span: sanitizeTaskTypeCountSpan(message.span),
           counts: {},
+          error: `${error}`,
+        });
+      });
+    return true;
+  }
+
+  if (message?.type === SETTINGS_SYNC_MESSAGE_TYPE) {
+    const mode = typeof message.mode === "string" ? message.mode : "";
+    const syncPromise = mode === "push"
+      ? pushBridgeSettingsSnapshot(message.snapshot)
+      : pullBridgeSettingsSnapshot();
+    void syncPromise
+      .then((result) => {
+        sendResponse(result && typeof result === "object" && !Array.isArray(result)
+          ? { ok: result.ok !== false, ...result }
+          : { ok: true });
+      })
+      .catch((error) => {
+        console.warn("Local Query Bridge settings sync failed", error);
+        sendResponse({
+          ok: false,
           error: `${error}`,
         });
       });
