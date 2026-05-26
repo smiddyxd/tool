@@ -102,6 +102,7 @@ const OPTIONS_TAB_KEYS = [
   "general",
   "ocr-regions",
   "ui",
+  "chat-processing",
   "traffic",
   "status-colors",
   "status-messages",
@@ -117,6 +118,7 @@ const SETTINGS_SYNC_SCHEMA_VERSION = 1;
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
+const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
@@ -166,6 +168,7 @@ const SETTINGS_SYNC_LOCAL_KEYS = [
   STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
   STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
   STORAGE_KEY_HIGHLIGHT_RULES,
+  STORAGE_KEY_CHAT_PROCESSING_QUEUE,
 ];
 const SETTINGS_SYNC_SYNC_KEYS = [
   STORAGE_KEY_START_PAGE_URL,
@@ -448,6 +451,7 @@ const highlightState = {
   statusLogIdleOpacity: DEFAULT_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
   statusLogWidthPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_WIDTH_PX,
   statusLogLeftPx: DEFAULT_SERVER_CONTROL_STATUS_LOG_LEFT_PX,
+  chatProcessingQueue: [],
   tocButtonColors: {},
   tocButtonSettings: {},
   tocButtonLabels: {},
@@ -4454,6 +4458,7 @@ async function loadOptions() {
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX,
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
+    [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: [],
   });
   const migrateCommentDraftAction = shouldMigrateCommentDraftAction(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
@@ -4483,6 +4488,9 @@ async function loadOptions() {
   );
   highlightState.zoneDividerBottomLengthPx = sanitizeServerControlZoneDividerLength(
     localStored[STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH],
+  );
+  highlightState.chatProcessingQueue = normalizeChatProcessingQueue(
+    localStored[STORAGE_KEY_CHAT_PROCESSING_QUEUE],
   );
 
   const stored = await chrome.storage.sync.get({
@@ -4611,6 +4619,8 @@ async function loadOptions() {
   renderServerControlStatusLogColorSettings();
   renderServerControlStatusLogMessageSettings();
   renderActiveTaskTypeScopedSettings();
+  renderChatProcessingQueue();
+  void refreshSettingsSyncDiffCount();
 }
 
 function pickSettingsKeys(source, allowedKeys) {
@@ -4625,6 +4635,190 @@ function pickSettingsKeys(source, allowedKeys) {
     }
   }
   return output;
+}
+
+function normalizeChatProcessingUrl(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    return "";
+  }
+
+  try {
+    const url = new URL(text);
+    url.hash = "";
+    url.search = "";
+    return url.toString();
+  } catch (_error) {
+    return text.split("#")[0].split("?")[0];
+  }
+}
+
+function normalizeChatProcessingQueue(rawValue) {
+  const rawItems = Array.isArray(rawValue) ? rawValue : [];
+  const seenIds = new Set();
+  return rawItems
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      const normalizedUrl = normalizeChatProcessingUrl(item.normalizedUrl || url);
+      if (!url || !normalizedUrl) {
+        return null;
+      }
+
+      const idSource = typeof item.id === "string" && item.id.trim()
+        ? item.id.trim()
+        : `${normalizedUrl}|${item.savedAt || ""}`;
+      if (seenIds.has(idSource)) {
+        return null;
+      }
+      seenIds.add(idSource);
+
+      const status = ["queued", "opened", "done"].includes(item.status) ? item.status : "queued";
+      return {
+        id: idSource,
+        url,
+        normalizedUrl,
+        title: typeof item.title === "string" && item.title.trim() ? item.title.trim() : "ChatGPT chat",
+        taskType: sanitizeBridgeTaskType(item.taskType),
+        taskTypeLabel: typeof item.taskTypeLabel === "string" ? item.taskTypeLabel.trim() : "",
+        status,
+        savedAt: typeof item.savedAt === "string" ? item.savedAt : "",
+        openedAt: typeof item.openedAt === "string" ? item.openedAt : "",
+        doneAt: typeof item.doneAt === "string" ? item.doneAt : "",
+        prompt: typeof item.prompt === "string" ? item.prompt : "",
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(right.savedAt || "").localeCompare(String(left.savedAt || "")));
+}
+
+function formatChatProcessingDate(value) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) {
+    return "";
+  }
+
+  return new Date(timestamp).toLocaleString();
+}
+
+function getTaskTypeLabel(taskType) {
+  const taskDefinition = getTaskTypeDefinitions().find((definition) => definition.key === taskType);
+  return taskDefinition?.label ?? taskType;
+}
+
+async function saveChatProcessingQueue(queue, message = "Chat processing queue updated.") {
+  highlightState.chatProcessingQueue = normalizeChatProcessingQueue(queue);
+  await chrome.storage.local.set({
+    [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: highlightState.chatProcessingQueue,
+  });
+  renderChatProcessingQueue();
+  try {
+    await pushSettingsSnapshotToBridge(await createCurrentSettingsSyncSnapshotFromStorage(), {
+      useLargePadding: false,
+    });
+    setStatus(`${message} Synced to bridge.`);
+    renderSettingsSyncDiffCount(0);
+  } catch (error) {
+    setStatus(`${message} Bridge sync failed: ${error}`);
+    void refreshSettingsSyncDiffCount();
+  }
+}
+
+async function openChatProcessingItem(itemId) {
+  const queue = normalizeChatProcessingQueue(highlightState.chatProcessingQueue);
+  const item = queue.find((candidate) => candidate.id === itemId);
+  if (!item) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const nextQueue = queue.map((candidate) => (
+    candidate.id === itemId
+      ? { ...candidate, status: "opened", openedAt: now }
+      : candidate
+  ));
+  await saveChatProcessingQueue(nextQueue, "Chat marked opened for processing.");
+  await chrome.tabs.create({ url: item.url, active: true });
+}
+
+async function markChatProcessingItemDone(itemId) {
+  const now = new Date().toISOString();
+  const queue = normalizeChatProcessingQueue(highlightState.chatProcessingQueue).map((item) => (
+    item.id === itemId
+      ? { ...item, status: "done", doneAt: now }
+      : item
+  ));
+  await saveChatProcessingQueue(queue, "Chat marked done.");
+}
+
+function renderChatProcessingQueue() {
+  const container = document.querySelector("#chat-processing-list");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  const queue = normalizeChatProcessingQueue(highlightState.chatProcessingQueue);
+  container.replaceChildren();
+  if (queue.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No chats saved for processing.";
+    container.append(empty);
+    return;
+  }
+
+  for (const item of queue) {
+    const row = document.createElement("div");
+    row.className = `chat-processing-row ${item.status === "done" ? "done" : ""}`;
+
+    const main = document.createElement("div");
+    main.className = "chat-processing-main";
+
+    const title = document.createElement("div");
+    title.className = "chat-processing-title";
+    title.textContent = item.title;
+
+    const meta = document.createElement("div");
+    meta.className = "chat-processing-meta";
+    const taskLabel = item.taskTypeLabel || getTaskTypeLabel(item.taskType);
+    const savedAt = formatChatProcessingDate(item.savedAt);
+    meta.textContent = `${taskLabel || item.taskType || "Task"} | ${item.status}${savedAt ? ` | saved ${savedAt}` : ""}`;
+
+    const url = document.createElement("div");
+    url.className = "chat-processing-url";
+    url.textContent = item.url;
+
+    main.append(title, meta, url);
+    main.addEventListener("click", () => {
+      void openChatProcessingItem(item.id);
+    });
+    main.title = "Open and mark this chat for processing";
+
+    const actions = document.createElement("div");
+    actions.className = "chat-processing-actions";
+
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.textContent = item.status === "opened" ? "Open again" : "Open";
+    openButton.addEventListener("click", () => {
+      void openChatProcessingItem(item.id);
+    });
+
+    const doneButton = document.createElement("button");
+    doneButton.type = "button";
+    doneButton.textContent = "Done";
+    doneButton.disabled = item.status === "done";
+    doneButton.addEventListener("click", () => {
+      void markChatProcessingItemDone(item.id);
+    });
+
+    actions.append(openButton, doneButton);
+    row.append(main, actions);
+    container.append(row);
+  }
 }
 
 function createSettingsSyncSnapshot(localSettings, syncSettings) {
@@ -4672,16 +4866,102 @@ function normalizeSettingsSyncSnapshot(rawSnapshot) {
   };
 }
 
-async function pushSettingsSnapshotToBridge(snapshot) {
+async function pushSettingsSnapshotToBridge(snapshot, options = {}) {
   const response = await chrome.runtime.sendMessage({
     type: SETTINGS_SYNC_MESSAGE_TYPE,
     mode: "push",
     snapshot,
+    ...options,
   });
   if (!response?.ok) {
     throw new Error(response?.error || "Bridge did not accept the settings snapshot.");
   }
   return response;
+}
+
+function stableJsonStringify(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
+  }
+
+  return `{${Object.keys(value).sort().map((key) => (
+    `${JSON.stringify(key)}:${stableJsonStringify(value[key])}`
+  )).join(",")}}`;
+}
+
+function countSettingsSnapshotDiffs(localSnapshot, bridgeSnapshot) {
+  const normalizedBridgeSnapshot = normalizeSettingsSyncSnapshot(bridgeSnapshot);
+  if (!normalizedBridgeSnapshot) {
+    return 0;
+  }
+
+  let count = 0;
+  for (const key of SETTINGS_SYNC_LOCAL_KEYS) {
+    if (
+      stableJsonStringify(localSnapshot.storage.local[key])
+      !== stableJsonStringify(normalizedBridgeSnapshot.storage.local[key])
+    ) {
+      count += 1;
+    }
+  }
+  for (const key of SETTINGS_SYNC_SYNC_KEYS) {
+    if (
+      stableJsonStringify(localSnapshot.storage.sync[key])
+      !== stableJsonStringify(normalizedBridgeSnapshot.storage.sync[key])
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function renderSettingsSyncDiffCount(count) {
+  const chip = document.querySelector("#sync-settings-diff-count");
+  if (!(chip instanceof HTMLElement)) {
+    return;
+  }
+
+  const normalizedCount = Math.max(0, Number.parseInt(`${count ?? 0}`, 10) || 0);
+  chip.hidden = normalizedCount === 0;
+  chip.textContent = normalizedCount > 99 ? "99+" : `${normalizedCount}`;
+  const button = document.querySelector("#sync-settings");
+  if (button instanceof HTMLButtonElement) {
+    button.title = normalizedCount > 0
+      ? `${normalizedCount} settings key${normalizedCount === 1 ? "" : "s"} differ from the bridge file.`
+      : "Settings match the bridge file.";
+  }
+}
+
+async function createCurrentSettingsSyncSnapshotFromStorage() {
+  const [localSettings, syncSettings] = await Promise.all([
+    chrome.storage.local.get(SETTINGS_SYNC_LOCAL_KEYS),
+    chrome.storage.sync.get(SETTINGS_SYNC_SYNC_KEYS),
+  ]);
+  return createSettingsSyncSnapshot(localSettings, syncSettings);
+}
+
+async function refreshSettingsSyncDiffCount() {
+  try {
+    const [currentSnapshot, response] = await Promise.all([
+      createCurrentSettingsSyncSnapshotFromStorage(),
+      chrome.runtime.sendMessage({
+        type: SETTINGS_SYNC_MESSAGE_TYPE,
+        mode: "pull",
+        useLargePadding: false,
+      }),
+    ]);
+    if (!response?.ok || response.exists === false) {
+      renderSettingsSyncDiffCount(0);
+      return;
+    }
+
+    renderSettingsSyncDiffCount(countSettingsSnapshotDiffs(currentSnapshot, response.snapshot));
+  } catch (_error) {
+    renderSettingsSyncDiffCount(0);
+  }
 }
 
 async function applySettingsSyncSnapshot(rawSnapshot) {
@@ -4725,6 +5005,7 @@ async function syncSettingsFromBridge() {
 
     const snapshot = await applySettingsSyncSnapshot(response.snapshot);
     await loadOptions();
+    renderSettingsSyncDiffCount(0);
     setStatus(`Settings synced from bridge file saved ${snapshot.savedAtServer || snapshot.exportedAt || "earlier"}.`);
   } catch (error) {
     console.error("Local Query Bridge settings sync failed", error);
@@ -4834,6 +5115,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: zoneDividerLengths.bottomLengthPx,
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: taskTypeHighlightRules,
     [STORAGE_KEY_HIGHLIGHT_RULES]: highlightState.rules,
+    [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: normalizeChatProcessingQueue(highlightState.chatProcessingQueue),
   };
 
   const syncStorageSettings = {
@@ -4900,6 +5182,7 @@ async function saveOptions(event) {
   highlightState.statusLogIdleOpacity = statusLogIdleOpacity;
   highlightState.statusLogWidthPx = statusLogWidthPx;
   highlightState.statusLogLeftPx = statusLogLeftPx;
+  highlightState.chatProcessingQueue = localStorageSettings[STORAGE_KEY_CHAT_PROCESSING_QUEUE];
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
   setServerControlStatusLogWidthInput(highlightState.statusLogWidthPx);
@@ -4918,6 +5201,7 @@ async function saveOptions(event) {
   setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
   renderAnalysisTocColumnSettingsCopyControl();
   renderAnalysisTocSettings();
+  renderChatProcessingQueue();
   try {
     const syncResult = await pushSettingsSnapshotToBridge(
       createSettingsSyncSnapshot(localStorageSettings, syncStorageSettings),
@@ -4925,6 +5209,7 @@ async function saveOptions(event) {
     setStatus(syncResult.path
       ? `Settings saved and synced to bridge file: ${syncResult.path}`
       : "Settings saved and synced to bridge.");
+    renderSettingsSyncDiffCount(0);
   } catch (error) {
     console.warn("Local Query Bridge settings were saved locally but not synced to the bridge", error);
     setStatus(`Settings saved locally, but bridge sync failed: ${error}`);
@@ -4949,6 +5234,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     trafficHistoryState.samples = mergeTrafficSamples(samples);
     trafficHistoryState.loadedAt = Date.now();
     renderTrafficHistory();
+  }
+
+  if (changes[STORAGE_KEY_CHAT_PROCESSING_QUEUE]) {
+    highlightState.chatProcessingQueue = normalizeChatProcessingQueue(
+      changes[STORAGE_KEY_CHAT_PROCESSING_QUEUE].newValue,
+    );
+    renderChatProcessingQueue();
   }
 });
 
@@ -4993,6 +5285,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initializeOptionsTabs();
   void loadOptions();
+  window.setInterval(() => {
+    void refreshSettingsSyncDiffCount();
+  }, 30000);
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
   form.addEventListener("submit", (event) => {
     void saveOptions(event);

@@ -74,6 +74,80 @@ const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
+const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
+const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
+const STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES = "taskTypeHighlightRules";
+const STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED = "serverControlCommentDraftActionMigrated";
+const STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS = "serverControlTaskRegions";
+const STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS = "serverControlUniversalRegions";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY = "serverControlZoneDividerOpacity";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH = "serverControlZoneDividerTopLengthPx";
+const STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH = "serverControlZoneDividerBottomLengthPx";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS = "taskTypeAnalysisTocButtonColors";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS = "taskTypeAnalysisTocButtonSettings";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS = "taskTypeAnalysisTocButtonLabels";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER = "taskTypeAnalysisTocButtonOrder";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS = "taskTypeAnalysisTocColumnPositions";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY = "taskTypeAnalysisTocColumnOpacity";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE = "taskTypeAnalysisTocColumnScale";
+const STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "taskTypeLatestPromptScrollHoldSeconds";
+const STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES = "taskTypeAnalysisTocEntries";
+const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
+const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
+const STORAGE_KEY_ANALYSIS_TOC_LABELS = "analysisTocButtonLabels";
+const STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER = "analysisTocButtonOrder";
+const STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS = "analysisTocColumnPositions";
+const STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY = "analysisTocColumnOpacity";
+const STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE = "analysisTocColumnScale";
+const STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS = "latestPromptScrollHoldSeconds";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS = "serverControlStatusLogColors";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES = "serverControlStatusLogMessages";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY = "serverControlStatusLogIdleOpacity";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
+const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
+const SETTINGS_SYNC_LOCAL_KEYS = [
+  STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS,
+  STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED,
+  STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS,
+  STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH,
+  STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH,
+  STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES,
+  STORAGE_KEY_HIGHLIGHT_RULES,
+  STORAGE_KEY_CHAT_PROCESSING_QUEUE,
+];
+const SETTINGS_SYNC_SYNC_KEYS = [
+  STORAGE_KEY_START_PAGE_URL,
+  STORAGE_KEY_PROJECT_IDS,
+  STORAGE_KEY_ACTIVE_PROJECT_ID,
+  STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE,
+  STORAGE_KEY_TASK_TYPE_PROJECT_IDS,
+  STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
+  STORAGE_KEY_RESET_LIMIT,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE,
+  STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+  STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES,
+  STORAGE_KEY_ANALYSIS_TOC_COLORS,
+  STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS,
+  STORAGE_KEY_ANALYSIS_TOC_LABELS,
+  STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY,
+  STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE,
+  STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH,
+  STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT,
+];
 
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
@@ -876,7 +950,41 @@ async function clearBridgeTrafficHistory() {
   await state.trafficHistoryWritePromise;
 }
 
-async function pushBridgeSettingsSnapshot(snapshot) {
+function pickSettingsKeys(source, allowedKeys) {
+  const output = {};
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return output;
+  }
+
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      output[key] = source[key];
+    }
+  }
+  return output;
+}
+
+async function createCurrentSettingsSyncSnapshot() {
+  const [localSettings, syncSettings] = await Promise.all([
+    chrome.storage.local.get(SETTINGS_SYNC_LOCAL_KEYS),
+    chrome.storage.sync.get(SETTINGS_SYNC_SYNC_KEYS),
+  ]);
+  return {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    extensionVersion: chrome.runtime.getManifest?.()?.version ?? "",
+    storage: {
+      local: pickSettingsKeys(localSettings, SETTINGS_SYNC_LOCAL_KEYS),
+      sync: pickSettingsKeys(syncSettings, SETTINGS_SYNC_SYNC_KEYS),
+    },
+    removed: {
+      local: [],
+      sync: [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES, STORAGE_KEY_HIGHLIGHT_RULES],
+    },
+  };
+}
+
+async function pushBridgeSettingsSnapshot(snapshot, options = {}) {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
     return { ok: false, error: "Settings snapshot must be an object." };
   }
@@ -888,13 +996,14 @@ async function pushBridgeSettingsSnapshot(snapshot) {
       logAction: BRIDGE_ACTION_SETTINGS_PUSH,
       logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PUSH),
       logSource: "options",
+      useLargePadding: options.useLargePadding !== false,
     });
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-async function pullBridgeSettingsSnapshot() {
+async function pullBridgeSettingsSnapshot(options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONTROL_COMMAND_TIMEOUT_MS);
   try {
@@ -902,6 +1011,7 @@ async function pullBridgeSettingsSnapshot() {
       logAction: BRIDGE_ACTION_SETTINGS_PULL,
       logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PULL),
       logSource: "options",
+      useLargePadding: options.useLargePadding !== false,
     });
   } finally {
     clearTimeout(timeoutId);
@@ -2889,6 +2999,135 @@ async function navigateServerControlProject(sideEffects) {
   return true;
 }
 
+function normalizeChatProcessingUrl(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    return "";
+  }
+
+  try {
+    const url = new URL(text);
+    url.hash = "";
+    url.search = "";
+    return url.toString();
+  } catch (_error) {
+    return text.split("#")[0].split("?")[0];
+  }
+}
+
+function normalizeChatProcessingQueue(rawValue) {
+  const rawItems = Array.isArray(rawValue) ? rawValue : [];
+  const seenIds = new Set();
+  return rawItems
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      const normalizedUrl = normalizeChatProcessingUrl(item.normalizedUrl || url);
+      if (!url || !normalizedUrl) {
+        return null;
+      }
+
+      const id = typeof item.id === "string" && item.id.trim()
+        ? item.id.trim()
+        : `${normalizedUrl}|${item.savedAt || ""}`;
+      if (seenIds.has(id)) {
+        return null;
+      }
+      seenIds.add(id);
+
+      return {
+        id,
+        url,
+        normalizedUrl,
+        title: typeof item.title === "string" && item.title.trim() ? item.title.trim() : "ChatGPT chat",
+        taskType: sanitizeBridgeTaskType(item.taskType),
+        taskTypeLabel: typeof item.taskTypeLabel === "string" ? item.taskTypeLabel.trim() : "",
+        status: ["queued", "opened", "done"].includes(item.status) ? item.status : "queued",
+        savedAt: typeof item.savedAt === "string" ? item.savedAt : "",
+        openedAt: typeof item.openedAt === "string" ? item.openedAt : "",
+        doneAt: typeof item.doneAt === "string" ? item.doneAt : "",
+        prompt: typeof item.prompt === "string" ? item.prompt : "",
+      };
+    })
+    .filter(Boolean);
+}
+
+function createChatProcessingItemId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `chat-processing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function saveProcessChatForLater(payload) {
+  const pageUrl = typeof payload.pageUrl === "string" && payload.pageUrl
+    ? payload.pageUrl
+    : (typeof payload.tabUrl === "string" ? payload.tabUrl : "");
+  const normalizedUrl = normalizeChatProcessingUrl(pageUrl);
+  if (!normalizedUrl || !isChatGptUrl(normalizedUrl)) {
+    return { ok: false, error: "Process chat can only save a ChatGPT chat URL." };
+  }
+
+  const prompt = typeof payload.chatProcessingPrompt === "string" ? payload.chatProcessingPrompt.trim() : "";
+  if (!prompt) {
+    return { ok: false, error: "Process chat prompt is empty. Set it in Options first." };
+  }
+
+  const stored = await chrome.storage.local.get({
+    [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: [],
+  });
+  const queue = normalizeChatProcessingQueue(stored[STORAGE_KEY_CHAT_PROCESSING_QUEUE]);
+  const now = new Date().toISOString();
+  const existing = queue.find((item) => item.normalizedUrl === normalizedUrl && item.status !== "done");
+  const nextItem = {
+    ...(existing ?? {}),
+    id: existing?.id ?? createChatProcessingItemId(),
+    url: pageUrl,
+    normalizedUrl,
+    title: typeof payload.pageTitle === "string" && payload.pageTitle.trim()
+      ? payload.pageTitle.trim()
+      : "ChatGPT chat",
+    taskType: sanitizeBridgeTaskType(payload.currentTaskType),
+    taskTypeLabel: typeof payload.currentTaskTypeLabel === "string" ? payload.currentTaskTypeLabel.trim() : "",
+    status: "queued",
+    savedAt: existing?.savedAt || now,
+    prompt,
+  };
+  const nextQueue = existing
+    ? queue.map((item) => (item.id === existing.id ? nextItem : item))
+    : [nextItem, ...queue];
+  await chrome.storage.local.set({
+    [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: normalizeChatProcessingQueue(nextQueue),
+  });
+
+  let synced = false;
+  let syncError = "";
+  try {
+    await pushBridgeSettingsSnapshot(await createCurrentSettingsSyncSnapshot(), { useLargePadding: false });
+    synced = true;
+  } catch (error) {
+    syncError = `${error}`;
+    console.warn("Local Query Bridge saved chat for processing but did not sync settings", error);
+  }
+
+  console.log("Local Query Bridge saved chat for later processing", {
+    itemId: nextItem.id,
+    taskType: nextItem.taskType,
+    synced,
+  });
+  return {
+    ok: true,
+    saved: true,
+    itemId: nextItem.id,
+    synced,
+    syncError,
+  };
+}
+
 async function sendServerControlCommand(command, sender) {
   const controller = new AbortController();
   const isProcessingCommand = CONTROL_PROCESSING_COMMANDS.has(command?.command);
@@ -2906,6 +3145,28 @@ async function sendServerControlCommand(command, sender) {
       state.pendingSubmission = null;
     }
   }
+
+  const basePayload = {
+    ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
+    tabId: sender?.tab?.id ?? null,
+    tabUrl: sender?.tab?.url ?? "",
+  };
+  if (basePayload.command === "process_chat") {
+    if (controlRunId) {
+      rememberControlRunTab(controlRunId, basePayload.tabId);
+      rememberControlRunCountingBehavior(controlRunId, basePayload.command);
+      rememberControlRunCurrentChatRequirement(controlRunId, basePayload.command);
+    }
+    try {
+      return await saveProcessChatForLater(basePayload);
+    } finally {
+      if (controlRunId) {
+        forgetControlRunTab(controlRunId);
+      }
+      clearTimeout(timeoutId);
+    }
+  }
+
   const sideEffects = await applyServerControlCommandSideEffects(command, sender);
   const navigationPromise = navigateServerControlProject(sideEffects)
     .catch((error) => {
@@ -2913,10 +3174,8 @@ async function sendServerControlCommand(command, sender) {
       return false;
     });
   const payload = {
-    ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
+    ...basePayload,
     ...sideEffects,
-    tabId: sender?.tab?.id ?? null,
-    tabUrl: sender?.tab?.url ?? "",
   };
   if (controlRunId) {
     rememberControlRunTab(controlRunId, payload.tabId);
@@ -3577,8 +3836,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === SETTINGS_SYNC_MESSAGE_TYPE) {
     const mode = typeof message.mode === "string" ? message.mode : "";
     const syncPromise = mode === "push"
-      ? pushBridgeSettingsSnapshot(message.snapshot)
-      : pullBridgeSettingsSnapshot();
+      ? pushBridgeSettingsSnapshot(message.snapshot, message)
+      : pullBridgeSettingsSnapshot(message);
     void syncPromise
       .then((result) => {
         sendResponse(result && typeof result === "object" && !Array.isArray(result)

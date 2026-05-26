@@ -440,6 +440,87 @@
       color: var(--ink);
     }
 
+    .sync-settings-button {
+      position: relative;
+    }
+
+    .sync-settings-diff-count {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      min-width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      padding: 0 6px;
+      border: 1px solid rgba(15, 23, 42, 0.72);
+      border-radius: 999px;
+      background: var(--danger);
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+    }
+
+    .chat-processing-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .chat-processing-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--field);
+    }
+
+    .chat-processing-row.done {
+      opacity: 0.58;
+    }
+
+    .chat-processing-row.done .chat-processing-title {
+      text-decoration: line-through;
+    }
+
+    .chat-processing-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .chat-processing-title {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chat-processing-meta,
+    .chat-processing-url {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chat-processing-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     button.primary-button {
       background: var(--accent);
       color: white;
@@ -906,6 +987,7 @@
       .task-project-account-inputs,
       .task-feature-grid,
       .task-action-row,
+      .chat-processing-row,
       .ocr-region-row,
       .region-coordinate-row,
       .region-coordinate-grid,
@@ -946,6 +1028,7 @@
           <button id="options-tab-general" class="options-tab-button" type="button" role="tab" data-options-tab="general" aria-controls="options-panel-general">General</button>
           <button id="options-tab-ocr-regions" class="options-tab-button" type="button" role="tab" data-options-tab="ocr-regions" aria-controls="options-panel-ocr-regions">OCR regions</button>
           <button id="options-tab-ui" class="options-tab-button" type="button" role="tab" data-options-tab="ui" aria-controls="options-panel-ui">UI</button>
+          <button id="options-tab-chat-processing" class="options-tab-button" type="button" role="tab" data-options-tab="chat-processing" aria-controls="options-panel-chat-processing">Chat processing</button>
           <button id="options-tab-traffic" class="options-tab-button" type="button" role="tab" data-options-tab="traffic" aria-controls="options-panel-traffic">Traffic</button>
           <button id="options-tab-status-colors" class="options-tab-button" type="button" role="tab" data-options-tab="status-colors" aria-controls="options-panel-status-colors">Status colors</button>
           <button id="options-tab-status-messages" class="options-tab-button" type="button" role="tab" data-options-tab="status-messages" aria-controls="options-panel-status-messages">Status messages</button>
@@ -1164,6 +1247,15 @@
           </div>
         </section>
 
+        <section id="options-panel-chat-processing" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="chat-processing" aria-labelledby="options-tab-chat-processing" hidden>
+          <div class="section-heading">
+            <h2 id="chat-processing-heading">Chat Processing</h2>
+            <p class="hint">Saved chats waiting for manual processing. Open one, use the floating Process button in that chat to paste the prompt, then mark it done here.</p>
+          </div>
+
+          <div id="chat-processing-list" class="chat-processing-list" aria-live="polite"></div>
+        </section>
+
         <section id="options-panel-traffic" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="traffic" aria-labelledby="options-tab-traffic" hidden>
           <div class="section-heading">
             <h2 id="traffic-settings-heading">Traffic</h2>
@@ -1326,7 +1418,10 @@
 
       <div class="actions floating-form-actions">
         <button type="submit">Save settings</button>
-        <button id="sync-settings" type="button">Sync settings</button>
+        <button id="sync-settings" class="sync-settings-button" type="button">
+          Sync settings
+          <span id="sync-settings-diff-count" class="sync-settings-diff-count" hidden>0</span>
+        </button>
       </div>
 
       <p id="status" aria-live="polite"></p>

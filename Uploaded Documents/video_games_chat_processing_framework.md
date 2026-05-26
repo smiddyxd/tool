@@ -1,96 +1,195 @@
-# Video Games Case Reasoning Framework
+# Video Games Chat Processing Framework
 
-This framework is meant to be used inside or alongside `video_games_manual_final.md`.
+Use this file when processing a completed Video Games rating chat into reusable project material.
 
-Its purpose is to preserve reasoning work from difficult or borderline Video Games rating chats, so similar future tasks can be handled faster and more consistently.
+This framework is not the rating manual itself. Its job is to extract reusable material from a finished chat and format it so it can be inserted into the two project documents:
 
-It is not a replacement for the main manual. It is an added layer for recurring borderline patterns.
+1. `video_games_manual_final.md`
+2. `rating_comment_style_and_phrase_guide.md`
 
----
+The main idea is to keep decision logic and comment phrasing separate.
 
-## 1. Core Purpose
-
-Some rating cases are not solved by a single visible keyword. They require reasoning about:
-
-- the main advertised product,
-- whether a game-like element is primary or only supportive,
-- whether visible wording is enough to count as Video Games,
-- why tempting alternative ratings should be rejected,
-- how to phrase the comment naturally.
-
-A case-derived reasoning node stores this work so it can be reused later.
-
-A node should help answer:
-
-- What visible evidence mattered?
-- What final rating/comment did we land on?
-- What reasoning path led there?
-- Which alternative interpretations were considered and rejected?
-- What wording can be reused in future comments?
-- When is this case similar enough to reuse, and when is it not?
+- The **Video Games manual** stores rating logic: case-derived reasoning nodes, decision shortcuts, boundary conditions, and rejected reasoning paths.
+- The **rating comment guide** stores signed-off wording: reusable comment patterns, phrasing blocks, wording traps, and adaptable templates.
 
 ---
 
-## 2. Case-Derived Reasoning Nodes
+## 1. Purpose
 
-A **case-derived reasoning node** is a reusable decision pattern extracted from a completed rating discussion.
+Some completed rating chats contain useful reasoning that should not be rediscovered every time.
 
-It is built from:
+This framework turns those chats into reusable project material by extracting:
 
-1. the visible task evidence,
-2. the final rating comment,
-3. the reasoning path developed in the chat,
-4. abandoned interpretations or wording traps,
-5. reusable comment phrasing.
+- the visible evidence pattern,
+- the final rating verdict,
+- the reasoning path that led to it,
+- abandoned interpretations,
+- boundary conditions,
+- signed-off reusable phrasing.
 
-The final comment should be treated as the **verdict anchor**. The node should support that verdict with the useful reasoning, distinctions, and wording decisions that led to it.
-
-A node is not just an example. It is a reusable reasoning shortcut.
-
----
-
-## 3. Required Task-Analysis Check
-
-For every Video Games rating task, after extracting visible evidence, check whether any case-derived reasoning node applies.
-
-Do not apply a node just because it shares one word with the current task. Apply it only when the current task shares a similar **decisive structure**.
-
-Always ask:
-
-1. What is the main advertised product or page subject?
-2. Is the game-like element primary or supportive?
-3. Is there visible evidence of a video game under the manual?
-4. Does an existing node match the decisive evidence, or only superficial wording?
+The final comment from the chat should be treated as the **verdict anchor**. The extracted material should support that verdict rather than re-open the rating from scratch.
 
 ---
 
-## 4. Node Match Levels
+## 2. Core Separation Rule
 
-When a node is relevant, mention it even if it is not a perfect match. Qualify the match level clearly.
+Every processed chat should produce two separate outputs.
+
+### Output A — Video Games Manual Insertion
+
+This goes into `video_games_manual_final.md`, under:
+
+> Case-Derived Borderline Reasoning
+
+It should contain:
+
+- case type,
+- final verdict anchor,
+- visible evidence pattern,
+- core reasoning path,
+- decision shortcut,
+- abandoned reasoning paths / negative direction,
+- use / do-not-use boundaries.
+
+It should **not** contain polished comment templates or a large phrase bank.
+
+### Output B — Rating Comment Guide Insertion
+
+This goes into `rating_comment_style_and_phrase_guide.md`, under:
+
+> Signed-Off Comment Pattern Library
+
+It should contain:
+
+- comment pattern label,
+- use condition,
+- approved reusable wording,
+- adaptable templates,
+- phrases to use carefully,
+- optionally, phrase variants.
+
+It should **not** contain the full decision logic unless a short note is needed to explain when the pattern applies.
+
+---
+
+## 3. Screenshot and OCR Grounding
+
+Screenshots and OCR are used during extraction to make the output accurate and grounded.
+
+The screenshot itself does not need to be stored in the manual or the comment guide.
+
+Store only task details that serve the future reasoning or phrasing goal, such as:
+
+- visible product type,
+- visible wording,
+- visible CTA,
+- visible app/page context,
+- visible imagery if relevant,
+- visible URL if relevant.
+
+Do not preserve irrelevant screenshot details.
+
+Do not assume hidden landing-page behavior.
+
+Use visible evidence only.
+
+---
+
+## 4. Manual Case Node Format
+
+Use this format for the manual insertion block.
+
+```md
+## Case Node: [Short reusable title]
+
+### Case type
+[Short description of the recurring borderline pattern.]
+
+### Final verdict anchor
+Rating: Yes / No / Unrateable
+
+Final comment anchor:
+> [Final comment from the completed chat, or a concise paraphrase if the exact final comment is not needed.]
+
+### Visible evidence pattern
+- [...]
+- [...]
+
+### Core reasoning path
+[Explain how the visible evidence leads to the final verdict. Keep this reusable. Do not make it depend on the specific advertiser unless the advertiser is decisive.]
+
+### Decision shortcut
+[Write the compact rule this case teaches.]
+
+### Abandoned reasoning paths / negative direction
+- Do not [...]
+- Avoid [...]
+- This interpretation was rejected because [...]
+
+### Use this node when
+- [...]
+- [...]
+
+### Do not use this node when
+- [...]
+- [...]
+```
+
+---
+
+## 5. Rating Comment Guide Pattern Format
+
+Use this format for the rating-comment-guide insertion block.
+
+```md
+### [Pattern number/title]
+
+Use when [brief condition based on the visible task].
+
+Approved base template:
+> [Reusable comment pattern.]
+
+Optional variants:
+> [Variant 1.]
+
+> [Variant 2.]
+
+Phrases to use carefully:
+- “[phrase]” — [why it needs care]
+
+Notes:
+- [Short practical note about adapting this pattern.]
+```
+
+The pattern should be written so future comments can skip novel drafting whenever the case fits.
+
+The goal is not just inspiration. The goal is to create signed-off, reusable phrasing that can be adapted by swapping in the visible evidence.
+
+---
+
+## 6. Node Match Levels for Future Task Analysis
+
+When the manual is later applied to a new rating task, a case node can match at different strengths.
 
 ### Direct match
-
 Use when the current task has the same decisive structure as the node.
 
 Example:
 > Case node used: Quiz/App Companion for a Real-World Trail — direct match.
 
 ### Partial match
-
 Use when the node helps with one important part of the reasoning, but the current task has additional facts or a slightly different structure.
 
 Example:
 > Case node used: Quiz/App Companion for a Real-World Trail — partial match. The quiz/supporting-app logic is relevant, but the current task is not clearly an outdoor trail.
 
 ### Broad conceptual match
-
 Use when the node does not directly control the rating, but it helps frame the distinction.
 
 Example:
 > Case node used: Quiz/App Companion for a Real-World Trail — broad conceptual match. It helps separate game-like wording from clear video-game framing.
 
 ### No match
-
 Use when no existing node materially helps the decision.
 
 Example:
@@ -100,237 +199,169 @@ A partial or broad conceptual match should not override the main manual. It shou
 
 ---
 
-## 5. Screenshot and OCR Grounding
+## 7. Processing Workflow
 
-Screenshots and OCR are used during node extraction to make the node accurate and grounded in the actual task.
+When processing a completed chat:
 
-The screenshot itself does not need to be stored in the manual or node library.
-
-The node should store only the task description and visible evidence that serves the future reasoning goal, such as:
-
-- visible product type,
-- visible wording,
-- visible CTA,
-- visible app/page context,
-- visible imagery when relevant,
-- visible URL if relevant.
-
-Do not preserve irrelevant screenshot details.
-
-Do not invent landing-page behavior that was not visible.
+1. Identify the final rating comment.
+2. Treat that comment as the verdict anchor.
+3. Extract the visible evidence pattern from the screenshot/OCR/chat.
+4. Extract the reasoning path that led to the verdict.
+5. Extract abandoned interpretations and wording traps.
+6. Define use and do-not-use boundaries.
+7. Create Output A for the Video Games manual.
+8. Create Output B for the rating comment guide.
+9. Keep rating logic out of the phrase bank unless needed as a short use condition.
+10. Keep polished phrasing out of the manual case node unless it appears only as the final comment anchor.
 
 ---
 
-## 6. Case Node Template
+## 8. Extraction Prompt
 
-Use this template when extracting a reusable node from a completed chat.
+Use this prompt after a rating discussion has produced a final comment.
 
-```md
-# Case Node: [Short reusable title]
+```txt
+Apply `video_games_chat_processing_framework.md` to this completed Video Games rating chat.
 
-## Case type
-[Short description of the recurring borderline pattern.]
+Use the chat history, attached task screenshot/OCR if present, and the final rating comment below.
 
-## Source basis
-[Briefly describe what material the node was extracted from.]
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
 
-Example:
-- Completed rating chat about a quiz/app companion for a real-world trail.
-- Task screenshot was used for grounding during extraction.
-- Final comment served as the verdict anchor.
+Treat the final comment as the verdict anchor. Extract reusable material from the chat and produce two clearly separated outputs:
 
-## Final verdict anchor
-Rating: Yes / No / Unrateable  
-Final comment: "[final comment]"
+A) Video Games manual insertion block
+- Format it as a case-derived reasoning node for the manual’s Case-Derived Borderline Reasoning section.
+- Include case type, final verdict anchor, visible evidence pattern, core reasoning path, decision shortcut, abandoned reasoning paths / negative direction, use boundaries, and do-not-use boundaries.
+- Do not include a phrase bank or polished comment-template section in this block.
 
-## Visible evidence pattern
-List only visible signals that mattered.
+B) Rating comment guide insertion block
+- Format it as a signed-off comment pattern for the rating guide’s Signed-Off Comment Pattern Library.
+- Include use condition, approved base template, useful variants, phrases to use carefully, and notes on adaptation.
+- Keep it focused on reusable wording, not full rating logic.
 
-- [...]
-- [...]
-
-## Core reasoning path
-Explain how the visible evidence leads to the final verdict.
-
-Keep this reusable. Do not make it depend on the specific advertiser unless the advertiser is decisive.
-
-## Decision shortcut
-Write the compact rule this case teaches.
-
-Example:
-> When a quiz/app component supports a real-world activity, rate the main offer as the real-world activity unless the visible content clearly presents the app as a video game.
-
-## Abandoned reasoning paths / negative direction
-List plausible interpretations that were considered but rejected.
-
-- Do not rate [Yes/No] just because [...]
-- Avoid wording such as [...] because [...]
-- This path was abandoned because [...]
-
-## Boundary conditions
-
-### Use this node when:
-- [...]
-- [...]
-
-### Do not use this node when:
-- [...]
-- [...]
-
-## Reusable comment phrases
-
-### Naming the visible offer
-- "[phrase]"
-- "[phrase]"
-
-### Acknowledging ambiguity
-- "[phrase]"
-- "[phrase]"
-
-### Explaining why a signal is not enough
-- "[phrase]"
-- "[phrase]"
-
-### Rating close
-- "[phrase]"
-- "[phrase]"
-
-## Polished adaptable comment templates
-1. "[template]"
-2. "[template]"
-3. "[template]"
+Use only visible evidence from the screenshot/OCR/chat. Do not assume hidden landing-page behavior. Preserve useful uncertainty and negative direction.
 ```
 
 ---
 
-## 7. Example Case Node
+## 9. Example Split Output
 
-# Case Node: Quiz/App Companion for a Real-World Trail
+This example shows how one completed quiz/trail chat should be split across the two project documents.
 
-## Case type
+### Output A — Video Games Manual Insertion
+
+```md
+## Case Node: Quiz/App Companion for a Real-World Trail
+
+### Case type
 A quiz, AR, QR-code, or smartphone component supports a real-world outdoor trail, city route, museum route, scavenger hunt, or educational walk.
 
-## Source basis
-This node was extracted from a completed rating discussion about a quiz trail product. The task screenshot was used for grounding during extraction. The final comment served as the verdict anchor.
+### Final verdict anchor
+Rating: No
 
-## Final verdict anchor
-Rating: No  
-
-Final comment:
+Final comment anchor:
 > The main offer is an outdoor trail activity with a companion quiz app. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as part of a real-world trail experience rather than as a clear video game, I would rate it No.
 
-## Visible evidence pattern
+### Visible evidence pattern
 - The offer is centered on a real-world trail or location-based activity.
 - The quiz/app element appears to accompany that activity.
 - The visible content does not clearly present the product as an online game, downloadable game, mobile game, video game, game platform, gameplay media, or game-development product.
 
-## Core reasoning path
+### Core reasoning path
 The quiz element is game-like, but the main advertised product is the real-world trail activity. A companion app, QR code, AR layer, quiz mechanic, or challenge mechanic is not enough by itself to make the product a video game.
 
-The decisive question is not "does this have game-like elements?" but "what is the main offer being advertised?" If the answer is a physical trail or real-world route with a digital quiz layer, the case should be treated as outside Video Games unless the visible content clearly frames the app itself as a playable digital game.
+The decisive question is not only whether the task has game-like elements, but what the main advertised product is. If the answer is a physical trail or real-world route with a digital quiz layer, rate it as outside Video Games unless the visible content clearly frames the app itself as a playable digital game.
 
-## Decision shortcut
+### Decision shortcut
 When a quiz/app component supports a real-world trail or activity, rate based on the real-world activity. Do not treat quiz wording, AR wording, QR codes, or smartphone use as enough by themselves to make it a video game.
 
-## Abandoned reasoning paths / negative direction
-- Do not rate Yes just because the word "quiz" appears.
-- Do not rate Yes just because the creative uses wording such as "challenge," "trail," "quizmaster," "AR," or "QR code."
+### Abandoned reasoning paths / negative direction
+- Do not rate Yes just because the word “quiz” appears.
+- Do not rate Yes just because the creative uses wording such as “challenge,” “trail,” “quizmaster,” “AR,” or “QR code.”
 - Do not rate Yes just because a smartphone or app is involved.
-- Do not over-rely on the phrase "standalone video game," because some valid video games are not fully standalone. Prefer "clear video game" or "clearly framed as a video game."
+- Do not over-rely on the phrase “standalone video game,” because some valid video games are not fully standalone. Prefer “clear video game” or “clearly framed as a video game.”
 - Do not mark Unrateable if the product is assessable but borderline. Give the best Yes/No rating and explain uncertainty if needed.
 
-## Boundary conditions
-
-### Use this node when:
+### Use this node when
 - The visible offer is an outdoor trail, city trail, museum trail, walking route, educational route, scavenger-hunt-like route, or location-based real-world activity.
 - The quiz, AR, app, QR-code, or challenge component appears to support that real-world activity.
 - The visible content does not clearly show a digital game as the main product.
 
-### Do not use this node when:
+### Do not use this node when
 - The visible offer is clearly a trivia video game, quiz game app, browser game, mobile game, downloadable game, or online game.
 - The app itself is clearly the main playable digital experience.
 - The visible content shows gameplay, levels, missions, game characters, game currency, or other strong video-game framing.
 - The page is about video-game media, game reviews, walkthroughs, game downloads, in-game rewards, game retail, or game development.
+```
 
-## Reusable comment phrases
+### Output B — Rating Comment Guide Insertion
 
-### Naming the visible offer
-- "The main offer is an outdoor trail activity with a companion quiz app."
-- "The visible offer appears to be a real-world trail experience with a quiz/app component."
-- "This looks like a location-based trail activity rather than a clear digital game."
+```md
+### Real-world activity with game-like companion
 
-### Acknowledging ambiguity
-- "The quiz element feels game-like..."
-- "Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed."
-- "There is some game-like wording here, but..."
+Use when the visible offer is mainly a real-world activity, and the quiz/app/AR component appears supportive rather than the main video-game product.
 
-### Explaining why a signal is not enough
-- "...it appears to support a real-world trail experience rather than a clear video game."
-- "...the app component seems secondary to the outdoor activity."
-- "...I do not see enough visible evidence that the product itself is a video game."
+Approved base template:
+> The main offer is [real-world activity] with a companion [quiz/app] component. Since it is framed as [real-world activity] rather than a clear video game, I would rate it No.
 
-### Rating close
-- "...so I would rate it No."
-- "...so I would not treat this as Video Games based on the visible evidence."
-- "...so I would rate it No, with some uncertainty."
+Instruction-reference variant:
+> The main offer is [real-world activity] with a companion [quiz/app] component. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as [real-world activity] rather than a clear video game, I would rate it No.
 
-## Polished adaptable comment templates
-1. "The main offer appears to be a real-world trail activity with a companion quiz app. The quiz element feels game-like, but it supports the trail experience rather than clearly presenting a video game, so I would rate it No."
+Short variant:
+> This uses some game-like [quiz/app/AR] wording, but the main offer appears to be [real-world activity] rather than a clear video game, so I would rate it No.
 
-2. "This uses quiz-style wording, but the visible offer is mainly an outdoor trail experience. Since the app appears to accompany that real-world activity rather than function as a clear video game, I would rate it No."
+Phrases to use carefully:
+- “standalone video game” — use carefully, because some valid games are not fully standalone.
+- “game-like” — useful for ambiguity, but explain why the signal is or is not enough.
+- “quiz” — do not imply quizzes are never games; focus on framing.
 
-3. "I think the rating depends on how the quiz is framed. Here, it is presented as part of a real-world trail activity rather than as an online or downloadable game, so I would rate it No."
-
-4. "The smartphone/quiz component makes the offer feel somewhat game-like, but the main product is still the trail experience. I would rate it No based on the visible evidence."
+Notes:
+- Use the instruction-reference variant when the borderline issue is specifically about whether quizzes are covered by the instructions.
+- Use the shorter version when the visible evidence already makes the real-world framing clear.
+```
 
 ---
 
-## 8. Phrase-Bank Integration Rule
+## 10. Quality Checks
 
-Reusable comment phrases should live in the rating-comment guidance, not in the main decision manual.
+Before finalizing processed output, check:
 
-The decision manual should explain what to rate and why.
-
-The comment guide should explain how to phrase the rating naturally.
-
-Suggested names for an expanded comment document:
-
-- `rating_comment_style_and_phrase_guide.md`
-- `rating_comment_guide_and_phrase_bank.md`
-- `rating_comment_style_guide_with_phrase_bank.md`
-- `rating_comment_style_and_reusable_phrasing.md`
-
-Within that document, useful sections would be:
-
-- Core Writing Goal
-- Natural Comment Style
-- Reusable Comment Snippets
-- Borderline Case Phrasing
-- Phrases to Use Carefully
-- Adaptable Comment Templates
-
-Reusable wording should shorten the path to a good comment, not replace judgment.
-
-Good reuse:
-> The quiz element feels game-like, but it appears to support a real-world trail experience rather than a clear video game.
-
-Bad reuse:
-> This is not a video game because quizzes are never video games.
-
-The second version is too broad and would fail on actual quiz/trivia games.
+- Did I produce both outputs?
+- Is the manual block about reasoning rather than comment wording?
+- Is the comment-guide block about reusable phrasing rather than full decision logic?
+- Did I avoid assuming hidden landing-page behavior?
+- Did I preserve the final comment as the verdict anchor?
+- Did I include negative direction / abandoned paths in the manual block?
+- Did I include signed-off reusable wording in the comment-guide block?
+- Did I separate direct evidence from interpretation?
+- Did I avoid creating a template that is too broad and would mislead future tasks?
 
 ---
 
-## 9. Application Rule
+## 11. Minimal Helper Prompts After Integration
 
-A case node is useful only when the current task shares the same decisive structure.
+Use short prompts that point to the project documents instead of restating their logic.
 
-Do not apply a node just because it shares one word.
+### Task analysis prompt
 
-Example:
+```txt
+Apply `video_games_manual_final.md` from project context to this Video Games rating task. Use the attached screenshot/OCR as task input. Follow the manual’s task-analysis process, including any case-derived borderline reasoning section. Use only visible evidence and do not assume hidden landing-page behavior.
+```
 
-- A real-world quiz trail and a mobile trivia game both contain "quiz."
-- The decisive structure differs.
-- The trail case should not control the trivia game case.
+### Comment feedback prompt
 
-Use the node to shorten reasoning, not to skip judgment.
+```txt
+Give me feedback on my rating comment using `rating_comment_style_and_phrase_guide.md` from project context. Keep the same meaning unless the rating logic clearly needs correction. Make the comment natural, specific, and grounded in visible evidence.
+
+Draft comment OCR:
+```
+
+### Completed-chat processing prompt
+
+```txt
+Apply `video_games_chat_processing_framework.md` to this completed Video Games rating chat. Use the final rating comment below as the verdict anchor and produce the two insertion blocks required by the framework.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
+```

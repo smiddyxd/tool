@@ -165,6 +165,8 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN = "serverControlTaskCountTimespan";
   const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
   const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
+  const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
+  const CHAT_PROCESSING_BUTTON_ID = "local-query-bridge-chat-processing-process-button";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
@@ -4632,6 +4634,30 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         white-space: nowrap;
       }
 
+      #${CHAT_PROCESSING_BUTTON_ID} {
+        position: fixed;
+        right: 8px;
+        bottom: 54px;
+        z-index: 2147483646;
+        min-width: 82px;
+        min-height: 34px;
+        box-sizing: border-box;
+        border: 1px solid rgba(37, 99, 235, 0.42);
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.94);
+        color: #ffffff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
+        cursor: pointer;
+        font: 850 12px/1 "Segoe UI", system-ui, sans-serif;
+        letter-spacing: 0;
+        padding: 8px 12px;
+      }
+
+      #${CHAT_PROCESSING_BUTTON_ID}:hover,
+      #${CHAT_PROCESSING_BUTTON_ID}:focus {
+        background: #1d4ed8;
+      }
+
       #${TASK_COUNTER_BADGE_ID}[data-counter-status="queued"],
       #${TASK_COUNTER_BADGE_ID}[data-counter-status="waiting-for-edge"] {
         border-color: rgba(22, 163, 74, 0.34);
@@ -4730,6 +4756,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
       }
 
+      #${CHAT_PROCESSING_BUTTON_ID} {
+        border-color: rgba(96, 165, 250, 0.48);
+        background: rgba(37, 99, 235, 0.94);
+        color: #ffffff;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+      }
+
       #${TASK_COUNTER_BADGE_ID}[data-counter-status="queued"],
       #${TASK_COUNTER_BADGE_ID}[data-counter-status="waiting-for-edge"] {
         border-color: rgba(34, 197, 94, 0.4);
@@ -4753,6 +4786,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         #${TASK_COUNTER_BADGE_ID} {
           right: 8px;
           bottom: 8px;
+        }
+
+        #${CHAT_PROCESSING_BUTTON_ID} {
+          right: 8px;
+          bottom: 54px;
         }
       }
     `;
@@ -4870,6 +4908,125 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         : "waiting";
       sub.textContent = `${taskCounterBadgeState.status || "waiting"} · ${age}`;
     }
+  }
+
+  function normalizeChatProcessingUrl(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text) {
+      return "";
+    }
+
+    try {
+      const url = new URL(text);
+      url.hash = "";
+      url.search = "";
+      return url.toString();
+    } catch (_error) {
+      return text.split("#")[0].split("?")[0];
+    }
+  }
+
+  function normalizeChatProcessingQueue(rawValue) {
+    const rawItems = Array.isArray(rawValue) ? rawValue : [];
+    return rawItems
+      .map((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return null;
+        }
+
+        const url = typeof item.url === "string" ? item.url.trim() : "";
+        const normalizedUrl = normalizeChatProcessingUrl(item.normalizedUrl || url);
+        if (!url || !normalizedUrl) {
+          return null;
+        }
+
+        return {
+          ...item,
+          url,
+          normalizedUrl,
+          status: ["queued", "opened", "done"].includes(item.status) ? item.status : "queued",
+          prompt: typeof item.prompt === "string" ? item.prompt : "",
+        };
+      })
+      .filter(Boolean);
+  }
+
+  async function getActiveChatProcessingItem() {
+    const currentUrl = normalizeChatProcessingUrl(window.location.href);
+    if (!currentUrl) {
+      return null;
+    }
+
+    const stored = await chrome.storage.local.get({
+      [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: [],
+    });
+    return normalizeChatProcessingQueue(stored[STORAGE_KEY_CHAT_PROCESSING_QUEUE])
+      .find((item) => item.status === "opened" && item.normalizedUrl === currentUrl && item.prompt.trim())
+      ?? null;
+  }
+
+  async function pasteActiveChatProcessingPrompt() {
+    const item = await getActiveChatProcessingItem();
+    if (!item) {
+      return false;
+    }
+
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    editor.focus();
+    populatePromptEditor(editor, item.prompt);
+    return true;
+  }
+
+  function getChatProcessingProcessButton() {
+    const button = document.getElementById(CHAT_PROCESSING_BUTTON_ID);
+    return button instanceof HTMLButtonElement ? button : null;
+  }
+
+  function removeChatProcessingProcessButton() {
+    getChatProcessingProcessButton()?.remove();
+  }
+
+  async function syncChatProcessingProcessButton() {
+    const item = await getActiveChatProcessingItem();
+    if (!item) {
+      removeChatProcessingProcessButton();
+      return;
+    }
+
+    ensureServerControlStatusLogStyles();
+    let button = getChatProcessingProcessButton();
+    if (!(button instanceof HTMLButtonElement)) {
+      button = document.createElement("button");
+      button.id = CHAT_PROCESSING_BUTTON_ID;
+      button.type = "button";
+      button.textContent = "Process";
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        void pasteActiveChatProcessingPrompt()
+          .catch((error) => {
+            console.error("Local Query Bridge failed to paste chat processing prompt", error);
+          })
+          .finally(() => {
+            button.disabled = false;
+          });
+      });
+      document.body?.append(button);
+    }
+    button.title = item.title || "Paste chat processing prompt";
+  }
+
+  function initializeChatProcessingPromptButton() {
+    if (document.body) {
+      void syncChatProcessingProcessButton();
+    } else {
+      document.addEventListener("DOMContentLoaded", () => {
+        void syncChatProcessingProcessButton();
+      }, { once: true });
+    }
+
+    window.setInterval(() => {
+      void syncChatProcessingProcessButton();
+    }, 2000);
   }
 
   function updateTaskCounterBadgeFromStatusEntry(entry) {
@@ -8058,6 +8215,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       taskRegions: sanitizeServerControlTaskRegions(serverControlMenuState.taskRegions),
       universalRegions: sanitizeServerControlUniversalRegions(serverControlMenuState.universalRegions),
       pageUrl: window.location.href,
+      pageTitle: document.title,
       sentAt: new Date().toISOString(),
     };
 
@@ -8167,16 +8325,29 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         throw new Error(response?.error || "Server control command was not accepted");
       }
 
-      setServerControlMenuStatus(`Sent: ${buttonConfig.label}`);
+      setServerControlMenuStatus(response?.saved === true ? "Saved for chat processing." : `Sent: ${buttonConfig.label}`);
       if (controlRunId) {
         appendServerControlStatusLog({
           runId: controlRunId,
           type: "worker-send",
-          message: response?.ackTimedOut === true
+          message: response?.saved === true
+            ? "Chat saved for later processing."
+            : response?.ackTimedOut === true
             ? "Bridge acknowledgement timed out; watching status events."
             : "Bridge worker accepted the request.",
           timestamp: new Date().toISOString(),
         });
+        if (response?.saved === true) {
+          appendServerControlStatusLog({
+            runId: controlRunId,
+            type: "response-complete",
+            message: response?.synced === true
+              ? "Chat processing item saved and synced."
+              : "Chat processing item saved locally.",
+            details: response?.syncError ? { syncError: response.syncError } : {},
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
       window.setTimeout(updateServerControlMenuStatus, 1800);
     } catch (error) {
@@ -9775,6 +9946,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   initializeHighlightSelectionEditor();
   initializeAnalysisTocButtons();
   initializeServerControlMenu();
+  initializeChatProcessingPromptButton();
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") {
@@ -9797,6 +9969,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (serverControlStatusLogState.activeTab === "traffic") {
         syncServerControlStatusLog();
       }
+    }
+
+    if (changes[STORAGE_KEY_CHAT_PROCESSING_QUEUE]) {
+      void syncChatProcessingProcessButton();
     }
   });
 

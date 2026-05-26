@@ -4,6 +4,91 @@ Use this guide when drafting or reviewing rating comments. The goal is to write 
 
 ---
 
+## 1. Signed-Off Comment Pattern Library
+
+Before drafting from scratch, first check whether one of these established comment patterns fits the current task. If a pattern fits, use it as the base comment and only adapt the visible evidence. Novel drafting should be the fallback, not the default.
+
+These patterns are approved reusable wording. They are meant to shortcut comment writing while keeping comments natural, specific, and grounded in the task.
+
+### Instruction-reference patterns for borderline cases
+
+Use these when the ambiguity comes from how the instructions cover a borderline category.
+
+> Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. [Visible evidence explanation]. I would rate it [rating].
+
+> The instructions do not clearly treat [category] by itself as Video Games, so I think the rating depends on the framing. Here, [visible framing], so I would rate it [rating].
+
+### 1.1 Real-world activity with game-like companion
+
+Use when the visible offer is mainly a real-world activity, and the quiz/app/AR component appears supportive rather than the main video-game product.
+
+Template:
+> The main offer is [real-world activity] with a companion [quiz/app] component. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as [real-world activity] rather than a clear video game, I would rate it No.
+
+### 1.2 Sparse creative, researched product turns out game-related
+
+Use when the creative itself is sparse or unclear, but research into the named product clearly identifies it as a game-related app, portal, platform, site, or service.
+
+Approved base template:
+> [Product] appears to be a [game-related product type].
+
+Research-basis variant:
+> [Product] appears to be a [game-related product type] based on its landing page.
+
+Slightly more explanatory variant:
+> The creative itself is sparse, but [Product] appears to be a [game-related product type], so I would rate it Yes.
+
+Mobile games variant:
+> [Product] appears to be a premium mobile gaming portal.
+
+Portal/platform variant:
+> [Product] appears to be a gaming portal/platform.
+
+Phrases to use carefully:
+- “gaming platform” — useful, but can be broad. Prefer “mobile gaming portal,” “online games site,” or “game download platform” when the research supports a more specific label.
+- “appears to be” — good for researched classification, especially when the creative itself is sparse.
+- “based on research” — useful when needed, but often less natural than “based on its landing page.”
+- “content platform” — too broad by itself unless paired with game-related wording.
+
+Notes:
+- Keep the comment short when the research evidence is clear.
+- The comment should name the product type that qualifies for a Yes rating, not just say the product is “related.”
+- This pattern should not be used to rescue every unclear creative. It only applies when the named product can be identified and the researched product page clearly supports a Video Games classification.
+
+(the following Comment Patterns are supposed to be completed when processing the respective relevant chats)
+
+### 1.3 Quiz framing: generic trivia quiz without clear game framing
+
+Use when the visible creative shows a quiz or trivia prompt, but the creative does not clearly present it as a video game, game app, online game, downloadable game, or gaming platform.
+
+Approved base template:
+> Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. This creative shows a [type of quiz], but it does not clearly present it as a video game. Based on the visible evidence, I would rate it No.
+
+Short variant:
+> This shows a [type of quiz], but it is not clearly framed as a video game or game app. Since quiz-style interaction alone is not enough, I would rate it No based on the visible evidence.
+
+Useful Yes-with-uncertainty contrast variant:
+> This looks more like a casual trivia quiz game than a generic quiz, but the creative does not explicitly show a game title, game app, or platform. I would rate it Yes with some uncertainty if the visible format is being treated as a playable casual game.
+
+Phrases to use carefully:
+- “quiz game” — only use when the visible framing supports a game interpretation, not just because there are answer buttons.
+- “challenge” — a challenge can be game-like, but it is not enough by itself for Video Games.
+- “test or assessment” — use carefully, because trivia quizzes are also a kind of test. If needed, distinguish “generic quiz/test framing” from “video-game framing.”
+- “Quizzes are not explicitly mentioned in the instructions” — useful for explaining the borderline issue, but pair it with the visible reason for the rating.
+
+Notes:
+- The strongest No comments mention both parts: the instructions do not clearly cover quizzes by themselves, and the visible creative does not add clear game/app framing.
+- Keep the comment grounded in visible evidence such as the question format, answer buttons, lack of game title, lack of app/game platform framing, or lack of score/progression elements.
+- Do not over-explain the full framework in the rating comment. One or two sentences is usually enough.
+
+### 1.3 Sparse creative, but enough game signal
+
+### 1.4 Sparse creative, not enough evidence
+
+### 1.5 Game-like mechanic, non-game product framing
+
+
+
 ## 1. Core Writing Goal
 
 Write like a careful human rater briefly explaining:
@@ -142,18 +227,27 @@ A small amount of everyday phrasing makes comments sound more human. Avoid slang
 
 ---
 
-## 8. Explain the Judgment, Not the Whole Framework
+## 8. Explain the Judgment Without Over-Explaining the Framework
 
-Use the rating framework internally, but do not turn the comment into a policy summary.
+Use the rating framework internally, but do not turn the comment into a long policy summary. The comment should still explain the practical, visible reason for the rating.
 
-### Prefer
-> These are related in a broad sense, but they are not interchangeable. Someone looking for a lawn mower is not necessarily looking for a recurring lawn-care service.
+Referencing the instructions is allowed when it helps explain why a case is borderline or why a category distinction matters.
 
-### Avoid
-> The result preserves an adjacent end-goal while failing the user’s expected solution category, making the substitute structurally weak.
+### Good instruction reference
+
+> Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. This creative shows a trivia quiz, but it does not clearly present it as a video game, so I would rate it No based on the visible evidence.
+
+This works because the instruction reference explains the ambiguity, and the comment still gives the concrete visible reason.
+
+### Weak instruction reference
+
+> The instructions do not mention quizzes, so I would rate it No.
+
+This is weaker because it relies on the instructions alone and does not explain how the visible creative is framed.
 
 ### Rule
-State the practical user-facing reason the rating makes sense.
+
+Instruction references are fine when they clarify ambiguity, but they should be paired with the visible reason for the rating.
 
 ---
 
