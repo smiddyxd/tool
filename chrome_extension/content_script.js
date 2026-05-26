@@ -379,7 +379,7 @@ Output a reusable node that can be inserted into the Video Games manual or case-
       regionKey: SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
     },
     [SERVER_CONTROL_ACTION_PROCESS_CHAT]: {
-      label: "Process chat",
+      label: "Save for processing",
       command: "process_chat",
       value: "process-chat",
     },
@@ -5299,7 +5299,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       case "control:draft_comment_feedback":
         return "rating comment";
       case "control:process_chat":
-        return "process chat";
+        return "save for processing";
       case "control:cancel_control_processing":
         return "cancel processing";
       default:
@@ -8325,7 +8325,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         throw new Error(response?.error || "Server control command was not accepted");
       }
 
-      setServerControlMenuStatus(response?.saved === true ? "Saved for chat processing." : `Sent: ${buttonConfig.label}`);
+      setServerControlMenuStatus(response?.saved === true ? "Saved for processing." : `Sent: ${buttonConfig.label}`);
       if (controlRunId) {
         appendServerControlStatusLog({
           runId: controlRunId,

@@ -798,7 +798,7 @@ function getBridgeTrafficActionLabel(action) {
     case "control:draft_comment_feedback":
       return "rating comment";
     case "control:process_chat":
-      return "process chat";
+      return "save for processing";
     case "control:cancel_control_processing":
       return "cancel processing";
     case BRIDGE_ACTION_CONTROL:
@@ -3069,12 +3069,12 @@ async function saveProcessChatForLater(payload) {
     : (typeof payload.tabUrl === "string" ? payload.tabUrl : "");
   const normalizedUrl = normalizeChatProcessingUrl(pageUrl);
   if (!normalizedUrl || !isChatGptUrl(normalizedUrl)) {
-    return { ok: false, error: "Process chat can only save a ChatGPT chat URL." };
+    return { ok: false, error: "Save for processing can only save a ChatGPT chat URL." };
   }
 
   const prompt = typeof payload.chatProcessingPrompt === "string" ? payload.chatProcessingPrompt.trim() : "";
   if (!prompt) {
-    return { ok: false, error: "Process chat prompt is empty. Set it in Options first." };
+    return { ok: false, error: "Save for processing prompt is empty. Set it in Options first." };
   }
 
   const stored = await chrome.storage.local.get({

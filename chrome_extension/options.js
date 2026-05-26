@@ -294,7 +294,7 @@ const TASK_ACTION_LABELS = {
   [TASK_ACTION_SCREENSHOT]: "Screenshot",
   [TASK_ACTION_GOOGLE_SEARCH]: "Google search",
   [TASK_ACTION_COMMENT_DRAFT]: "Comment",
-  [TASK_ACTION_PROCESS_CHAT]: "Process chat",
+  [TASK_ACTION_PROCESS_CHAT]: "Save for processing",
 };
 const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
@@ -2313,7 +2313,7 @@ function getTrafficDisplayLabel(sample) {
     case "control:draft_comment_feedback":
       return "rating comment";
     case "control:process_chat":
-      return "process chat";
+      return "save for processing";
     case "control:cancel_control_processing":
       return "cancel processing";
     default:
