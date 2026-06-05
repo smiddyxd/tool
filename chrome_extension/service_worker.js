@@ -214,8 +214,10 @@ const REQUEST_TIMEOUT_MS = 5000;
 const BRIDGE_EVENT_TIMEOUT_MS = 30000;
 const CONTROL_COMMAND_TIMEOUT_MS = 30000;
 const CONTROL_PROCESSING_FOLLOWUP_POLL_DELAYS_MS = [0, 300, 1000, 2500, 5000];
+const CONTROL_PROCESSING_WATCH_TIMEOUT_MS = 45000;
+const CONTROL_PROCESSING_WATCH_POLL_DELAY_MS = 500;
 const NEW_TAB_READY_TIMEOUT_MS = 20000;
-const MAX_EVENTS_PER_POLL = 10;
+const MAX_EVENTS_PER_POLL = 30;
 const MAX_DELIVERY_ATTEMPTS = 3;
 const DELIVERY_RETRY_DELAY_MS = 1000;
 const CONTROL_PROCESSING_COMMANDS = new Set([
@@ -269,6 +271,8 @@ const state = {
   bridgeBatchQueue: [],
   bridgeBatchTimerId: null,
   bridgeBatchFlushPromise: null,
+  controlProcessingWatchRuns: new Map(),
+  controlProcessingWatchTimerId: null,
 };
 
 function createPollingAlarm() {
@@ -305,6 +309,65 @@ function delay(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
+}
+
+function pruneExpiredControlProcessingWatches() {
+  const now = Date.now();
+  for (const [runId, watch] of state.controlProcessingWatchRuns.entries()) {
+    if (!watch?.deadlineMs || watch.deadlineMs <= now) {
+      state.controlProcessingWatchRuns.delete(runId);
+    }
+  }
+}
+
+function hasActiveControlProcessingWatch() {
+  pruneExpiredControlProcessingWatches();
+  return state.controlProcessingWatchRuns.size > 0;
+}
+
+function clearControlProcessingWatch(runId = "") {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (normalizedRunId) {
+    state.controlProcessingWatchRuns.delete(normalizedRunId);
+  }
+  if (state.controlProcessingWatchRuns.size === 0 && state.controlProcessingWatchTimerId !== null) {
+    clearTimeout(state.controlProcessingWatchTimerId);
+    state.controlProcessingWatchTimerId = null;
+  }
+}
+
+function scheduleControlProcessingWatchPoll(delayMs = CONTROL_PROCESSING_WATCH_POLL_DELAY_MS) {
+  if (!hasActiveControlProcessingWatch() || state.controlProcessingWatchTimerId !== null) {
+    return;
+  }
+
+  state.controlProcessingWatchTimerId = setTimeout(() => {
+    state.controlProcessingWatchTimerId = null;
+    if (!hasActiveControlProcessingWatch()) {
+      return;
+    }
+    if (state.isPolling) {
+      scheduleControlProcessingWatchPoll(CONTROL_PROCESSING_WATCH_POLL_DELAY_MS);
+      return;
+    }
+    void pollLocalBridge().catch((error) => {
+      console.warn("Local Query Bridge control watch poll failed", error);
+      scheduleControlProcessingWatchPoll(CONTROL_PROCESSING_WATCH_POLL_DELAY_MS);
+    });
+  }, Math.max(0, Number.parseInt(`${delayMs ?? 0}`, 10) || 0));
+}
+
+function watchControlProcessingRun(runId, commandName = "") {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (!normalizedRunId) {
+    return;
+  }
+
+  state.controlProcessingWatchRuns.set(normalizedRunId, {
+    command: typeof commandName === "string" ? commandName.trim() : "",
+    deadlineMs: Date.now() + CONTROL_PROCESSING_WATCH_TIMEOUT_MS,
+  });
+  scheduleControlProcessingWatchPoll(0);
 }
 
 function normalizeTabId(value) {
@@ -372,6 +435,7 @@ function getControlRunTabId(runId) {
 function forgetControlRunTab(runId) {
   const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
   if (normalizedRunId) {
+    clearControlProcessingWatch(normalizedRunId);
     state.controlRunTabIds.delete(normalizedRunId);
     state.nonCountingControlRunIds.delete(normalizedRunId);
     state.currentChatRequiredControlRunIds.delete(normalizedRunId);
@@ -3273,6 +3337,9 @@ async function sendServerControlCommand(command, sender) {
     }
 
     await flushBridgeOperationBatch();
+    if (isProcessingCommand && controlRunId) {
+      watchControlProcessingRun(controlRunId, payload.command);
+    }
     await fetchBridgeOperation(BRIDGE_ACTION_CONTROL, payload, controller.signal, {
       logAction,
       logLabel,
@@ -3309,6 +3376,9 @@ async function sendServerControlCommand(command, sender) {
       };
     }
 
+    if (isProcessingCommand && controlRunId) {
+      clearControlProcessingWatch(controlRunId);
+    }
     throw error;
   } finally {
     clearTimeout(timeoutId);
@@ -3628,6 +3698,7 @@ async function pollLocalBridge() {
           requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
         };
 
+        clearControlProcessingWatch(controlRunId);
         await deliverPendingSubmission();
         clearQueuedControlStatus(controlRunId);
         return;
@@ -3699,6 +3770,7 @@ async function pollLocalBridge() {
           requiresCurrentChat: false,
         };
 
+        clearControlProcessingWatch(controlRunId);
         await deliverPendingSubmission();
         clearQueuedControlStatus(controlRunId);
         return;
@@ -3812,6 +3884,7 @@ async function pollLocalBridge() {
         multiScreenshot,
       };
 
+      clearControlProcessingWatch(controlRunId);
       await deliverPendingSubmission();
       clearQueuedControlStatus(controlRunId);
       return;
@@ -3832,6 +3905,9 @@ async function pollLocalBridge() {
     }
   } finally {
     state.isPolling = false;
+    if (hasActiveControlProcessingWatch() && !state.pendingSubmission) {
+      scheduleControlProcessingWatchPoll(CONTROL_PROCESSING_WATCH_POLL_DELAY_MS);
+    }
     if (sawScrollEvent && !state.pendingSubmission) {
       setTimeout(() => {
         void pollLocalBridge();
