@@ -421,6 +421,12 @@
       backdrop-filter: blur(8px);
     }
 
+    .settings-sync-control {
+      display: grid;
+      gap: 8px;
+      justify-items: stretch;
+    }
+
     button {
       border: 1px solid transparent;
       border-radius: 8px;
@@ -463,6 +469,64 @@
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
     }
 
+    .sync-settings-diff-list {
+      width: min(360px, calc(100vw - 48px));
+      max-height: 260px;
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--field);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .sync-settings-diff-list[hidden] {
+      display: none;
+    }
+
+    .sync-settings-diff-heading {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .sync-settings-diff-items {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .sync-settings-diff-item {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--bg);
+    }
+
+    .sync-settings-diff-label {
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sync-settings-diff-meta {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .chat-processing-list {
       display: grid;
       gap: 10px;
@@ -479,12 +543,31 @@
       background: var(--field);
     }
 
+    .chat-processing-row.status-queued {
+      border-left: 4px solid var(--accent);
+    }
+
+    .chat-processing-row.status-opened {
+      border-left: 4px solid #22c55e;
+    }
+
     .chat-processing-row.done {
       opacity: 0.58;
     }
 
+    .chat-processing-row.status-done {
+      border-left: 4px solid var(--muted);
+    }
+
     .chat-processing-row.done .chat-processing-title {
       text-decoration: line-through;
+    }
+
+    .chat-processing-heading-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
     }
 
     .chat-processing-main {
@@ -501,6 +584,37 @@
       font-weight: 800;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .chat-processing-status {
+      flex: none;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--field-strong);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .chat-processing-status.status-queued {
+      border-color: rgba(37, 99, 235, 0.35);
+      background: rgba(37, 99, 235, 0.16);
+      color: #93c5fd;
+    }
+
+    .chat-processing-status.status-opened {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: rgba(34, 197, 94, 0.16);
+      color: #86efac;
+    }
+
+    .chat-processing-status.status-done {
+      border-color: rgba(148, 163, 184, 0.28);
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--muted);
     }
 
     .chat-processing-meta,
@@ -1009,6 +1123,10 @@
         right: 12px;
       }
 
+      .settings-sync-control {
+        width: 100%;
+      }
+
       .rule-swatch {
         width: 100%;
         height: 10px;
@@ -1250,7 +1368,7 @@
         <section id="options-panel-chat-processing" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="chat-processing" aria-labelledby="options-tab-chat-processing" hidden>
           <div class="section-heading">
             <h2 id="chat-processing-heading">Chat Processing</h2>
-            <p class="hint">Saved chats waiting for manual processing. Open one, use the floating Process button in that chat to paste the prompt, then mark it done here.</p>
+            <p class="hint">Saved chats waiting for manual processing. Open one, use the floating Process or Abstraction level button in that chat, then mark it done here.</p>
           </div>
 
           <div id="chat-processing-list" class="chat-processing-list" aria-live="polite"></div>
@@ -1306,7 +1424,19 @@
           <label for="task-type-chat-processing-prompt">
             Chat processing prompt
             <textarea id="task-type-chat-processing-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used by the Save for processing bridge-control action. It is sent as text into the current chat.</p>
+            <p class="hint">Used by the Process button on chats saved for processing. It is pasted into the current chat without sending.</p>
+          </label>
+
+          <label for="task-type-chat-abstraction-prompt">
+            Abstraction level prompt
+            <textarea id="task-type-chat-abstraction-prompt" rows="9" spellcheck="true"></textarea>
+            <p class="hint">Used by the Abstraction level button on chats saved for processing. It is pasted into the current chat without sending.</p>
+          </label>
+
+          <label for="task-type-additional-context-prompt">
+            Additional context prompt
+            <textarea id="task-type-additional-context-prompt" rows="9" spellcheck="true"></textarea>
+            <p class="hint">Used by the Add context bridge-control action. It attaches a fresh screenshot, adds OCR text when available, and sends it into the current chat.</p>
           </label>
         </section>
 
@@ -1418,10 +1548,13 @@
 
       <div class="actions floating-form-actions">
         <button type="submit">Save settings</button>
-        <button id="sync-settings" class="sync-settings-button" type="button">
-          Sync settings
-          <span id="sync-settings-diff-count" class="sync-settings-diff-count" hidden>0</span>
-        </button>
+        <div class="settings-sync-control">
+          <button id="sync-settings" class="sync-settings-button" type="button">
+            Sync settings
+            <span id="sync-settings-diff-count" class="sync-settings-diff-count" hidden>0</span>
+          </button>
+          <div id="sync-settings-diff-list" class="sync-settings-diff-list" hidden aria-live="polite"></div>
+        </div>
       </div>
 
       <p id="status" aria-live="polite"></p>

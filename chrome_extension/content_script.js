@@ -166,12 +166,15 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
   const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
   const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
+  const CHAT_PROCESSING_BUTTON_GROUP_ID = "local-query-bridge-chat-processing-button-group";
   const CHAT_PROCESSING_BUTTON_ID = "local-query-bridge-chat-processing-process-button";
+  const CHAT_PROCESSING_ABSTRACTION_BUTTON_ID = "local-query-bridge-chat-processing-abstraction-button";
   const SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
   const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
   const SERVER_CONTROL_REGION_DEFAULT_KEY = "fullTaskScreenshot";
   const SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY = "ratingComment";
   const SERVER_CONTROL_ACTION_PROCESS_CHAT = "processChat";
+  const SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT = "additionalContext";
   const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
 Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract a reusable case-derived reasoning node.
@@ -182,6 +185,38 @@ Final rating comment:
 Create the node according to the framework. Treat the final comment as the verdict anchor, and extract the useful reasoning path, abandoned interpretations, boundary conditions, and reusable phrasing from the chat. Use the screenshot/OCR only for grounding visible evidence; do not assume hidden landing-page behavior.
 
 Output a reusable node that can be inserted into the Video Games manual or case-node library.`;
+  const DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT = `Before processing this completed Video Games rating chat according to video_games_chat_processing_framework.md in project context, first identify the best abstraction frame.
+
+Use the chat history, attached screenshot/OCR if present, and the final rating comment as the verdict anchor.
+
+Your task in this step is not to write the insertion blocks yet. Instead, zoom out from the specific task and suggest the most abstract but still maximally useful reusable frame for this case.
+
+Please do the following:
+
+1. Identify the exact concrete case.
+2. List several possible abstraction levels, from narrowest to broadest.
+3. For each level, explain what it captures and what it might miss.
+4. Recommend the best abstraction level for processing this chat into:
+   - a Video Games manual case node, and
+   - a rating comment guide pattern.
+5. State the reusable decision principle in one sentence.
+6. State the reusable comment-pattern principle in one sentence.
+7. Preserve the final verdict and do not re-open the rating unless the final comment is internally inconsistent with the visible evidence.
+8. Use only visible evidence from the screenshot/OCR/chat. Do not assume hidden landing-page behavior.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]`;
+  const DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT = `Consider this additional context for the current Video Games rating task. The input may be an attached screenshot, OCR text, or both.
+
+Apply \`video_games_manual_final.md\` from project context. Compare this new visible context against the earlier rating and explain whether it meaningfully changes the rating, confidence, case-node fit, or comment.
+
+Use only visible evidence from the added context. Do not assume anything beyond what is shown.
+
+Output:
+- Does this change the rating? Yes / No / Maybe
+- Why or why not?
+- Updated rating, if changed
+- Updated comment, if useful`;
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
   const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
@@ -383,6 +418,11 @@ Output a reusable node that can be inserted into the Video Games manual or case-
       command: "process_chat",
       value: "process-chat",
     },
+    [SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT]: {
+      label: "Add context",
+      command: "add_rating_context",
+      value: "additional-context",
+    },
   };
   const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
@@ -427,8 +467,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       key: "video-games",
       label: "Video Games",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_PROCESS_CHAT],
-      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_PROCESS_CHAT],
+      actions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+      ],
+      visibleActions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+      ],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Video Games task.
 
@@ -436,6 +488,8 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
       chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
+      chatProcessingAbstractionPrompt: DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT,
+      additionalContextPrompt: DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT,
     },
     {
       key: "weight-loss",
@@ -459,6 +513,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     visibleActions: Array.isArray(definition.visibleActions) ? [...definition.visibleActions] : [...definition.actions],
     requireWebSearchChip: definition.requireWebSearchChip !== false,
     chatProcessingPrompt: typeof definition.chatProcessingPrompt === "string" ? definition.chatProcessingPrompt : "",
+    chatProcessingAbstractionPrompt: typeof definition.chatProcessingAbstractionPrompt === "string"
+      ? definition.chatProcessingAbstractionPrompt
+      : "",
+    additionalContextPrompt: typeof definition.additionalContextPrompt === "string"
+      ? definition.additionalContextPrompt
+      : "",
   }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
@@ -4243,7 +4303,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || command === "start_task_screenshot"
       || command === "ocr_google_results"
       || command === "draft_comment_feedback"
-      || command === "process_chat";
+      || command === "process_chat"
+      || command === "add_rating_context";
   }
 
   function getServerControlStatusLogColor(type) {
@@ -4634,11 +4695,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         white-space: nowrap;
       }
 
-      #${CHAT_PROCESSING_BUTTON_ID} {
+      #${CHAT_PROCESSING_BUTTON_GROUP_ID} {
         position: fixed;
         right: 8px;
         bottom: 54px;
         z-index: 2147483646;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
+        max-width: calc(100vw - 16px);
+      }
+
+      #${CHAT_PROCESSING_BUTTON_GROUP_ID} button {
         min-width: 82px;
         min-height: 34px;
         box-sizing: border-box;
@@ -4653,8 +4722,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         padding: 8px 12px;
       }
 
-      #${CHAT_PROCESSING_BUTTON_ID}:hover,
-      #${CHAT_PROCESSING_BUTTON_ID}:focus {
+      #${CHAT_PROCESSING_BUTTON_GROUP_ID} button:hover,
+      #${CHAT_PROCESSING_BUTTON_GROUP_ID} button:focus {
         background: #1d4ed8;
       }
 
@@ -4756,7 +4825,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
       }
 
-      #${CHAT_PROCESSING_BUTTON_ID} {
+      #${CHAT_PROCESSING_BUTTON_GROUP_ID} button {
         border-color: rgba(96, 165, 250, 0.48);
         background: rgba(37, 99, 235, 0.94);
         color: #ffffff;
@@ -4788,7 +4857,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           bottom: 8px;
         }
 
-        #${CHAT_PROCESSING_BUTTON_ID} {
+        #${CHAT_PROCESSING_BUTTON_GROUP_ID} {
           right: 8px;
           bottom: 54px;
         }
@@ -4945,7 +5014,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           url,
           normalizedUrl,
           status: ["queued", "opened", "done"].includes(item.status) ? item.status : "queued",
+          taskType: typeof item.taskType === "string" ? item.taskType : "",
           prompt: typeof item.prompt === "string" ? item.prompt : "",
+          abstractionPrompt: typeof item.abstractionPrompt === "string" && item.abstractionPrompt.trim()
+            ? item.abstractionPrompt
+            : (item.taskType === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT : ""),
         };
       })
       .filter(Boolean);
@@ -4965,16 +5038,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       ?? null;
   }
 
-  async function pasteActiveChatProcessingPrompt() {
+  async function pasteActiveChatProcessingPrompt(promptKey = "process") {
     const item = await getActiveChatProcessingItem();
     if (!item) {
       return false;
     }
 
+    const prompt = promptKey === "abstraction" ? item.abstractionPrompt : item.prompt;
+    if (typeof prompt !== "string" || !prompt.trim()) {
+      return false;
+    }
+
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     editor.focus();
-    populatePromptEditor(editor, item.prompt);
+    populatePromptEditor(editor, prompt);
     return true;
+  }
+
+  function getChatProcessingButtonGroup() {
+    const group = document.getElementById(CHAT_PROCESSING_BUTTON_GROUP_ID);
+    return group instanceof HTMLElement ? group : null;
   }
 
   function getChatProcessingProcessButton() {
@@ -4982,8 +5065,32 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return button instanceof HTMLButtonElement ? button : null;
   }
 
+  function getChatProcessingAbstractionButton() {
+    const button = document.getElementById(CHAT_PROCESSING_ABSTRACTION_BUTTON_ID);
+    return button instanceof HTMLButtonElement ? button : null;
+  }
+
   function removeChatProcessingProcessButton() {
-    getChatProcessingProcessButton()?.remove();
+    getChatProcessingButtonGroup()?.remove();
+  }
+
+  function createChatProcessingPasteButton(id, label, promptKey, title) {
+    const button = document.createElement("button");
+    button.id = id;
+    button.type = "button";
+    button.textContent = label;
+    button.title = title;
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      void pasteActiveChatProcessingPrompt(promptKey)
+        .catch((error) => {
+          console.error(`Local Query Bridge failed to paste ${promptKey} chat processing prompt`, error);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    });
+    return button;
   }
 
   async function syncChatProcessingProcessButton() {
@@ -4994,25 +5101,40 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     ensureServerControlStatusLogStyles();
+    let group = getChatProcessingButtonGroup();
+    if (!(group instanceof HTMLElement)) {
+      group = document.createElement("div");
+      group.id = CHAT_PROCESSING_BUTTON_GROUP_ID;
+      document.body?.append(group);
+    }
+
     let button = getChatProcessingProcessButton();
     if (!(button instanceof HTMLButtonElement)) {
-      button = document.createElement("button");
-      button.id = CHAT_PROCESSING_BUTTON_ID;
-      button.type = "button";
-      button.textContent = "Process";
-      button.addEventListener("click", () => {
-        button.disabled = true;
-        void pasteActiveChatProcessingPrompt()
-          .catch((error) => {
-            console.error("Local Query Bridge failed to paste chat processing prompt", error);
-          })
-          .finally(() => {
-            button.disabled = false;
-          });
-      });
-      document.body?.append(button);
+      button = createChatProcessingPasteButton(
+        CHAT_PROCESSING_BUTTON_ID,
+        "Process",
+        "process",
+        item.title || "Paste chat processing prompt",
+      );
     }
     button.title = item.title || "Paste chat processing prompt";
+    const abstractionPrompt = typeof item.abstractionPrompt === "string" ? item.abstractionPrompt.trim() : "";
+    let abstractionButton = getChatProcessingAbstractionButton();
+    if (abstractionPrompt) {
+      if (!(abstractionButton instanceof HTMLButtonElement)) {
+        abstractionButton = createChatProcessingPasteButton(
+          CHAT_PROCESSING_ABSTRACTION_BUTTON_ID,
+          "Abstraction level",
+          "abstraction",
+          "Paste abstraction level prompt",
+        );
+      }
+      abstractionButton.title = item.title ? `Paste abstraction level prompt for ${item.title}` : "Paste abstraction level prompt";
+      group.replaceChildren(abstractionButton, button);
+    } else {
+      abstractionButton?.remove();
+      group.replaceChildren(button);
+    }
   }
 
   function initializeChatProcessingPromptButton() {
@@ -5300,6 +5422,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         return "rating comment";
       case "control:process_chat":
         return "save for processing";
+      case "control:add_rating_context":
+        return "add context";
       case "control:cancel_control_processing":
         return "cancel processing";
       default:
@@ -6305,6 +6429,26 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         height: min(var(--local-query-bridge-zone-divider-bottom-length, ${DEFAULT_SERVER_CONTROL_ZONE_DIVIDER_LENGTH_PX}px), 50%);
       }
 
+      #${SERVER_CONTROL_ZONE_OVERLAY_ID} .local-query-bridge-server-control-zone-label {
+        position: absolute;
+        top: 4px;
+        z-index: 1;
+        max-width: min(180px, calc(100% - 12px));
+        transform: translateX(-50%);
+        overflow: hidden;
+        padding: 4px 7px;
+        border: 1px solid rgba(37, 99, 235, 0.32);
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.72);
+        color: #eff6ff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+        font: 850 11px/1 "Segoe UI", system-ui, sans-serif;
+        letter-spacing: 0;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .local-query-bridge-server-control-project-account-button {
         display: grid;
         grid-template-columns: minmax(80px, 0.45fr) minmax(0, 1fr);
@@ -6676,6 +6820,21 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     overlay.style.width = `${rootRect.width}px`;
     overlay.style.height = `${rootRect.height}px`;
     overlay.replaceChildren();
+    const topLabelBandHeight = Math.min(
+      sanitizeServerControlZoneDividerLength(serverControlMenuState.zoneDividerTopLengthPx),
+      rootRect.height / 2,
+    );
+    const labelTop = Math.max(4, Math.min(Math.max(4, topLabelBandHeight - 24), Math.round(topLabelBandHeight / 2) - 10));
+    for (let index = 0; index < actionEntries.length; index += 1) {
+      const label = document.createElement("div");
+      label.className = "local-query-bridge-server-control-zone-label";
+      label.textContent = actionEntries[index].label || actionEntries[index].actionKey || "";
+      label.title = label.textContent;
+      label.style.left = `${((index + 0.5) / actionEntries.length) * 100}%`;
+      label.style.top = `${labelTop}px`;
+      label.style.maxWidth = `calc(${100 / actionEntries.length}% - 10px)`;
+      overlay.append(label);
+    }
     for (let index = 1; index < actionEntries.length; index += 1) {
       const divider = document.createElement("div");
       divider.className = "local-query-bridge-server-control-zone-divider";
@@ -7205,13 +7364,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_PROCESS_CHAT)) {
         actions.push(SERVER_CONTROL_ACTION_PROCESS_CHAT);
       }
+      const addedAdditionalContextAction = (
+        key === "video-games"
+        && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)
+      );
+      if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
+        actions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
+      }
+      const visibleActions = normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions);
+      if (addedAdditionalContextAction && !visibleActions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
+        visibleActions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
+      }
 
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
         key,
         label,
         regions,
         actions,
-        visibleActions: normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions),
+        visibleActions,
         requireWebSearchChip: normalizeServerControlRequireWebSearchChip(rawDefinition.requireWebSearchChip),
         boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
           ? rawDefinition.boilerplatePrompt.trim()
@@ -7219,6 +7389,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
           ? rawDefinition.chatProcessingPrompt.trim()
           : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT : ""),
+        chatProcessingAbstractionPrompt: typeof rawDefinition.chatProcessingAbstractionPrompt === "string"
+          ? rawDefinition.chatProcessingAbstractionPrompt.trim()
+          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT : ""),
+        additionalContextPrompt: typeof rawDefinition.additionalContextPrompt === "string"
+          ? rawDefinition.additionalContextPrompt.trim()
+          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT : ""),
       }, regionDefinitionsByKey));
     }
 
@@ -7754,6 +7930,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getCurrentServerControlTaskTypeDefinition().chatProcessingPrompt || "";
   }
 
+  function getActiveServerControlChatProcessingAbstractionPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().chatProcessingAbstractionPrompt || "";
+  }
+
+  function getActiveServerControlAdditionalContextPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().additionalContextPrompt || "";
+  }
+
   function normalizePromptPlaceholderKey(value) {
     return (typeof value === "string" ? value : "")
       .replace(/^!/, "")
@@ -8204,6 +8388,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       processingMode: serverControlMenuState.processingMode,
       boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
       chatProcessingPrompt: getActiveServerControlChatProcessingPrompt(),
+      chatProcessingAbstractionPrompt: getActiveServerControlChatProcessingAbstractionPrompt(),
+      additionalContextPrompt: getActiveServerControlAdditionalContextPrompt(),
       activeProjectAccount,
       activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
       activeProjectId,

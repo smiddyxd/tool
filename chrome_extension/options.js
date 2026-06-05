@@ -116,6 +116,8 @@ const CLEAR_TRAFFIC_HISTORY_MESSAGE_TYPE = "clearBridgeTrafficHistory";
 const SETTINGS_SYNC_MESSAGE_TYPE = "bridgeSettingsSync";
 const SETTINGS_SYNC_SCHEMA_VERSION = 1;
 const TRAFFIC_HISTORY_REFRESH_INTERVAL_MS = 3000;
+const SETTINGS_SYNC_DIFF_REFRESH_INTERVAL_MS = 3000;
+const SETTINGS_SYNC_DIFF_REFRESH_DEBOUNCE_MS = 250;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
 const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
@@ -209,6 +211,49 @@ const SETTINGS_SYNC_REMOVABLE_SYNC_KEYS = [
   ...SETTINGS_SYNC_SYNC_KEYS,
   ...SETTINGS_SYNC_REMOVED_SYNC_KEYS,
 ];
+const SETTINGS_SYNC_LOCAL_KEY_SET = new Set(SETTINGS_SYNC_LOCAL_KEYS);
+const SETTINGS_SYNC_SYNC_KEY_SET = new Set(SETTINGS_SYNC_SYNC_KEYS);
+const SETTINGS_SYNC_KEY_LABELS = {
+  [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: "Task types and bridge-control actions",
+  [STORAGE_KEY_SERVER_CONTROL_COMMENT_DRAFT_MIGRATED]: "Comment action migration flag",
+  [STORAGE_KEY_SERVER_CONTROL_TASK_REGIONS]: "Task OCR and screenshot regions",
+  [STORAGE_KEY_SERVER_CONTROL_UNIVERSAL_REGIONS]: "Universal OCR and screenshot regions",
+  [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_OPACITY]: "Zone divider opacity",
+  [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_TOP_LENGTH]: "Top zone divider length",
+  [STORAGE_KEY_SERVER_CONTROL_ZONE_DIVIDER_BOTTOM_LENGTH]: "Bottom zone divider length",
+  [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: "Task type highlight rules",
+  [STORAGE_KEY_HIGHLIGHT_RULES]: "Legacy highlight rules",
+  [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: "Chat processing queue",
+  [STORAGE_KEY_START_PAGE_URL]: "Default ChatGPT start page",
+  [STORAGE_KEY_PROJECT_IDS]: "Project IDs",
+  [STORAGE_KEY_ACTIVE_PROJECT_ID]: "Active project ID",
+  [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: "Active bridge task type",
+  [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: "Task type project IDs",
+  [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: "Task type active project accounts",
+  [STORAGE_KEY_RESET_LIMIT]: "Reset limit",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: "Task type TOC button colors",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: "Task type TOC button settings",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: "Task type TOC button labels",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_ORDER]: "Task type TOC button order",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_POSITIONS]: "Task type TOC column positions",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_OPACITY]: "Task type TOC column opacity",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLUMN_SCALE]: "Task type TOC column scale",
+  [STORAGE_KEY_TASK_TYPE_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: "Task type latest prompt scroll hold",
+  [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_ENTRIES]: "Task type custom TOC entries",
+  [STORAGE_KEY_ANALYSIS_TOC_COLORS]: "Default TOC button colors",
+  [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: "Default TOC button settings",
+  [STORAGE_KEY_ANALYSIS_TOC_LABELS]: "Default TOC button labels",
+  [STORAGE_KEY_ANALYSIS_TOC_BUTTON_ORDER]: "Default TOC button order",
+  [STORAGE_KEY_ANALYSIS_TOC_COLUMN_POSITIONS]: "Default TOC column positions",
+  [STORAGE_KEY_ANALYSIS_TOC_COLUMN_OPACITY]: "Default TOC column opacity",
+  [STORAGE_KEY_ANALYSIS_TOC_COLUMN_SCALE]: "Default TOC column scale",
+  [STORAGE_KEY_LATEST_PROMPT_SCROLL_HOLD_SECONDS]: "Default latest prompt scroll hold",
+  [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_COLORS]: "Bridge Control status colors",
+  [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_MESSAGES]: "Bridge Control status messages",
+  [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_IDLE_OPACITY]: "Bridge Control status idle opacity",
+  [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH]: "Bridge Control status width",
+  [STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT]: "Bridge Control status left position",
+};
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const HARD_CODED_TOC_TASK_TYPE_KEYS = new Set([BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS]);
 const TASK_REGION_KIND_OCR = "ocr";
@@ -282,12 +327,14 @@ const TASK_ACTION_SCREENSHOT = "screenshot";
 const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
 const TASK_ACTION_COMMENT_DRAFT = "commentDraft";
 const TASK_ACTION_PROCESS_CHAT = "processChat";
+const TASK_ACTION_ADDITIONAL_CONTEXT = "additionalContext";
 const TASK_ACTION_KEYS = [
   TASK_ACTION_OCR,
   TASK_ACTION_SCREENSHOT,
   TASK_ACTION_GOOGLE_SEARCH,
   TASK_ACTION_COMMENT_DRAFT,
   TASK_ACTION_PROCESS_CHAT,
+  TASK_ACTION_ADDITIONAL_CONTEXT,
 ];
 const TASK_ACTION_LABELS = {
   [TASK_ACTION_OCR]: "OCR",
@@ -295,6 +342,7 @@ const TASK_ACTION_LABELS = {
   [TASK_ACTION_GOOGLE_SEARCH]: "Google search",
   [TASK_ACTION_COMMENT_DRAFT]: "Comment",
   [TASK_ACTION_PROCESS_CHAT]: "Save for processing",
+  [TASK_ACTION_ADDITIONAL_CONTEXT]: "Add context",
 };
 const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
@@ -306,6 +354,38 @@ Final rating comment:
 Create the node according to the framework. Treat the final comment as the verdict anchor, and extract the useful reasoning path, abandoned interpretations, boundary conditions, and reusable phrasing from the chat. Use the screenshot/OCR only for grounding visible evidence; do not assume hidden landing-page behavior.
 
 Output a reusable node that can be inserted into the Video Games manual or case-node library.`;
+const DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT = `Before processing this completed Video Games rating chat according to video_games_chat_processing_framework.md in project context, first identify the best abstraction frame.
+
+Use the chat history, attached screenshot/OCR if present, and the final rating comment as the verdict anchor.
+
+Your task in this step is not to write the insertion blocks yet. Instead, zoom out from the specific task and suggest the most abstract but still maximally useful reusable frame for this case.
+
+Please do the following:
+
+1. Identify the exact concrete case.
+2. List several possible abstraction levels, from narrowest to broadest.
+3. For each level, explain what it captures and what it might miss.
+4. Recommend the best abstraction level for processing this chat into:
+   - a Video Games manual case node, and
+   - a rating comment guide pattern.
+5. State the reusable decision principle in one sentence.
+6. State the reusable comment-pattern principle in one sentence.
+7. Preserve the final verdict and do not re-open the rating unless the final comment is internally inconsistent with the visible evidence.
+8. Use only visible evidence from the screenshot/OCR/chat. Do not assume hidden landing-page behavior.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]`;
+const DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT = `Consider this additional context for the current Video Games rating task. The input may be an attached screenshot, OCR text, or both.
+
+Apply \`video_games_manual_final.md\` from project context. Compare this new visible context against the earlier rating and explain whether it meaningfully changes the rating, confidence, case-node fit, or comment.
+
+Use only visible evidence from the added context. Do not assume anything beyond what is shown.
+
+Output:
+- Does this change the rating? Yes / No / Maybe
+- Why or why not?
+- Updated rating, if changed
+- Updated comment, if useful`;
 const FULL_TASK_SCREENSHOT_REGION = {
   key: "fullTaskScreenshot",
   label: "Full task screenshot",
@@ -378,8 +458,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   {
     key: "video-games",
     label: "Video Games",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_PROCESS_CHAT],
-    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_PROCESS_CHAT],
+    actions: [
+      TASK_ACTION_OCR,
+      TASK_ACTION_SCREENSHOT,
+      TASK_ACTION_COMMENT_DRAFT,
+      TASK_ACTION_PROCESS_CHAT,
+      TASK_ACTION_ADDITIONAL_CONTEXT,
+    ],
+    visibleActions: [
+      TASK_ACTION_OCR,
+      TASK_ACTION_SCREENSHOT,
+      TASK_ACTION_COMMENT_DRAFT,
+      TASK_ACTION_PROCESS_CHAT,
+      TASK_ACTION_ADDITIONAL_CONTEXT,
+    ],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -392,6 +484,8 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Video Games criteria. Keep the reasoning tied to the visible task evidence.`,
     chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
+    chatProcessingAbstractionPrompt: DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT,
+    additionalContextPrompt: DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT,
   },
   {
     key: "weight-loss",
@@ -478,6 +572,9 @@ const trafficHistoryState = {
   loadedAt: 0,
   nextCoverTrafficAt: 0,
 };
+
+let settingsSyncDiffRefreshTimerId = null;
+let settingsSyncDiffRefreshToken = 0;
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
   key: entry.key ?? normalizeAnalysisHeadingText(entry.heading),
@@ -820,12 +917,20 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
     if (key === "video-games" && !actions.includes(TASK_ACTION_PROCESS_CHAT)) {
       actions.push(TASK_ACTION_PROCESS_CHAT);
     }
+    const addedAdditionalContextAction = key === "video-games" && !actions.includes(TASK_ACTION_ADDITIONAL_CONTEXT);
+    if (key === "video-games" && !actions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
+      actions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
+    }
+    const visibleActions = normalizeVisibleTaskActionKeys(rawDefinition.visibleActions, actions);
+    if (addedAdditionalContextAction && !visibleActions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
+      visibleActions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
+    }
 
     const taskDefinition = ensureTaskDefinitionFeatures({
       key,
       label,
       actions,
-      visibleActions: normalizeVisibleTaskActionKeys(rawDefinition.visibleActions, actions),
+      visibleActions,
       requireWebSearchChip: normalizeTaskRequireWebSearchChip(rawDefinition.requireWebSearchChip),
       regions,
       boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
@@ -834,6 +939,12 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
       chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
         ? rawDefinition.chatProcessingPrompt.trim()
         : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT : ""),
+      chatProcessingAbstractionPrompt: typeof rawDefinition.chatProcessingAbstractionPrompt === "string"
+        ? rawDefinition.chatProcessingAbstractionPrompt.trim()
+        : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT : ""),
+      additionalContextPrompt: typeof rawDefinition.additionalContextPrompt === "string"
+        ? rawDefinition.additionalContextPrompt.trim()
+        : (key === "video-games" ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT : ""),
     });
 
     sanitizedDefinitions.push(taskDefinition);
@@ -2314,6 +2425,8 @@ function getTrafficDisplayLabel(sample) {
       return "rating comment";
     case "control:process_chat":
       return "save for processing";
+    case "control:add_rating_context":
+      return "add context";
     case "control:cancel_control_processing":
       return "cancel processing";
     default:
@@ -2844,11 +2957,15 @@ function syncTaskTypeDefinitionEditorValues() {
   const labelInput = document.querySelector("#task-type-label");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
+  const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
+  const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   if (
     !(labelInput instanceof HTMLInputElement)
     && !(promptInput instanceof HTMLTextAreaElement)
     && !(chatPromptInput instanceof HTMLTextAreaElement)
+    && !(chatAbstractionPromptInput instanceof HTMLTextAreaElement)
+    && !(additionalContextPromptInput instanceof HTMLTextAreaElement)
     && !(requireSearchChipInput instanceof HTMLInputElement)
   ) {
     return;
@@ -2873,6 +2990,12 @@ function syncTaskTypeDefinitionEditorValues() {
       chatProcessingPrompt: chatPromptInput instanceof HTMLTextAreaElement
         ? chatPromptInput.value
         : (definition.chatProcessingPrompt ?? ""),
+      chatProcessingAbstractionPrompt: chatAbstractionPromptInput instanceof HTMLTextAreaElement
+        ? chatAbstractionPromptInput.value
+        : (definition.chatProcessingAbstractionPrompt ?? ""),
+      additionalContextPrompt: additionalContextPromptInput instanceof HTMLTextAreaElement
+        ? additionalContextPromptInput.value
+        : (definition.additionalContextPrompt ?? ""),
     };
   });
 }
@@ -3226,6 +3349,8 @@ function renderTaskTypeConfiguration() {
   const keyText = document.querySelector("#task-type-key");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
+  const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
+  const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
@@ -3240,6 +3365,12 @@ function renderTaskTypeConfiguration() {
   }
   if (chatPromptInput instanceof HTMLTextAreaElement) {
     chatPromptInput.value = taskDefinition.chatProcessingPrompt || "";
+  }
+  if (chatAbstractionPromptInput instanceof HTMLTextAreaElement) {
+    chatAbstractionPromptInput.value = taskDefinition.chatProcessingAbstractionPrompt || "";
+  }
+  if (additionalContextPromptInput instanceof HTMLTextAreaElement) {
+    additionalContextPromptInput.value = taskDefinition.additionalContextPrompt || "";
   }
   if (requireSearchChipInput instanceof HTMLInputElement) {
     requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
@@ -3276,6 +3407,8 @@ Full task OCR: [full task ocr]
 
 Use the screenshot and OCR text above to complete the task.`,
     chatProcessingPrompt: "",
+    chatProcessingAbstractionPrompt: "",
+    additionalContextPrompt: "",
   };
 
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions([
@@ -4689,6 +4822,7 @@ function normalizeChatProcessingQueue(rawValue) {
         openedAt: typeof item.openedAt === "string" ? item.openedAt : "",
         doneAt: typeof item.doneAt === "string" ? item.doneAt : "",
         prompt: typeof item.prompt === "string" ? item.prompt : "",
+        abstractionPrompt: typeof item.abstractionPrompt === "string" ? item.abstractionPrompt : "",
       };
     })
     .filter(Boolean)
@@ -4720,7 +4854,7 @@ async function saveChatProcessingQueue(queue, message = "Chat processing queue u
       useLargePadding: false,
     });
     setStatus(`${message} Synced to bridge.`);
-    renderSettingsSyncDiffCount(0);
+    renderSettingsSyncDiffState([]);
   } catch (error) {
     setStatus(`${message} Bridge sync failed: ${error}`);
     void refreshSettingsSyncDiffCount();
@@ -4772,26 +4906,42 @@ function renderChatProcessingQueue() {
 
   for (const item of queue) {
     const row = document.createElement("div");
-    row.className = `chat-processing-row ${item.status === "done" ? "done" : ""}`;
+    const statusClass = `status-${item.status}`;
+    row.className = `chat-processing-row ${statusClass} ${item.status === "done" ? "done" : ""}`;
 
     const main = document.createElement("div");
     main.className = "chat-processing-main";
 
+    const headingRow = document.createElement("div");
+    headingRow.className = "chat-processing-heading-row";
+
+    const status = document.createElement("span");
+    status.className = `chat-processing-status ${statusClass}`;
+    status.textContent = item.status;
+
     const title = document.createElement("div");
     title.className = "chat-processing-title";
     title.textContent = item.title;
+    headingRow.append(status, title);
 
     const meta = document.createElement("div");
     meta.className = "chat-processing-meta";
     const taskLabel = item.taskTypeLabel || getTaskTypeLabel(item.taskType);
     const savedAt = formatChatProcessingDate(item.savedAt);
-    meta.textContent = `${taskLabel || item.taskType || "Task"} | ${item.status}${savedAt ? ` | saved ${savedAt}` : ""}`;
+    const openedAt = formatChatProcessingDate(item.openedAt);
+    const doneAt = formatChatProcessingDate(item.doneAt);
+    meta.textContent = [
+      taskLabel || item.taskType || "Task",
+      savedAt ? `saved ${savedAt}` : "",
+      openedAt ? `opened ${openedAt}` : "",
+      doneAt ? `done ${doneAt}` : "",
+    ].filter(Boolean).join(" | ");
 
     const url = document.createElement("div");
     url.className = "chat-processing-url";
     url.textContent = item.url;
 
-    main.append(title, meta, url);
+    main.append(headingRow, meta, url);
     main.addEventListener("click", () => {
       void openChatProcessingItem(item.id);
     });
@@ -4892,19 +5042,58 @@ function stableJsonStringify(value) {
   )).join(",")}}`;
 }
 
-function countSettingsSnapshotDiffs(localSnapshot, bridgeSnapshot) {
+function humanizeSettingsSyncKey(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\bToc\b/g, "TOC")
+    .replace(/\bOcr\b/g, "OCR")
+    .replace(/\bUrl\b/g, "URL")
+    .replace(/\bId\b/g, "ID")
+    .replace(/\bIds\b/g, "IDs")
+    .replace(/\bPx\b/g, "px")
+    .replace(/^./, (character) => character.toUpperCase());
+}
+
+function getSettingsSyncKeyLabel(key) {
+  return SETTINGS_SYNC_KEY_LABELS[key] ?? humanizeSettingsSyncKey(key);
+}
+
+function getSettingsSyncAreaLabel(area) {
+  return area === "sync" ? "Chrome sync" : "Chrome local";
+}
+
+function getSettingsSyncDiffKind(localSnapshot, bridgeSnapshot, area, key) {
+  const localStorage = localSnapshot?.storage?.[area] ?? {};
+  const bridgeStorage = bridgeSnapshot?.storage?.[area] ?? {};
+  const localHasValue = Object.prototype.hasOwnProperty.call(localStorage, key);
+  const bridgeHasValue = Object.prototype.hasOwnProperty.call(bridgeStorage, key);
+  if (!localHasValue && bridgeHasValue) {
+    return "Only in bridge file";
+  }
+  if (localHasValue && !bridgeHasValue) {
+    return "Only in this extension";
+  }
+  return "Different value";
+}
+
+function getSettingsSnapshotDiffs(localSnapshot, bridgeSnapshot) {
   const normalizedBridgeSnapshot = normalizeSettingsSyncSnapshot(bridgeSnapshot);
   if (!normalizedBridgeSnapshot) {
-    return 0;
+    return [];
   }
 
-  let count = 0;
+  const diffs = [];
   for (const key of SETTINGS_SYNC_LOCAL_KEYS) {
     if (
       stableJsonStringify(localSnapshot.storage.local[key])
       !== stableJsonStringify(normalizedBridgeSnapshot.storage.local[key])
     ) {
-      count += 1;
+      diffs.push({
+        area: "local",
+        key,
+        label: getSettingsSyncKeyLabel(key),
+        kind: getSettingsSyncDiffKind(localSnapshot, normalizedBridgeSnapshot, "local", key),
+      });
     }
   }
   for (const key of SETTINGS_SYNC_SYNC_KEYS) {
@@ -4912,21 +5101,70 @@ function countSettingsSnapshotDiffs(localSnapshot, bridgeSnapshot) {
       stableJsonStringify(localSnapshot.storage.sync[key])
       !== stableJsonStringify(normalizedBridgeSnapshot.storage.sync[key])
     ) {
-      count += 1;
+      diffs.push({
+        area: "sync",
+        key,
+        label: getSettingsSyncKeyLabel(key),
+        kind: getSettingsSyncDiffKind(localSnapshot, normalizedBridgeSnapshot, "sync", key),
+      });
     }
   }
-  return count;
+  return diffs;
 }
 
-function renderSettingsSyncDiffCount(count) {
+function renderSettingsSyncDiffList(diffs) {
+  const container = document.querySelector("#sync-settings-diff-list");
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  const normalizedDiffs = Array.isArray(diffs) ? diffs : [];
+  container.replaceChildren();
+  container.hidden = normalizedDiffs.length === 0;
+  if (normalizedDiffs.length === 0) {
+    return;
+  }
+
+  const heading = document.createElement("p");
+  heading.className = "sync-settings-diff-heading";
+  heading.textContent = `Changed settings (${normalizedDiffs.length})`;
+
+  const list = document.createElement("ul");
+  list.className = "sync-settings-diff-items";
+  for (const diff of normalizedDiffs) {
+    const item = document.createElement("li");
+    item.className = "sync-settings-diff-item";
+
+    const label = document.createElement("span");
+    label.className = "sync-settings-diff-label";
+    label.textContent = diff.label || getSettingsSyncKeyLabel(diff.key);
+
+    const meta = document.createElement("span");
+    meta.className = "sync-settings-diff-meta";
+    meta.textContent = `${getSettingsSyncAreaLabel(diff.area)} | ${diff.kind || "Different value"} | ${diff.key}`;
+
+    item.append(label, meta);
+    list.append(item);
+  }
+
+  container.append(heading, list);
+}
+
+function renderSettingsSyncDiffState(diffs, { invalidatePending = true } = {}) {
+  if (invalidatePending) {
+    settingsSyncDiffRefreshToken += 1;
+  }
+
   const chip = document.querySelector("#sync-settings-diff-count");
   if (!(chip instanceof HTMLElement)) {
     return;
   }
 
-  const normalizedCount = Math.max(0, Number.parseInt(`${count ?? 0}`, 10) || 0);
+  const normalizedDiffs = Array.isArray(diffs) ? diffs : [];
+  const normalizedCount = normalizedDiffs.length;
   chip.hidden = normalizedCount === 0;
   chip.textContent = normalizedCount > 99 ? "99+" : `${normalizedCount}`;
+  renderSettingsSyncDiffList(normalizedDiffs);
   const button = document.querySelector("#sync-settings");
   if (button instanceof HTMLButtonElement) {
     button.title = normalizedCount > 0
@@ -4944,6 +5182,8 @@ async function createCurrentSettingsSyncSnapshotFromStorage() {
 }
 
 async function refreshSettingsSyncDiffCount() {
+  const refreshToken = settingsSyncDiffRefreshToken + 1;
+  settingsSyncDiffRefreshToken = refreshToken;
   try {
     const [currentSnapshot, response] = await Promise.all([
       createCurrentSettingsSyncSnapshotFromStorage(),
@@ -4951,17 +5191,35 @@ async function refreshSettingsSyncDiffCount() {
         type: SETTINGS_SYNC_MESSAGE_TYPE,
         mode: "pull",
         useLargePadding: false,
+        logTraffic: false,
       }),
     ]);
+    if (refreshToken !== settingsSyncDiffRefreshToken) {
+      return;
+    }
     if (!response?.ok || response.exists === false) {
-      renderSettingsSyncDiffCount(0);
+      renderSettingsSyncDiffState([], { invalidatePending: false });
       return;
     }
 
-    renderSettingsSyncDiffCount(countSettingsSnapshotDiffs(currentSnapshot, response.snapshot));
+    renderSettingsSyncDiffState(getSettingsSnapshotDiffs(currentSnapshot, response.snapshot), {
+      invalidatePending: false,
+    });
   } catch (_error) {
-    renderSettingsSyncDiffCount(0);
+    if (refreshToken === settingsSyncDiffRefreshToken) {
+      renderSettingsSyncDiffState([], { invalidatePending: false });
+    }
   }
+}
+
+function scheduleSettingsSyncDiffRefresh(delayMs = SETTINGS_SYNC_DIFF_REFRESH_DEBOUNCE_MS) {
+  if (settingsSyncDiffRefreshTimerId !== null) {
+    window.clearTimeout(settingsSyncDiffRefreshTimerId);
+  }
+  settingsSyncDiffRefreshTimerId = window.setTimeout(() => {
+    settingsSyncDiffRefreshTimerId = null;
+    void refreshSettingsSyncDiffCount();
+  }, Math.max(0, delayMs));
 }
 
 async function applySettingsSyncSnapshot(rawSnapshot) {
@@ -5005,7 +5263,7 @@ async function syncSettingsFromBridge() {
 
     const snapshot = await applySettingsSyncSnapshot(response.snapshot);
     await loadOptions();
-    renderSettingsSyncDiffCount(0);
+    renderSettingsSyncDiffState([]);
     setStatus(`Settings synced from bridge file saved ${snapshot.savedAtServer || snapshot.exportedAt || "earlier"}.`);
   } catch (error) {
     console.error("Local Query Bridge settings sync failed", error);
@@ -5209,7 +5467,7 @@ async function saveOptions(event) {
     setStatus(syncResult.path
       ? `Settings saved and synced to bridge file: ${syncResult.path}`
       : "Settings saved and synced to bridge.");
-    renderSettingsSyncDiffCount(0);
+    renderSettingsSyncDiffState([]);
   } catch (error) {
     console.warn("Local Query Bridge settings were saved locally but not synced to the bridge", error);
     setStatus(`Settings saved locally, but bridge sync failed: ${error}`);
@@ -5217,6 +5475,14 @@ async function saveOptions(event) {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
+  const changedKeys = Object.keys(changes);
+  if (
+    (areaName === "local" && changedKeys.some((key) => SETTINGS_SYNC_LOCAL_KEY_SET.has(key)))
+    || (areaName === "sync" && changedKeys.some((key) => SETTINGS_SYNC_SYNC_KEY_SET.has(key)))
+  ) {
+    scheduleSettingsSyncDiffRefresh();
+  }
+
   if (areaName !== "local") {
     return;
   }
@@ -5258,6 +5524,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const taskTypeLabelInput = document.querySelector("#task-type-label");
   const taskTypePromptInput = document.querySelector("#task-type-boilerplate-prompt");
   const taskTypeChatProcessingPromptInput = document.querySelector("#task-type-chat-processing-prompt");
+  const taskTypeChatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
+  const taskTypeAdditionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
@@ -5287,7 +5555,7 @@ document.addEventListener("DOMContentLoaded", () => {
   void loadOptions();
   window.setInterval(() => {
     void refreshSettingsSyncDiffCount();
-  }, 30000);
+  }, SETTINGS_SYNC_DIFF_REFRESH_INTERVAL_MS);
   bindColorControl(highlightColorInput, highlightHexInput, "#facc15");
   form.addEventListener("submit", (event) => {
     void saveOptions(event);
@@ -5325,6 +5593,14 @@ document.addEventListener("DOMContentLoaded", () => {
   taskTypeChatProcessingPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Chat processing prompt changed. Save settings to apply it.");
+  });
+  taskTypeChatAbstractionPromptInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Abstraction level prompt changed. Save settings to apply it.");
+  });
+  taskTypeAdditionalContextPromptInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Additional context prompt changed. Save settings to apply it.");
   });
   requireSearchChipToggle?.addEventListener("change", () => {
     syncTaskTypeDefinitionEditorValues();

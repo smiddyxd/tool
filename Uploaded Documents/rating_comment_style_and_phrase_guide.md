@@ -20,10 +20,36 @@ Use these when the ambiguity comes from how the instructions cover a borderline 
 
 ### 1.1 Real-world activity with game-like companion
 
-Use when the visible offer is mainly a real-world activity, and the quiz/app/AR component appears supportive rather than the main video-game product.
+Use when the visible offer is mainly a real-world activity, and the quiz/app/AR/QR-code component appears to support that activity rather than being the main video-game product.
 
-Template:
-> The main offer is [real-world activity] with a companion [quiz/app] component. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as [real-world activity] rather than a clear video game, I would rate it No.
+Approved base template:
+> The main offer is [real-world activity] with a companion [quiz/app/AR/QR-code] component. Since it is presented as part of a real-world [trail/route/activity] rather than as a clear video game, I would rate it No.
+
+Instruction-reference variant:
+> The main offer is [real-world activity] with a companion [quiz/app] component. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as part of a real-world [trail/activity] rather than as a clear video game, I would rate it No.
+
+Game-like wording variant:
+> This uses some game-like [quiz/challenge/AR] wording, but the main offer appears to be [real-world activity]. Since the [quiz/app/AR] element supports a real-world experience rather than clearly advertising a video game, I would rate it No.
+
+Short variant:
+> The main offer appears to be [real-world activity] with a companion [quiz/app] element, not a clear video game. I would rate it No.
+
+AR/trail-specific variant:
+> The creative mentions [AR trails / quiz trails], but the offer appears to be a real-world trail experience with a digital companion. Since the main product is not clearly a video game, I would rate it No.
+
+Phrases to use carefully:
+- “standalone video game” — use carefully, because some valid video games are not standalone. “Clear video game” or “clearly framed as a video game” is usually safer.
+- “framed” — useful for quiz borderline cases, but avoid repeating it too often in the same comment.
+- “quiz app” — do not imply quiz apps can never be games. Pair it with the real-world trail/activity framing.
+- “game-like” — useful for acknowledging ambiguity, but explain why the signal is not enough.
+- “AR” — do not treat AR as automatically game-related; AR may support real-world tourism, education, navigation, or museum-style experiences.
+
+Notes:
+- This pattern is strongest when the comment names both sides: the game-like companion element and the real-world main offer.
+- Use the instruction-reference variant when the borderline issue is specifically about whether quizzes count under the instructions.
+- Use the shorter variant when the visible real-world framing is already obvious.
+- Do not over-explain the whole framework in the comment. One to three sentences is usually enough.
+- If the visible content clearly presents the app itself as the playable digital game, do not use this No pattern.
 
 ### 1.2 Sparse creative, researched product turns out game-related
 
@@ -81,15 +107,144 @@ Notes:
 - Keep the comment grounded in visible evidence such as the question format, answer buttons, lack of game title, lack of app/game platform framing, or lack of score/progression elements.
 - Do not over-explain the full framework in the rating comment. One or two sentences is usually enough.
 
-### 1.3 Sparse creative, but enough game signal
+### 1.4 Sparse researched game with supporting mechanic wording
 
-### 1.4 Sparse creative, not enough evidence
+Use when the creative itself is sparse, but research identifies the named product as a digital game, and the visible wording also lightly supports a game interpretation.
 
-### 1.5 Game-like mechanic, non-game product framing
+Approved base template:
+> “[Product]” appears to be a [digital puzzle/mobile/online] game. The creative is sparse, but the “[visible wording]” wording makes it look like a mobile or online game.
 
+Optional variants:
+> “[Product]” appears to be a digital puzzle game. The creative itself is minimal, but “[visible wording]” is consistent with a simple casual game mechanic.
 
+> The creative is sparse, but “[Product]” appears to be a [game type], and the “[visible wording]” line supports that interpretation.
 
-## 1. Core Writing Goal
+> Based on the named product, “[Product]” appears to be a [digital puzzle/mobile/online] game. The visible “[visible wording]” wording also points in that direction.
+
+Short variant:
+> “[Product]” appears to be a digital puzzle game, and the sparse creative’s “[visible wording]” line fits that kind of mobile/online game.
+
+Phrases to use carefully:
+- “makes it look like” — natural and useful for uncertainty, but should be paired with the researched product type when research is the main basis.
+- “digital puzzle game” — use only when research supports that specific product type.
+- “mobile or online game” — useful when the exact platform is not fully visible, but avoid using it if research only supports one specific platform.
+- “Sort/Match/Solve wording” — do not treat mechanic-like wording as enough by itself unless the named product is clearly game-related.
+
+Notes:
+- This is best treated as a variant of the sparse-research pattern, not as a purely visible-evidence pattern.
+- Keep the comment short. The useful structure is: researched product type first, sparse visible support second.
+- Do not say the creative “clearly shows a game” when the actual screenshot is minimal. Use “appears to be” or “makes it look like” to preserve the uncertainty.
+
+### 1.5 Sparse app downloader with weak game-branded advertiser signal
+
+Use when the creative is an app-download or app-downloader ad, but it does not clearly identify what app or service is being advertised, and the only game-related signal is an advertiser name such as “123 Games.”
+
+Approved base template:
+> Not sure how to rate because the creative does not clearly indicate what is being advertised. The advertiser appears to be “[advertiser name],” which could point to video games, but I don’t think the creative itself gives enough information to rate it clearly either way.
+
+Optional variants:
+> The creative is not very explicit about what is being advertised. The advertiser appears to be “[advertiser name],” which could suggest a connection to video games, but the visible creative itself does not give enough information to make that clear.
+
+> I’m unsure how to rate this because the creative only shows a generic app-download offer. “[Advertiser name]” could point to video games, but without a clear game title, gameplay, or game-download wording, I do not think there is enough visible evidence to classify it either way.
+
+> The advertiser name “[advertiser name]” could be game-related, but the creative itself does not clearly show what app is being promoted. Based on the visible evidence, I do not think there is enough information to rate it clearly either way.
+
+Phrases to use carefully:
+- “could point to video games” — useful for weak advertiser-name signals, but pair it with why the creative itself is still unclear.
+- “not enough information” — specify that the missing information is about what app/product is being advertised.
+- “app downloader” — do not treat this as automatically game-related; explain whether the visible evidence ties it to games.
+- “very plausibly” — avoid stacking hedges like “very plausibly could,” which sounds less natural.
+
+Notes:
+- This pattern is best for comments supporting an uncertain or insufficient-evidence rating.
+- Keep the wording grounded in visible evidence: advertiser name, generic app-download framing, lack of clear product/app identity.
+- Do not imply that advertiser branding is irrelevant. The point is that it is a weak signal unless the creative itself also supports a game-related interpretation.
+
+### 1.6 Sparse creative, not enough evidence
+
+Use when the creative is too sparse to identify the advertised product, and the only possible game-related signal is vague wording such as “play” or “playing.”
+
+Approved base template:
+> Not sure how to rate because the creative only makes a vague reference to “[play/play-related wording].” The ad contains too little information to tell what is even being advertised. Flagging it as unrateable seems most appropriate.
+
+Creative-consistency variant:
+> Not sure how to rate because the creative only makes a vague reference to “[play/play-related wording].” The creative contains too little information to tell what is even being advertised, so marking it unrateable seems most appropriate.
+
+Short variant:
+> The creative only makes a vague reference to “[play/play-related wording],” but does not show enough information to tell what is even being advertised. I would mark it unrateable.
+
+Visible-detail variant:
+> The creative only shows [generic CTA / vague play wording] and does not identify a game, app, advertiser, or product. There is too little information to tell what is even being advertised, so I would mark it unrateable.
+
+Phrases to use carefully:
+- “what is even being advertised” — useful when the problem is assessability, not just classification uncertainty. It emphasizes that there is too little visible content to identify the product at all.
+- “what is actually being advertised” — use carefully here, because it can sound like the product has several possible interpretations rather than there being too little information to assess.
+- “vague reference to playing” — useful, but pair it with the missing product-identification reason.
+- “not sure how to rate” — appropriate when the uncertainty is explained by lack of visible evidence.
+
+Notes:
+- Keep this pattern focused on lack of assessability. The core reason is not simply that “play” could mean different things; it is that the creative does not provide enough visible information to identify the advertised product.
+- Do not use this pattern when the product is identifiable and the issue is only whether it qualifies as Video Games. In that case, give the best Yes/No rating and explain the classification uncertainty.
+- If a specific product name is visible and research clearly identifies it as game-related, use the researched-product pattern instead.
+
+### 1.7 Game-like mechanic, non-game product framing
+
+Use when the visible creative shows an app or activity with a game-like mechanic, but the main visible framing is a non-game product type such as drawing, coloring, artwork creation, photo editing, or another utility/creative activity.
+
+Approved base template:
+> This looks like an ad for a [non-game app/activity type]. It has a [game-like mechanic] mechanic, but the visible text presents it as [non-game framing] rather than clearly advertising it as a video game.
+
+Poly-art version:
+> This looks like an ad for a poly-art drawing app. Poly-art drawing apps have a puzzle-like mechanic, but the visible text presents it as creating artwork rather than clearly advertising it as a video game.
+
+Short variant:
+> This looks more like a [non-game app/activity type] than a clearly advertised game. The [mechanic] is somewhat game-like, but the visible text does not clearly present it as a video game.
+
+Visible-evidence variant:
+> The creative shows [visible mechanic], which feels somewhat puzzle-like. But the visible wording focuses on [creating/revealing/editing/etc.] rather than playing a video game, so I would rate it No.
+
+Phrases to use carefully:
+- “puzzle-like” — useful for acknowledging the ambiguity, but pair it with why the mechanic is not enough.
+- “does not qualify as a game” — can sound too broad. Prefer “does not clearly present it as a video game” unless the evidence is very clear.
+- “in my opinion” — usually weaker than needed. Ground the comment in visible text instead.
+- “drawing apps are not games” — too absolute; some drawing/puzzle apps could qualify if clearly framed as games.
+
+Notes:
+- This pattern is strongest when the comment names both sides: the game-like mechanic and the non-game framing.
+- Keep the wording short. The comment does not need to explain the whole manual; it only needs to say why the visible creative is not clearly Video Games.
+- Use “visible text” or “visible wording” when the decision depends on not assuming hidden landing-page behavior.
+
+### 1.8 Cumulative implicit game framing without explicit game label
+
+Use when the creative does not explicitly say “game,” “video game,” or the exact game title, but several visible details strongly point to a covered digital game type.
+
+Approved base template:
+> The creative does not explicitly mention “[exact game/game label],” but the references to [visible clue 1], [visible clue 2], and [visible clue 3] strongly indicate a [game type] digital game.
+
+Spider/card-game version:
+> The creative does not explicitly mention “Spider Solitaire,” but the references to “Spider,” cards, card faces, and a challenge strongly indicate a customizable Spider Solitaire-style digital card game.
+
+Short variant:
+> The creative does not say “game” directly, but the visible references to [clues] strongly point to a [game type] digital game.
+
+More cautious variant:
+> The creative is not explicit, but the combination of [visible clue 1], [visible clue 2], and [visible clue 3] makes it look like a [game type] digital game.
+
+Opposite-direction variant:
+> The creative has some game-like wording, but the visible clues do not strongly identify a video game. Since it is framed more as [non-game framing] than as a clear digital game, I would not treat it as Video Games based on the visible evidence.
+
+Phrases to use carefully:
+- “strongly indicate” — use when there are several reinforcing clues, not just one weak hint.
+- “does not explicitly mention” — useful for explaining why the comment is interpretive, but pair it with the visible clues that support the rating.
+- “challenge” — helpful as a supporting clue, but not enough by itself.
+- “[game]-style” — useful when the exact title is not shown, but avoid overclaiming if the visible evidence only weakly suggests the game.
+
+Notes:
+- This pattern is for converging implicit evidence. It should not be used when the creative is simply sparse or unclear.
+- The comment should name the visible clues, not just say the creative “seems game-related.”
+- Use a cautious variant when the evidence supports the rating but does not make the exact game title fully explicit.
+
+## 2. Core Writing Goal
 
 Write like a careful human rater briefly explaining:
 
@@ -106,7 +261,7 @@ A good comment should feel:
 
 ---
 
-## 2. Use Plain, Concrete Wording
+## 3. Use Plain, Concrete Wording
 
 Prefer ordinary language over abstract evaluation language.
 
@@ -127,7 +282,7 @@ Use the simplest wording that accurately explains the judgment.
 
 ---
 
-## 3. Be Specific About the Decisive Reason
+## 4. Be Specific About the Decisive Reason
 
 Do not stop at generic words like “relevant,” “related,” or “not a match.” State what specifically matches or fails.
 
@@ -151,7 +306,7 @@ Name the actual feature that drives the judgment:
 
 ---
 
-## 4. Use a Natural Reasoning Flow
+## 5. Use a Natural Reasoning Flow
 
 A reliable structure is:
 
@@ -165,7 +320,7 @@ Use this structure when helpful, but do not force every comment into the exact s
 
 ---
 
-## 5. Vary Sentence Length and Rhythm
+## 6. Vary Sentence Length and Rhythm
 
 Comments sound more human when they do not all have the same sentence shape.
 
@@ -180,7 +335,7 @@ Mix short and medium-length sentences. Do not over-polish every sentence into th
 
 ---
 
-## 6. Use Certainty and Hedging Deliberately
+## 7. Use Certainty and Hedging Deliberately
 
 Be direct when the evidence is clear. Hedge when the judgment depends on interpretation.
 
@@ -208,7 +363,7 @@ Hedging should clarify uncertainty, not weaken the whole comment.
 
 ---
 
-## 7. Keep Professional Imperfection
+## 8. Keep Professional Imperfection
 
 Comments should sound written, not generated. Slightly conversational phrasing is fine when it stays clear and professional.
 
@@ -227,7 +382,7 @@ A small amount of everyday phrasing makes comments sound more human. Avoid slang
 
 ---
 
-## 8. Explain the Judgment Without Over-Explaining the Framework
+## 9. Explain the Judgment Without Over-Explaining the Framework
 
 Use the rating framework internally, but do not turn the comment into a long policy summary. The comment should still explain the practical, visible reason for the rating.
 
@@ -251,7 +406,7 @@ Instruction references are fine when they clarify ambiguity, but they should be 
 
 ---
 
-## 9. Distinguish “Related” From “Useful”
+## 10. Distinguish “Related” From “Useful”
 
 A result can be connected to the query without being a good answer to it.
 
@@ -266,7 +421,7 @@ Do not treat topical overlap as enough by itself. Say whether the result would p
 
 ---
 
-## 10. Avoid Common AI-Sounding Patterns
+## 11. Avoid Common AI-Sounding Patterns
 
 ### Avoid excessive abstract nouns
 - alignment
@@ -297,7 +452,7 @@ Repetition makes comments feel generated. Vary the wording while keeping the log
 
 ---
 
-## 11. Prefer Practical User-Perspective Language
+## 12. Prefer Practical User-Perspective Language
 
 When useful, explain how a real user would likely react.
 
@@ -315,7 +470,7 @@ Use realistic user reactions instead of abstract audience language.
 
 ---
 
-## 12. Better vs. Worse Phrasing Examples
+## 13. Better vs. Worse Phrasing Examples
 
 ### Retailer mismatch
 **Prefer**
@@ -362,7 +517,7 @@ Use realistic user reactions instead of abstract audience language.
 
 ---
 
-## 13. Drafting Checklist
+## 14. Drafting Checklist
 
 Before finalizing a comment, check:
 
@@ -377,7 +532,7 @@ Before finalizing a comment, check:
 
 ---
 
-## 14. Default Comment Pattern
+## 15. Default Comment Pattern
 
 Use this as a fallback when drafting from scratch:
 

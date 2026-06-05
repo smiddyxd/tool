@@ -82,11 +82,13 @@ MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
 CONTROL_CANCEL_COMMAND = "cancel_control_processing"
 COMMENT_DRAFT_FEEDBACK_COMMAND = "draft_comment_feedback"
 PROCESS_CHAT_COMMAND = "process_chat"
+ADDITIONAL_CONTEXT_COMMAND = "add_rating_context"
 ASYNC_CONTROL_PROCESSING_COMMANDS = {
     "start_task_screenshot",
     "start_task_ocr",
     COMMENT_DRAFT_FEEDBACK_COMMAND,
     PROCESS_CHAT_COMMAND,
+    ADDITIONAL_CONTEXT_COMMAND,
 }
 
 
@@ -1160,6 +1162,7 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
     project_url = sanitize_control_command_field(payload.get("projectUrl"), MAX_CONTROL_COMMAND_FIELD_LENGTH)
     active_project_id = sanitize_control_command_field(payload.get("activeProjectId"), 120)
     boilerplate_prompt_length = len(str(payload.get("boilerplatePrompt") or ""))
+    additional_context_prompt_length = len(str(payload.get("additionalContextPrompt") or ""))
     ocr_review_text_length = len(str(payload.get("ocrReviewText") or ""))
     ocr_review_text_length = max(
         ocr_review_text_length,
@@ -1182,6 +1185,7 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
         f"selected_region={selected_region or '-'} selected_region_label={selected_region_label or '-'} "
         f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
         f"project={active_project_id or '-'} project_url={project_url or '-'} prompt_chars={boilerplate_prompt_length} "
+        f"context_prompt_chars={additional_context_prompt_length} "
         f"tab={tab_id or '-'} run={control_run_id or '-'} source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
@@ -1476,6 +1480,14 @@ def build_comment_draft_feedback_prompt(comment_text: str) -> str:
             comment_text.strip(),
         ]
     ).strip()
+
+
+def build_additional_context_prompt(base_prompt: str, ocr_text: str = "") -> str:
+    parts = [base_prompt.strip()]
+    cleaned_ocr_text = clean_multiline_ocr_text(ocr_text)
+    if cleaned_ocr_text:
+        parts.extend(["Additional context OCR:", cleaned_ocr_text])
+    return "\n\n".join(parts).strip()
 
 
 def publish_task_counter_status(
@@ -1958,6 +1970,117 @@ def queue_process_chat_prompt(payload: dict[str, Any]) -> bool:
     return True
 
 
+def queue_additional_context(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    task_type = settings.task_type if settings is not None else get_control_payload_task_type(payload)
+    run_id = get_control_run_id(payload)
+    base_prompt = str(payload.get("additionalContextPrompt") or "").strip()
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Add context request cancelled before capture.", task_type=task_type)
+        return False
+
+    if not base_prompt:
+        publish_control_status(
+            payload,
+            "error",
+            "Additional context prompt is empty. Set it in Options before using Add context.",
+            task_type=task_type,
+        )
+        return False
+
+    publish_control_status(payload, "capture", "Capturing additional context screenshot.", task_type=task_type)
+    frame_bgr, task_count = capture_control_frame()
+    effective_task_count = task_count if task_count is not None else 0
+    screenshot_bgr = build_screenshot_image(frame_bgr)
+    screenshot_png = encode_png(screenshot_bgr)
+
+    ocr_text = ""
+    ocr_line_count = 0
+    ocr_error = ""
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Add context request cancelled before OCR.", task_type=task_type)
+        return False
+
+    publish_control_status(
+        payload,
+        "ocr-start",
+        "OCRing additional context screenshot.",
+        task_type=task_type,
+    )
+    try:
+        result = paddleocr_manual_test.capture_and_process_image(
+            screenshot_bgr,
+            prefix="additional_context",
+            status_callback=lambda status_type, message, details=None: publish_control_status(
+                payload,
+                status_type,
+                message,
+                details=details,
+                task_type=task_type,
+            ),
+            should_cancel=lambda: STATE.is_control_run_cancelled(run_id),
+        )
+        entry = result.get("entry", {}) if isinstance(result, dict) else {}
+        ocr_text = extract_plain_ocr_result_text(entry if isinstance(entry, dict) else {})
+        ocr_lines = entry.get("lines", []) if isinstance(entry, dict) else []
+        ocr_line_count = len(ocr_lines) if isinstance(ocr_lines, list) else 0
+        publish_control_status(
+            payload,
+            "ocr-selected" if ocr_text else "ocr-result",
+            "Additional context OCR text selected." if ocr_text else "Additional context OCR produced no text; using screenshot only.",
+            details={"charCount": len(ocr_text), "lineCount": ocr_line_count},
+            task_type=task_type,
+        )
+    except paddleocr_manual_test.OcrProcessingCancelled:
+        publish_control_status(payload, "cancel", "Add context OCR cancelled.", task_type=task_type)
+        return False
+    except Exception as exc:
+        ocr_error = str(exc)
+        print(f"[control {timestamp_now()}] add-context-ocr error: {exc}", flush=True)
+        publish_control_status(
+            payload,
+            "ocr-result",
+            "Additional context OCR failed; using screenshot only.",
+            details={"error": ocr_error},
+            task_type=task_type,
+        )
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Add context request cancelled before queueing prompt.", task_type=task_type)
+        return False
+
+    prompt = build_additional_context_prompt(base_prompt, ocr_text)
+    STATE.publish_control_status_and_payload(
+        run_id,
+        "queued",
+        "Additional context queued for ChatGPT.",
+        details={
+            "taskCount": effective_task_count,
+            "promptCount": 1,
+            "screenshotCount": 1,
+            "ocrChars": len(ocr_text),
+            "ocrLineCount": ocr_line_count,
+            "ocrError": ocr_error,
+            "command": ADDITIONAL_CONTEXT_COMMAND,
+            "requiresCurrentChat": True,
+        },
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=task_type,
+        task_count=effective_task_count,
+        screenshots_png=[screenshot_png],
+        prompts=(prompt,),
+        payload_task_type=get_control_payload_task_type_key(payload, task_type),
+        control_run_id=run_id,
+    )
+    print(
+        f"[control {timestamp_now()}] queued-add-context counter={effective_task_count} "
+        f"type={task_type} prompt_chars={len(prompt)} ocr_chars={len(ocr_text)}",
+        flush=True,
+    )
+    return True
+
+
 def handle_control_processing_command(command: str, payload: dict[str, Any]) -> bool:
     if command == "start_task_screenshot":
         return queue_control_screenshot(payload)
@@ -1967,6 +2090,8 @@ def handle_control_processing_command(command: str, payload: dict[str, Any]) -> 
         return queue_comment_draft_feedback(payload)
     if command == PROCESS_CHAT_COMMAND:
         return queue_process_chat_prompt(payload)
+    if command == ADDITIONAL_CONTEXT_COMMAND:
+        return queue_additional_context(payload)
     if get_control_run_id(payload):
         publish_control_status(
             payload,

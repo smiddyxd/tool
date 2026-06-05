@@ -224,14 +224,15 @@ const CONTROL_PROCESSING_COMMANDS = new Set([
   "ocr_google_results",
   "draft_comment_feedback",
   "process_chat",
+  "add_rating_context",
 ]);
 const BATCHABLE_CONTROL_COMMANDS = new Set([
   "set_task_type",
   "set_project_account",
   "sync_task_type",
 ]);
-const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat"]);
-const CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat"]);
+const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat", "add_rating_context"]);
+const CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat", "add_rating_context"]);
 
 const state = {
   isPolling: false,
@@ -799,6 +800,8 @@ function getBridgeTrafficActionLabel(action) {
       return "rating comment";
     case "control:process_chat":
       return "save for processing";
+    case "control:add_rating_context":
+      return "add context";
     case "control:cancel_control_processing":
       return "cancel processing";
     case BRIDGE_ACTION_CONTROL:
@@ -997,6 +1000,7 @@ async function pushBridgeSettingsSnapshot(snapshot, options = {}) {
       logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PUSH),
       logSource: "options",
       useLargePadding: options.useLargePadding !== false,
+      logTraffic: options.logTraffic !== false,
     });
   } finally {
     clearTimeout(timeoutId);
@@ -1012,6 +1016,7 @@ async function pullBridgeSettingsSnapshot(options = {}) {
       logLabel: getBridgeTrafficActionLabel(BRIDGE_ACTION_SETTINGS_PULL),
       logSource: "options",
       useLargePadding: options.useLargePadding !== false,
+      logTraffic: options.logTraffic !== false,
     });
   } finally {
     clearTimeout(timeoutId);
@@ -1119,19 +1124,21 @@ async function fetchBridgeOperation(action, params = {}, signal = undefined, opt
     errorText = `${error}`;
     throw error;
   } finally {
-    await rememberBridgeTrafficSample({
-      action: trafficDetails.action,
-      operation: action,
-      label: trafficDetails.label,
-      source: trafficDetails.source,
-      path: endpoint.path,
-      requestBytes,
-      responseBytes,
-      durationMs: Date.now() - startedAt,
-      status,
-      ok: ok && !errorText,
-      error: errorText,
-    });
+    if (options.logTraffic !== false) {
+      await rememberBridgeTrafficSample({
+        action: trafficDetails.action,
+        operation: action,
+        label: trafficDetails.label,
+        source: trafficDetails.source,
+        path: endpoint.path,
+        requestBytes,
+        responseBytes,
+        durationMs: Date.now() - startedAt,
+        status,
+        ok: ok && !errorText,
+        error: errorText,
+      });
+    }
   }
 }
 
@@ -3050,6 +3057,7 @@ function normalizeChatProcessingQueue(rawValue) {
         openedAt: typeof item.openedAt === "string" ? item.openedAt : "",
         doneAt: typeof item.doneAt === "string" ? item.doneAt : "",
         prompt: typeof item.prompt === "string" ? item.prompt : "",
+        abstractionPrompt: typeof item.abstractionPrompt === "string" ? item.abstractionPrompt : "",
       };
     })
     .filter(Boolean);
@@ -3076,6 +3084,9 @@ async function saveProcessChatForLater(payload) {
   if (!prompt) {
     return { ok: false, error: "Save for processing prompt is empty. Set it in Options first." };
   }
+  const abstractionPrompt = typeof payload.chatProcessingAbstractionPrompt === "string"
+    ? payload.chatProcessingAbstractionPrompt.trim()
+    : "";
 
   const stored = await chrome.storage.local.get({
     [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: [],
@@ -3093,9 +3104,11 @@ async function saveProcessChatForLater(payload) {
       : "ChatGPT chat",
     taskType: sanitizeBridgeTaskType(payload.currentTaskType),
     taskTypeLabel: typeof payload.currentTaskTypeLabel === "string" ? payload.currentTaskTypeLabel.trim() : "",
-    status: "queued",
+    status: "opened",
     savedAt: existing?.savedAt || now,
+    openedAt: now,
     prompt,
+    abstractionPrompt,
   };
   const nextQueue = existing
     ? queue.map((item) => (item.id === existing.id ? nextItem : item))
@@ -3729,7 +3742,7 @@ async function pollLocalBridge() {
         taskType: eventTaskType,
         controlRunId,
         preferredTabId: getControlRunTabId(controlRunId),
-        requiresCurrentChat: false,
+        requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
       };
 
       await deliverPendingSubmission();

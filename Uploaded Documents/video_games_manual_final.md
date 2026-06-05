@@ -584,44 +584,56 @@ A node can apply at different strengths:
 
 When using a node, still apply the official and added manual guidance first. Nodes do not override the manual or visible evidence.
 
-## Case Node: Quiz/App Companion for a Real-World Trail
+## Case Node: Game-Like Companion for a Real-World Trail
 
 ### Case type
-A quiz, AR, QR-code, or smartphone component supports a real-world outdoor trail, city route, museum route, scavenger hunt, or educational walk.
+A quiz, AR, QR-code, smartphone, or app component accompanies a real-world trail, route, city walk, museum walk, scavenger-hunt-like activity, or outdoor educational experience.
 
 ### Final verdict anchor
 Rating: No
 
+Final comment anchor:
+> The main offer is an outdoor trail activity with a companion quiz app. Quizzes are not explicitly mentioned in the instructions, so I think the rating depends on how the quiz is framed. Since it is framed as part of a real-world trail experience rather than as a clear video game, I would rate it No.
+
 ### Visible evidence pattern
-- The offer is centered on a real-world trail or location-based activity.
-- The quiz/app element appears to accompany that activity.
-- The visible content does not clearly present the product as an online game, downloadable game, mobile game, video game, game platform, gameplay media, or game-development product.
+- The visible offer is centered on a real-world trail or location-based activity.
+- The task may use wording such as “Quiz-Trail,” “Quizmaster,” “Challenge,” “AR-Trail,” “Geo-Odyssee,” or similar game-like language.
+- The product may involve a smartphone, QR code, app, AR layer, or digital quiz component.
+- The visible content presents the digital/quiz component as supporting the real-world activity rather than as the main playable video game product.
+- There is no clear visible framing of the product as an online game, downloadable game, mobile game, browser game, video game platform, gameplay media, game retail, in-game reward system, or game-development product.
 
 ### Core reasoning path
-The quiz element is game-like, but the main advertised product is the real-world trail activity. A companion app, QR code, AR layer, quiz mechanic, or challenge mechanic is not enough by itself to make the product a video game.
+A quiz or challenge mechanic can feel game-like, but that is not enough by itself to bring the task into Video Games. The decisive question is what the main advertised product is.
 
-The decisive question is not only whether the task has game-like elements, but what the main advertised product is. If the answer is a physical trail or real-world route with a digital quiz layer, rate it as outside Video Games unless the visible content clearly frames the app itself as a playable digital game.
+In this case type, the main product is a real-world trail or location-based activity. The quiz/app/AR/QR-code component appears to accompany or structure that activity. Because the digital component supports a physical trail rather than being clearly advertised as the playable game itself, the task should be rated outside Video Games.
+
+This is assessable rather than Unrateable. The visible evidence is sufficient to understand the product category; the issue is classification, not lack of information.
 
 ### Decision shortcut
-When a quiz/app component supports a real-world trail or activity, rate based on the real-world activity. Do not treat quiz wording, AR wording, QR codes, or smartphone use as enough by themselves to make it a video game.
+When the main offer is a real-world trail or location-based activity, do not rate Yes just because it includes a quiz, challenge, AR layer, QR code, smartphone use, or companion app. Rate the main advertised product. If the visible framing is a real-world trail experience rather than a clear video game, rate No.
 
 ### Abandoned reasoning paths / negative direction
 - Do not rate Yes just because the word “quiz” appears.
-- Do not rate Yes just because the creative uses wording such as “challenge,” “trail,” “quizmaster,” “AR,” or “QR code.”
-- Do not rate Yes just because a smartphone or app is involved.
-- Do not over-rely on the phrase “standalone video game,” because some valid video games are not fully standalone. Prefer “clear video game” or “clearly framed as a video game.”
-- Do not mark Unrateable if the product is assessable but borderline. Give the best Yes/No rating and explain uncertainty if needed.
+- Do not rate Yes just because the task uses game-like wording such as “challenge,” “quizmaster,” “trail,” “odyssey,” “mission,” or “adventure.”
+- Do not rate Yes just because a smartphone, app, QR code, or AR component is involved.
+- Do not treat all quizzes as Video Games. The rating depends on whether the visible content frames the quiz as a video game, game app, online game, or downloadable game.
+- Do not treat all AR experiences as Video Games. AR can support tourism, education, museums, navigation, or real-world activities without becoming a video game.
+- Do not assume hidden landing-page behavior after clicking a CTA such as “Open.”
+- Do not mark Unrateable when the visible product is understandable but borderline. Give the best Yes/No rating and explain the uncertainty if needed.
+- Avoid over-relying on “standalone video game,” because some valid video games are not standalone. Prefer “clear video game,” “clearly framed as a video game,” or “main playable digital game.”
 
 ### Use this node when
-- The visible offer is an outdoor trail, city trail, museum trail, walking route, educational route, scavenger-hunt-like route, or location-based real-world activity.
-- The quiz, AR, app, QR-code, or challenge component appears to support that real-world activity.
-- The visible content does not clearly show a digital game as the main product.
+- The visible offer is an outdoor trail, city trail, museum trail, walking route, educational route, tourist route, scavenger-hunt-like route, or other real-world location-based activity.
+- The quiz, AR, QR-code, smartphone, or app element appears to support that real-world activity.
+- The visible evidence does not clearly show the app or digital layer as the main playable video game.
+- The rating turns on whether game-like mechanics attached to a real-world activity are enough for Video Games.
 
 ### Do not use this node when
-- The visible offer is clearly a trivia video game, quiz game app, browser game, mobile game, downloadable game, or online game.
-- The app itself is clearly the main playable digital experience.
-- The visible content shows gameplay, levels, missions, game characters, game currency, or other strong video-game framing.
-- The page is about video-game media, game reviews, walkthroughs, game downloads, in-game rewards, game retail, or game development.
+- The visible offer is clearly a quiz game, trivia game app, mobile game, downloadable game, browser game, online game, or gaming platform.
+- The app itself is clearly the main playable digital experience, rather than a companion to a physical activity.
+- The visible content shows strong video-game framing such as gameplay screens, levels, lives, missions, characters, score systems, leaderboards, game currency, in-game rewards, or “play game” / “download game” wording.
+- The page is about video-game media, reviews, walkthroughs, game downloads, in-game items, game rewards, game retail, eSports, streaming gameplay, or game development.
+- The only issue is a generic quiz with no real-world trail component; use the standalone/generic quiz-framing node instead.
 
 ## Case Node: Sparse Creative Resolved by Product Research
 
@@ -818,6 +830,152 @@ When a sparse creative names a product, research identifies that exact product a
 - The visible wording is the only game-like evidence and there is no reliable research support.
 - The researched product is mainly a non-game app, generic entertainment service, shopping product, recipe/product sorter, educational tool, or other non-game product.
 - The creative clearly shows enough game evidence on its own; in that case, use the normal online/downloadable/casual-game guidance instead of this research-resolved sparse case.
+
+## Case Node: Sparse Creative With Only Generic “Play” Wording
+
+### Case type
+A very sparse ad creative contains a vague reference to “play” or “playing,” but does not identify the advertised product, advertiser, game title, app, service, or landing-page subject.
+
+### Final verdict anchor
+Rating: Unrateable
+
+Final comment anchor:
+> Not sure how to rate because the creative only makes a vague reference to "playing". The ad contains too little information to tell what is even being advertised. Flagging it as unrateable seems most appropriate.
+
+### Visible evidence pattern
+- The creative contains vague mood/lifestyle wording such as “take a break” or “play.”
+- The CTA may be generic, such as “Open.”
+- The advertiser or product name is missing, hidden, generic, or not useful.
+- There is no visible game title, app name, gameplay, game genre, game platform, characters, levels, missions, score, currency, download framing, or other clear video-game signal.
+- The issue is not merely that the Video Games classification is borderline; the visible content is too sparse to identify what is being advertised.
+
+### Core reasoning path
+The word “playing” can be a weak game-related signal, but it is too generic to identify the advertised product as a video game, game app, online game, downloadable game, game platform, or game-related service.
+
+When the creative does not show what the product is, the task becomes an assessability problem rather than a normal Yes/No classification problem. In this pattern, there is too little visible evidence to determine the main advertised product at all. Since the manual allows Unrateable when content contains too little information to understand what it is about, Unrateable is appropriate.
+
+The decisive point is that the vague “play” wording does not give enough content to rate. It should not be treated as a weak Yes, and it should not be forced into No if the product itself cannot be identified.
+
+### Decision shortcut
+A vague reference to “play” is not enough to rate a sparse creative. If the product cannot even be identified from the visible creative, mark Unrateable and explain that there is too little information to tell what is being advertised.
+
+### Abandoned reasoning paths / negative direction
+- Do not rate Yes just because the creative says “play” or “playing.”
+- Do not assume the CTA leads to a game or game app.
+- Do not assume hidden landing-page behavior after clicking “Open.”
+- Do not treat generic relaxation or break-time wording as video-game framing by itself.
+- Do not phrase the issue only as classification ambiguity if the stronger problem is assessability: there is not enough visible content to tell what is being advertised.
+- Do not use this node for sparse creatives that contain a specific product name that can be reliably researched; use the “Sparse Creative Resolved by Product Research” node instead.
+- Do not use this node when the creative is assessable but borderline; in those cases, give the best Yes/No rating and explain uncertainty.
+
+### Use this node when
+- The creative is extremely sparse.
+- The only possible game-related signal is a vague word such as “play,” “playing,” or “spiel(en).”
+- The advertiser or product name is missing or not informative.
+- The visible content does not show enough information to identify the advertised product.
+- The appropriate issue is “too little information to assess,” not “unclear but assessable category fit.”
+
+### Do not use this node when
+- The creative clearly names a game, game app, game platform, online game, downloadable game, or gaming service.
+- The creative shows gameplay, game characters, game UI, levels, missions, scores, rewards, game currency, or other clear gaming signals.
+- The visible product name or URL is specific enough to research and research clearly resolves the product as game-related.
+- The creative is a generic quiz, puzzle, challenge, or app that is identifiable enough to rate Yes or No.
+- The page or creative has enough visible evidence to assess the main subject, even if the Video Games classification is uncertain.
+
+## Case Node: Poly-Art Drawing App With Puzzle-Like Mechanic
+
+### Case type
+A creative advertises a drawing, coloring, art, or image-reveal app/activity that uses a puzzle-like interaction, such as connecting points, stars, dots, or triangles, but frames the product as creating or revealing artwork rather than as a video game.
+
+### Final verdict anchor
+Rating: No
+
+Final comment anchor:
+> This looks like an ad for a poly-art drawing app. Poly-art drawing apps have a puzzle-like mechanic, but the visible text presents it as creating artwork rather than clearly advertising it as a video game.
+
+### Visible evidence pattern
+- The creative presents the product as a poly-art, drawing, coloring, or artwork activity.
+- Visible wording may describe connecting points/stars/dots/triangles or revealing artwork.
+- The CTA may be app-style, such as “Open,” but the visible text does not clearly identify the product as a game.
+- There is no visible game title, game genre, gameplay screenshot, score, level, mission, character, game currency, leaderboard, “play game” wording, or game-platform framing.
+- The product is assessable; the issue is classification, not lack of visible evidence.
+
+### Core reasoning path
+A puzzle-like interaction is not enough by itself to make an app or creative part of the Video Games category. The decisive question is how the main advertised product is framed.
+
+In this case type, the visible offer is an art/drawing or image-reveal activity. Even though connecting points or forming triangles can feel game-like or puzzle-like, the creative presents the activity as creating/revealing artwork rather than playing a digital game. Since downloadable apps that are not games are excluded, and app-style CTAs alone do not establish game relevance, rate No unless the creative adds clear video-game framing.
+
+### Decision shortcut
+Do not rate Yes just because a drawing or art app has a puzzle-like mechanic. If the visible framing is creating/revealing artwork rather than playing a game, rate No.
+
+### Abandoned reasoning paths / negative direction
+- Do not rate Yes just because the interaction resembles a puzzle.
+- Do not rate Yes just because the user connects points, stars, dots, lines, or triangles.
+- Do not treat “Open,” app-style formatting, or mobile-app framing as enough by itself.
+- Do not assume the hidden landing page would reveal game status.
+- Do not mark Unrateable if the creative clearly shows an assessable art/drawing activity; give the best Yes/No rating.
+- Avoid saying these apps “never qualify as games.” Some art/puzzle apps may qualify if the visible creative clearly frames them as a playable game.
+
+### Use this node when
+- The visible product is a poly-art, coloring, drawing, connect-the-dots, image-reveal, or artwork-creation app/activity.
+- The only game-like signal is the mechanic of connecting, completing, arranging, or revealing.
+- The visible text emphasizes art, drawing, creation, coloring, or revealing artwork.
+- The creative does not clearly present the app as a video game, game app, online game, downloadable game, or gaming platform.
+
+### Do not use this node when
+- The creative clearly advertises a puzzle game, coloring game, drawing game, or casual mobile game.
+- The visible content includes strong game framing such as levels, scores, timers, missions, lives, rewards, game currency, characters, “play now,” or “download game.”
+- The app is shown on a game platform or is explicitly described as a game.
+- Research clearly identifies the named product as a game-related app or gaming platform and the workflow allows using research.
+
+## Case Node: Cumulative Implicit Game Framing Without Explicit Game Label
+
+### Case type
+A creative does not explicitly say “game,” “video game,” or the exact known game title, but several visible signals converge strongly enough to identify the advertised product as a digital game or game-like product covered by the Video Games category.
+
+### Final verdict anchor
+Rating: Yes
+
+Final comment anchor:
+> The creative does not explicitly mention “Spider Solitaire,” but the references to “Spider,” cards, card faces, and a challenge strongly indicate a customizable Spider Solitaire-style digital card game.
+
+### Visible evidence pattern
+- The creative uses a recognizable or strongly suggestive game-related term, such as “Spider.”
+- Other visible wording supports that interpretation, such as references to cards, card faces, customization, challenges, puzzles, levels, sorting, matching, or gameplay-like actions.
+- The CTA is app-style or digital-experience-style, such as “Open.”
+- The creative does not explicitly use “game,” “video game,” or the full exact game title.
+- The visible evidence still points to a specific covered game type rather than a generic activity, utility app, or unclear product.
+
+### Core reasoning path
+Explicit “game” wording is not required when the visible creative gives multiple converging signals that strongly identify the product as a digital game. In the Spider example, “Spider” alone could be ambiguous, but the surrounding references to cards, card faces, customization, and challenge make the Spider Solitaire interpretation strong.
+
+The decisive issue is not whether the creative uses the exact formal title or explicitly says “game.” The decisive issue is whether the visible signals, taken together, are strong and specific enough to classify the main advertised product under Video Games.
+
+This node should be used carefully. It supports a Yes rating when the implicit signals are numerous, mutually reinforcing, and point to a covered game type such as a card game, puzzle game, casual game, or mobile/downloadable game. It should not be used when the visible signals are weak, generic, conflicting, or could just as easily describe a non-game product.
+
+### Decision shortcut
+A creative can be rated Yes without explicitly saying “game” if several visible clues strongly and specifically converge on a covered digital game type.
+
+### Abandoned reasoning paths / negative direction
+- Do not require the exact full game title when the visible wording strongly identifies the game type.
+- Do not require the word “game” if the visible evidence already strongly frames a playable digital game.
+- Do not rate Yes from one vague clue alone, such as “challenge,” “fun,” “play,” or “open.”
+- Do not treat generic game-like wording as enough when the product itself remains unclear.
+- Do not assume hidden landing-page behavior after clicking the CTA.
+- Do not use this node to override stronger non-game framing, such as artwork creation, generic app download, real-world activity, social/live entertainment, or utility-app framing.
+
+### Use this node when
+- The creative lacks explicit “game” wording but contains several visible clues pointing to a specific digital game or game genre.
+- The clues reinforce each other rather than merely creating a loose association.
+- The main advertised product appears to be a covered online, downloadable, mobile, casual, puzzle, card, simulation, or similar game.
+- The task is assessable from visible evidence even though the game framing is implicit.
+
+### Do not use this node when
+- The only game-like signal is a vague word such as “play,” “challenge,” “fun,” or “relax.”
+- The creative does not identify what is being advertised.
+- The visible evidence mainly frames a non-game app or activity, such as drawing, coloring, photo editing, generic app downloading, or a real-world activity.
+- The product name is too ambiguous and the surrounding wording does not resolve it.
+- Research would be needed to identify the product, but the workflow requires visible evidence only.
 
 # Task analysis template
 
