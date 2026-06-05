@@ -1216,6 +1216,12 @@
             <p class="hint">Use 0 to disable auto-reset. Positive values open a fresh chat after that many extension submissions.</p>
           </label>
 
+          <label for="multi-screenshot-batch-size">
+            Multi-screenshot batch size
+            <input id="multi-screenshot-batch-size" name="multiScreenshotBatchSize" type="number" min="1" max="10" step="1" inputmode="numeric">
+            <p class="hint">Number of screenshots attached to each batch transcription prompt before the final prompt is sent. Use 1-10.</p>
+          </label>
+
           <div>
             <h3>Processing buttons</h3>
             <p class="hint">Enabled controls whether the processing option and any paired region are available. Show controls whether the option appears in bridge control and click zones.</p>

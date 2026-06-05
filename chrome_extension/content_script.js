@@ -163,6 +163,7 @@ Base everything strictly on the screenshot attachment.`;
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH = "serverControlStatusLogWidthPx";
   const STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT = "serverControlStatusLogLeftPx";
   const STORAGE_KEY_SERVER_CONTROL_TASK_COUNT_TIMESPAN = "serverControlTaskCountTimespan";
+  const STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE = "multiScreenshotBatchSize";
   const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
   const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
   const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
@@ -178,7 +179,9 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_ACTION_MULTI_SCREENSHOT = "multiScreenshot";
   const SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD = "multi_screenshot_add";
   const SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT = "multi_screenshot_submit";
-  const MULTI_SCREENSHOT_BATCH_SIZE = 10;
+  const DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE = 10;
+  const MIN_MULTI_SCREENSHOT_BATCH_SIZE = 1;
+  const MAX_MULTI_SCREENSHOT_BATCH_SIZE = 10;
   const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
 Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract a reusable case-derived reasoning node.
@@ -681,6 +684,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     taskCountsLoading: false,
     taskCountsLoadedAt: 0,
     taskCountsError: "",
+    multiScreenshotBatchSize: DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE,
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
@@ -1172,6 +1176,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return Math.min(
       LATEST_PROMPT_SCROLL_MAX_HOLD_SECONDS,
       Math.max(LATEST_PROMPT_SCROLL_MIN_HOLD_SECONDS, parsedValue),
+    );
+  }
+
+  function sanitizeMultiScreenshotBatchSize(value) {
+    const parsedValue = Number.parseInt(`${value}`, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE;
+    }
+
+    return Math.min(
+      MAX_MULTI_SCREENSHOT_BATCH_SIZE,
+      Math.max(MIN_MULTI_SCREENSHOT_BATCH_SIZE, parsedValue),
     );
   }
 
@@ -7971,6 +7987,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         [STORAGE_KEY_PROJECT_IDS]: null,
         [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: null,
         [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: getDefaultServerControlTaskTypeActiveProjectAccounts(),
+        [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE,
       });
 
       serverControlMenuState.taskTypeProjectIds = migrateServerControlTaskTypeProjectIds(
@@ -7979,6 +7996,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       );
       serverControlMenuState.taskTypeActiveProjectAccounts = sanitizeServerControlTaskTypeActiveProjectAccounts(
         stored[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS],
+      );
+      serverControlMenuState.multiScreenshotBatchSize = sanitizeMultiScreenshotBatchSize(
+        stored[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE],
       );
       syncServerControlProjectPickerControls();
       updateServerControlMenuStatus();
@@ -8571,7 +8591,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       additionalContextPrompt: getActiveServerControlAdditionalContextPrompt(),
       multiScreenshotSessionId: getServerControlMultiScreenshotSession().sessionId,
       multiScreenshotBatchPrompt: getActiveServerControlMultiScreenshotBatchPrompt(),
-      multiScreenshotBatchSize: MULTI_SCREENSHOT_BATCH_SIZE,
+      multiScreenshotBatchSize: sanitizeMultiScreenshotBatchSize(serverControlMenuState.multiScreenshotBatchSize),
       activeProjectAccount,
       activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
       activeProjectId,
@@ -9059,6 +9079,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       changes[STORAGE_KEY_PROJECT_IDS]
       || changes[STORAGE_KEY_TASK_TYPE_PROJECT_IDS]
       || changes[STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]
+      || changes[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]
     )) {
       void loadServerControlProjectSettings();
     }
@@ -10238,8 +10259,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     });
   }
 
-  function chunkMultiScreenshotImages(imageDataUrls, batchSize = MULTI_SCREENSHOT_BATCH_SIZE) {
-    const normalizedBatchSize = Math.min(10, Math.max(1, Number.parseInt(`${batchSize ?? 10}`, 10) || 10));
+  function chunkMultiScreenshotImages(imageDataUrls, batchSize = DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE) {
+    const normalizedBatchSize = sanitizeMultiScreenshotBatchSize(batchSize);
     const chunks = [];
     for (let index = 0; index < imageDataUrls.length; index += normalizedBatchSize) {
       chunks.push(imageDataUrls.slice(index, index + normalizedBatchSize));
@@ -10359,7 +10380,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const finalPrompt = typeof options?.finalPrompt === "string" && options.finalPrompt.trim()
       ? options.finalPrompt.trim()
       : prepareServerControlBoilerplatePromptForSubmission();
-    const batchSize = Math.min(10, Math.max(1, Number.parseInt(`${options?.batchSize ?? 10}`, 10) || 10));
+    const batchSize = sanitizeMultiScreenshotBatchSize(options?.batchSize);
     if (normalizedImageDataUrls.length === 0) {
       throw new Error("No multi-screenshot images were provided");
     }

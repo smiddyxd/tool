@@ -2,6 +2,9 @@ const CHATGPT_PROJECT_URL_PREFIX = "https://chatgpt.com/g/g-p-";
 const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
 const DEFAULT_START_PAGE_URL = `${CHATGPT_PROJECT_URL_PREFIX}${DEFAULT_PROJECT_ID}`;
 const DEFAULT_RESET_LIMIT = 0;
+const DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE = 10;
+const MIN_MULTI_SCREENSHOT_BATCH_SIZE = 1;
+const MAX_MULTI_SCREENSHOT_BATCH_SIZE = 10;
 const DEFAULT_HIGHLIGHT_RULES = [
   {
     id: "default-egregious",
@@ -129,6 +132,7 @@ const STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE = "activeBridgeTaskType";
 const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
 const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
+const STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE = "multiScreenshotBatchSize";
 const STORAGE_KEY_HIGHLIGHT_RULES = "highlightRules";
 const STORAGE_KEY_ANALYSIS_TOC_COLORS = "analysisTocButtonColors";
 const STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS = "analysisTocButtonSettings";
@@ -180,6 +184,7 @@ const SETTINGS_SYNC_SYNC_KEYS = [
   STORAGE_KEY_TASK_TYPE_PROJECT_IDS,
   STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   STORAGE_KEY_RESET_LIMIT,
+  STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
@@ -231,6 +236,7 @@ const SETTINGS_SYNC_KEY_LABELS = {
   [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: "Task type project IDs",
   [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: "Task type active project accounts",
   [STORAGE_KEY_RESET_LIMIT]: "Reset limit",
+  [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: "Multi-screenshot batch size",
   [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: "Task type TOC button colors",
   [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: "Task type TOC button settings",
   [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: "Task type TOC button labels",
@@ -594,6 +600,7 @@ const highlightState = {
     [ANALYSIS_TOC_SIDE_RIGHT]: ANALYSIS_TOC_DEFAULT_COLUMN_SCALE,
   },
   latestPromptScrollHoldSeconds: LATEST_PROMPT_SCROLL_DEFAULT_HOLD_SECONDS,
+  multiScreenshotBatchSize: DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE,
 };
 
 const trafficHistoryState = {
@@ -1428,6 +1435,18 @@ function sanitizeStartPageUrl(value) {
 function sanitizeResetLimit(value) {
   const parsedValue = Number.parseInt(`${value}`, 10);
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+}
+
+function sanitizeMultiScreenshotBatchSize(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE;
+  }
+
+  return Math.min(
+    MAX_MULTI_SCREENSHOT_BATCH_SIZE,
+    Math.max(MIN_MULTI_SCREENSHOT_BATCH_SIZE, parsedValue),
+  );
 }
 
 function normalizeStringList(value) {
@@ -4588,6 +4607,19 @@ function getLatestPromptScrollHoldSecondsInputValue() {
   );
 }
 
+function setMultiScreenshotBatchSizeInput(value) {
+  const input = document.querySelector("#multi-screenshot-batch-size");
+  if (input instanceof HTMLInputElement) {
+    input.value = String(sanitizeMultiScreenshotBatchSize(value));
+  }
+}
+
+function getMultiScreenshotBatchSizeInputValue() {
+  return sanitizeMultiScreenshotBatchSize(
+    document.querySelector("#multi-screenshot-batch-size")?.value,
+  );
+}
+
 async function saveHighlightRules(message = "Highlight rules saved.") {
   syncActiveTaskTypeScopedSettings();
   renderHighlightRules();
@@ -4692,6 +4724,7 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: null,
     [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
+    [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_ANALYSIS_TOC_COLORS]: null,
     [STORAGE_KEY_ANALYSIS_TOC_BUTTON_SETTINGS]: null,
@@ -4724,6 +4757,9 @@ async function loadOptions() {
     stored[STORAGE_KEY_START_PAGE_URL],
   );
   const resetLimit = sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]);
+  highlightState.multiScreenshotBatchSize = sanitizeMultiScreenshotBatchSize(
+    stored[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE],
+  );
   highlightState.taskTypeProjectIds = migrateTaskTypeProjectIds(
     stored[STORAGE_KEY_TASK_TYPE_PROJECT_IDS],
     projectSettings.projectIds,
@@ -4798,6 +4834,7 @@ async function loadOptions() {
   applyActiveTaskTypeScopedSettings();
 
   document.querySelector("#reset-limit").value = String(resetLimit);
+  setMultiScreenshotBatchSizeInput(highlightState.multiScreenshotBatchSize);
   setServerControlZoneDividerOpacityInput(highlightState.zoneDividerOpacity);
   setServerControlStatusLogIdleOpacityInput(highlightState.statusLogIdleOpacity);
   setServerControlStatusLogWidthInput(highlightState.statusLogWidthPx);
@@ -5354,6 +5391,7 @@ async function saveOptions(event) {
   highlightState.activeBridgeTaskType = sanitizeBridgeTaskType(highlightState.activeBridgeTaskType);
   syncActiveTaskTypeScopedSettings();
   const resetLimit = sanitizeResetLimit(document.querySelector("#reset-limit").value);
+  const multiScreenshotBatchSize = getMultiScreenshotBatchSizeInputValue();
   const tocButtonColors = sanitizeAnalysisTocButtonColors(highlightState.tocButtonColors);
   const tocButtonSettings = sanitizeAnalysisTocButtonSettings(highlightState.tocButtonSettings);
   const tocButtonLabels = sanitizeAnalysisTocButtonLabels(highlightState.tocButtonLabels);
@@ -5442,6 +5480,7 @@ async function saveOptions(event) {
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: resetLimit,
+    [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: multiScreenshotBatchSize,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS]: taskTypeTocButtonColors,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS]: taskTypeTocButtonSettings,
     [STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS]: taskTypeTocButtonLabels,
@@ -5485,6 +5524,7 @@ async function saveOptions(event) {
   highlightState.taskTypeTocColumnScale = taskTypeTocColumnScale;
   highlightState.taskTypeLatestPromptScrollHoldSeconds = taskTypeLatestPromptScrollHoldSeconds;
   highlightState.taskTypeTocEntries = sanitizeTaskTypeAnalysisTocEntriesMap(highlightState.taskTypeTocEntries);
+  highlightState.multiScreenshotBatchSize = multiScreenshotBatchSize;
   highlightState.tocButtonColors = tocButtonColors;
   highlightState.tocButtonSettings = tocButtonSettings;
   highlightState.tocButtonLabels = tocButtonLabels;
@@ -5508,6 +5548,7 @@ async function saveOptions(event) {
     highlightState.zoneDividerBottomLengthPx,
   );
   document.querySelector("#reset-limit").value = String(resetLimit);
+  setMultiScreenshotBatchSizeInput(highlightState.multiScreenshotBatchSize);
   renderTaskTypeProjectIds();
   renderServerControlStatusLogColorSettings();
   renderServerControlStatusLogMessageSettings();
@@ -5539,6 +5580,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     || (areaName === "sync" && changedKeys.some((key) => SETTINGS_SYNC_SYNC_KEY_SET.has(key)))
   ) {
     scheduleSettingsSyncDiffRefresh();
+  }
+
+  if (areaName === "sync" && changes[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]) {
+    highlightState.multiScreenshotBatchSize = sanitizeMultiScreenshotBatchSize(
+      changes[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE].newValue,
+    );
+    setMultiScreenshotBatchSizeInput(highlightState.multiScreenshotBatchSize);
   }
 
   if (areaName !== "local") {
@@ -5601,6 +5649,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tocLeftScaleInput = document.querySelector("#analysis-toc-left-scale");
   const tocRightScaleInput = document.querySelector("#analysis-toc-right-scale");
   const latestPromptScrollHoldInput = document.querySelector("#latest-prompt-scroll-hold-seconds");
+  const multiScreenshotBatchSizeInput = document.querySelector("#multi-screenshot-batch-size");
   const zoneDividerOpacityInput = document.querySelector("#server-control-zone-divider-opacity");
   const statusLogIdleOpacityInput = document.querySelector("#server-control-status-log-idle-opacity");
   const statusLogWidthInput = document.querySelector("#server-control-status-log-width");
@@ -5724,6 +5773,14 @@ document.addEventListener("DOMContentLoaded", () => {
   latestPromptScrollHoldInput?.addEventListener("blur", () => {
     highlightState.latestPromptScrollHoldSeconds = getLatestPromptScrollHoldSecondsInputValue();
     setLatestPromptScrollHoldSecondsInput(highlightState.latestPromptScrollHoldSeconds);
+  });
+  multiScreenshotBatchSizeInput?.addEventListener("input", () => {
+    highlightState.multiScreenshotBatchSize = getMultiScreenshotBatchSizeInputValue();
+    setStatus("Multi-screenshot batch size changed. Save settings to apply it.");
+  });
+  multiScreenshotBatchSizeInput?.addEventListener("blur", () => {
+    highlightState.multiScreenshotBatchSize = getMultiScreenshotBatchSizeInputValue();
+    setMultiScreenshotBatchSizeInput(highlightState.multiScreenshotBatchSize);
   });
   zoneDividerOpacityInput?.addEventListener("input", () => {
     highlightState.zoneDividerOpacity = getServerControlZoneDividerOpacityInputValue();

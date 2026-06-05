@@ -62,6 +62,7 @@ const CHATGPT_PROJECT_URL_PREFIX = "https://chatgpt.com/g/g-p-";
 const DEFAULT_PROJECT_ID = "69bc1388b0588191bd1c176e83f018e4";
 const DEFAULT_START_PAGE_URL = `${CHATGPT_PROJECT_URL_PREFIX}${DEFAULT_PROJECT_ID}`;
 const DEFAULT_RESET_LIMIT = 0;
+const DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE = 10;
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
 const STORAGE_KEY_ACTIVE_PROJECT_ID = "activeProjectId";
@@ -70,6 +71,7 @@ const STORAGE_KEY_TASK_TYPE_PROJECT_IDS = "taskTypeProjectIds";
 const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAccounts";
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
+const STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE = "multiScreenshotBatchSize";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
@@ -125,6 +127,7 @@ const SETTINGS_SYNC_SYNC_KEYS = [
   STORAGE_KEY_TASK_TYPE_PROJECT_IDS,
   STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
   STORAGE_KEY_RESET_LIMIT,
+  STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_COLORS,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_BUTTON_SETTINGS,
   STORAGE_KEY_TASK_TYPE_ANALYSIS_TOC_LABELS,
@@ -1561,6 +1564,15 @@ function sanitizeResetLimit(value) {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
 }
 
+function sanitizeMultiScreenshotBatchSize(value) {
+  const parsedValue = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE;
+  }
+
+  return Math.min(10, Math.max(1, parsedValue));
+}
+
 function normalizePromptTexts(rawValue) {
   if (Array.isArray(rawValue)) {
     const prompts = rawValue
@@ -1617,6 +1629,7 @@ async function getOptions() {
     [STORAGE_KEY_ACTIVE_PROJECT_ID]: null,
     [STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     [STORAGE_KEY_RESET_LIMIT]: DEFAULT_RESET_LIMIT,
+    [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: DEFAULT_MULTI_SCREENSHOT_BATCH_SIZE,
   });
   const projectSettings = normalizeProjectSettings(
     stored[STORAGE_KEY_PROJECT_IDS],
@@ -1628,6 +1641,7 @@ async function getOptions() {
     ...projectSettings,
     activeBridgeTaskType: sanitizeBridgeTaskType(stored[STORAGE_KEY_ACTIVE_BRIDGE_TASK_TYPE]),
     resetLimit: sanitizeResetLimit(stored[STORAGE_KEY_RESET_LIMIT]),
+    multiScreenshotBatchSize: sanitizeMultiScreenshotBatchSize(stored[STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]),
   };
 }
 
@@ -1696,6 +1710,7 @@ async function ensureDefaultOptions() {
     [STORAGE_KEY_TASK_TYPE_PROJECT_IDS]: taskTypeProjectIds,
     [STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS]: taskTypeActiveProjectAccounts,
     [STORAGE_KEY_RESET_LIMIT]: options.resetLimit,
+    [STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE]: options.multiScreenshotBatchSize,
   });
 }
 
