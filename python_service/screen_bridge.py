@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import ctypes
 import json
+import math
 import secrets
 import threading
 import time
@@ -83,13 +84,19 @@ CONTROL_CANCEL_COMMAND = "cancel_control_processing"
 COMMENT_DRAFT_FEEDBACK_COMMAND = "draft_comment_feedback"
 PROCESS_CHAT_COMMAND = "process_chat"
 ADDITIONAL_CONTEXT_COMMAND = "add_rating_context"
+MULTI_SCREENSHOT_ADD_COMMAND = "multi_screenshot_add"
+MULTI_SCREENSHOT_SUBMIT_COMMAND = "multi_screenshot_submit"
 ASYNC_CONTROL_PROCESSING_COMMANDS = {
     "start_task_screenshot",
     "start_task_ocr",
     COMMENT_DRAFT_FEEDBACK_COMMAND,
     PROCESS_CHAT_COMMAND,
     ADDITIONAL_CONTEXT_COMMAND,
+    MULTI_SCREENSHOT_ADD_COMMAND,
+    MULTI_SCREENSHOT_SUBMIT_COMMAND,
 }
+MULTI_SCREENSHOT_EVENT_KIND = "multi_screenshot"
+MULTI_SCREENSHOT_DEFAULT_BATCH_SIZE = 10
 
 
 @dataclass(frozen=True)
@@ -132,6 +139,17 @@ class RepeatableTask:
     prompts: tuple[str, ...]
     repeat_prefix: str
     base_screenshot_png: bytes
+
+
+@dataclass
+class MultiScreenshotSession:
+    session_id: str
+    task_type: str
+    task_type_key: str
+    task_count: int
+    screenshots_png: list[bytes] = field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -417,6 +435,7 @@ class SharedState:
     cancelled_control_run_ids: set[str] = field(default_factory=set)
     armed_task: ArmedTask | None = None
     repeatable_task: RepeatableTask | None = None
+    multi_screenshot_sessions: dict[str, MultiScreenshotSession] = field(default_factory=dict)
     last_sent_task_reference: SentTaskReference | None = None
     active_task_type_key: str = DEFAULT_CONTROL_TASK_TYPE_KEY
     active_task_type_label: str = DEFAULT_CONTROL_TASK_TYPE_LABEL
@@ -500,6 +519,63 @@ class SharedState:
     def get_repeatable_task(self) -> RepeatableTask | None:
         with self.lock:
             return self.repeatable_task
+
+    def add_multi_screenshot(
+        self,
+        session_id: str,
+        task_type: str,
+        task_type_key: str,
+        task_count: int,
+        screenshot_png: bytes,
+    ) -> MultiScreenshotSession:
+        normalized_session_id = sanitize_control_command_field(session_id, 120)
+        now = timestamp_now()
+        with self.lock:
+            session = self.multi_screenshot_sessions.get(normalized_session_id)
+            if session is None:
+                session = MultiScreenshotSession(
+                    session_id=normalized_session_id,
+                    task_type=task_type,
+                    task_type_key=task_type_key,
+                    task_count=task_count,
+                    screenshots_png=[],
+                    created_at=now,
+                    updated_at=now,
+                )
+                self.multi_screenshot_sessions[normalized_session_id] = session
+
+            session.task_type = task_type or session.task_type
+            session.task_type_key = task_type_key or session.task_type_key
+            session.task_count = task_count
+            session.updated_at = now
+            session.screenshots_png.append(bytes(screenshot_png))
+            return MultiScreenshotSession(
+                session_id=session.session_id,
+                task_type=session.task_type,
+                task_type_key=session.task_type_key,
+                task_count=session.task_count,
+                screenshots_png=[bytes(item) for item in session.screenshots_png],
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+            )
+
+    def pop_multi_screenshot_session(self, session_id: str) -> MultiScreenshotSession | None:
+        normalized_session_id = sanitize_control_command_field(session_id, 120)
+        if not normalized_session_id:
+            return None
+        with self.lock:
+            session = self.multi_screenshot_sessions.pop(normalized_session_id, None)
+            if session is None:
+                return None
+            return MultiScreenshotSession(
+                session_id=session.session_id,
+                task_type=session.task_type,
+                task_type_key=session.task_type_key,
+                task_count=session.task_count,
+                screenshots_png=[bytes(item) for item in session.screenshots_png],
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+            )
 
     def remember_sent_task_reference(self, reference: SentTaskReference) -> None:
         with self.lock:
@@ -607,18 +683,20 @@ class SharedState:
         prompts: list[str] | tuple[str, ...],
         task_type: str = "",
         control_run_id: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> None:
+        event = {
+            "type": "task",
+            "task_count": task_count,
+            "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
+            "prompts": list(prompts),
+            "task_type": str(task_type or ""),
+            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+        }
+        if isinstance(metadata, dict) and metadata:
+            event["metadata"] = metadata
         with self.lock:
-            self.pending_events.append(
-                {
-                    "type": "task",
-                    "task_count": task_count,
-                    "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
-                    "prompts": list(prompts),
-                    "task_type": str(task_type or ""),
-                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
-                }
-            )
+            self.pending_events.append(event)
 
     def publish_control_status_and_payload(
         self,
@@ -634,6 +712,7 @@ class SharedState:
         prompts: list[str] | tuple[str, ...],
         payload_task_type: str = "",
         control_run_id: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         status_event = self.build_control_status_event(
             run_id,
@@ -651,6 +730,8 @@ class SharedState:
             "task_type": str(payload_task_type or ""),
             "control_run_id": sanitize_control_command_field(control_run_id, 120),
         }
+        if isinstance(metadata, dict) and metadata:
+            payload_event["metadata"] = metadata
         with self.lock:
             if status_event is not None:
                 self.pending_events.append(status_event)
@@ -794,6 +875,8 @@ class SharedState:
             prompts = [str(prompt) for prompt in event.get("prompts", [])]
             task_type = str(event.get("task_type", ""))
             control_run_id = str(event.get("control_run_id", ""))
+            metadata = event.get("metadata")
+            metadata_payload = metadata if isinstance(metadata, dict) else {}
             encoded_screenshots = [base64.b64encode(screenshot_png).decode("ascii") for screenshot_png in screenshot_pngs]
             total_bytes = sum(len(screenshot_png) for screenshot_png in screenshot_pngs)
             screenshot_paths = save_sent_screenshot_pngs(
@@ -822,6 +905,7 @@ class SharedState:
                 "d": xor_encrypt_to_hex("task", XOR_KEY),
                 "e": xor_encrypt_to_hex(task_type, XOR_KEY),
                 "f": xor_encrypt_to_hex(control_run_id, XOR_KEY),
+                "g": xor_encrypt_string_to_base64(json.dumps(metadata_payload, ensure_ascii=False), XOR_KEY),
             }
 
         if event_type == TEXT_TASK_EVENT_TYPE:
@@ -1490,6 +1574,15 @@ def build_additional_context_prompt(base_prompt: str, ocr_text: str = "") -> str
     return "\n\n".join(parts).strip()
 
 
+def get_multi_screenshot_session_id(payload: dict[str, Any]) -> str:
+    return sanitize_control_command_field(payload.get("multiScreenshotSessionId") or payload.get("sessionId"), 120)
+
+
+def sanitize_multi_screenshot_batch_size(value: Any) -> int:
+    parsed_value = int(value) if str(value or "").isdigit() else MULTI_SCREENSHOT_DEFAULT_BATCH_SIZE
+    return min(10, max(1, parsed_value))
+
+
 def publish_task_counter_status(
     counter_read: TaskCounterRead,
     counter_status: str,
@@ -2081,6 +2174,148 @@ def queue_additional_context(payload: dict[str, Any]) -> bool:
     return True
 
 
+def queue_multi_screenshot_capture(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    task_type = settings.task_type if settings is not None else get_control_payload_task_type(payload)
+    task_type_key = get_control_payload_task_type_key(payload, task_type)
+    run_id = get_control_run_id(payload)
+    session_id = get_multi_screenshot_session_id(payload)
+
+    if not session_id:
+        publish_control_status(payload, "error", "Multi-screenshot session id was missing.", task_type=task_type)
+        return False
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Multi-screenshot capture cancelled before capture.", task_type=task_type)
+        return False
+
+    publish_control_status(
+        payload,
+        "capture",
+        "Capturing multi-screenshot frame.",
+        details={"command": MULTI_SCREENSHOT_ADD_COMMAND, "sessionId": session_id},
+        task_type=task_type,
+    )
+    frame_bgr, task_count = capture_control_frame()
+    effective_task_count = task_count if task_count is not None else 0
+    screenshot_png = build_screenshot_payload(frame_bgr)
+    session = STATE.add_multi_screenshot(
+        session_id,
+        task_type,
+        task_type_key,
+        effective_task_count,
+        screenshot_png,
+    )
+    screenshot_count = len(session.screenshots_png)
+    publish_control_status(
+        payload,
+        "response-complete",
+        f"Added multi-screenshot {screenshot_count}.",
+        details={
+            "command": MULTI_SCREENSHOT_ADD_COMMAND,
+            "sessionId": session.session_id,
+            "taskCount": effective_task_count,
+            "screenshotCount": screenshot_count,
+        },
+        task_type=task_type,
+    )
+    print(
+        f"[control {timestamp_now()}] multi-screenshot-add session={session.session_id} "
+        f"count={screenshot_count} task_type={task_type or '-'}",
+        flush=True,
+    )
+    return True
+
+
+def queue_multi_screenshot_submit(payload: dict[str, Any]) -> bool:
+    settings = resolve_control_task_settings(payload)
+    task_type = settings.task_type if settings is not None else get_control_payload_task_type(payload)
+    task_type_key = get_control_payload_task_type_key(payload, task_type)
+    run_id = get_control_run_id(payload)
+    session_id = get_multi_screenshot_session_id(payload)
+    batch_prompt = str(payload.get("multiScreenshotBatchPrompt") or "").strip()
+    final_prompt = str(payload.get("boilerplatePrompt") or "").strip()
+    batch_size = sanitize_multi_screenshot_batch_size(payload.get("multiScreenshotBatchSize"))
+
+    if not session_id:
+        publish_control_status(payload, "error", "Multi-screenshot session id was missing.", task_type=task_type)
+        return False
+
+    if not batch_prompt:
+        publish_control_status(
+            payload,
+            "error",
+            "Multi-screenshot batch prompt is empty. Set it in Options before submitting.",
+            task_type=task_type,
+        )
+        return False
+
+    if not final_prompt and settings is not None and settings.prompts:
+        final_prompt = settings.prompts[0]
+    if not final_prompt:
+        publish_control_status(
+            payload,
+            "error",
+            "Final boilerplate prompt is empty. Set the task boilerplate prompt before submitting.",
+            task_type=task_type,
+        )
+        return False
+
+    if STATE.is_control_run_cancelled(run_id):
+        publish_control_status(payload, "cancel", "Multi-screenshot submit cancelled before queueing.", task_type=task_type)
+        return False
+
+    session = STATE.pop_multi_screenshot_session(session_id)
+    if session is None or not session.screenshots_png:
+        publish_control_status(
+            payload,
+            "error",
+            "No multi-screenshot captures were queued for this session.",
+            details={"command": MULTI_SCREENSHOT_SUBMIT_COMMAND, "sessionId": session_id},
+            task_type=task_type,
+        )
+        return False
+
+    screenshots_png = [bytes(screenshot_png) for screenshot_png in session.screenshots_png]
+    screenshot_count = len(screenshots_png)
+    batch_count = math.ceil(screenshot_count / batch_size)
+    payload_task_type = task_type_key or session.task_type_key or task_type
+    STATE.publish_control_status_and_payload(
+        run_id,
+        "queued",
+        "Multi-screenshot submit queued for ChatGPT.",
+        details={
+            "command": MULTI_SCREENSHOT_SUBMIT_COMMAND,
+            "requiresCurrentChat": True,
+            "taskCount": session.task_count,
+            "screenshotCount": screenshot_count,
+            "batchSize": batch_size,
+            "batchCount": batch_count,
+            "promptCount": 2,
+            "sessionId": session.session_id,
+        },
+        tab_id=get_control_payload_tab_id(payload),
+        status_task_type=task_type,
+        task_count=session.task_count,
+        screenshots_png=screenshots_png,
+        prompts=(batch_prompt, final_prompt),
+        payload_task_type=payload_task_type,
+        control_run_id=run_id,
+        metadata={
+            "kind": MULTI_SCREENSHOT_EVENT_KIND,
+            "batchSize": batch_size,
+            "sessionId": session.session_id,
+            "screenshotCount": screenshot_count,
+        },
+    )
+    print(
+        f"[control {timestamp_now()}] multi-screenshot-submit session={session.session_id} "
+        f"screenshots={screenshot_count} batches={batch_count} task_type={task_type or '-'}",
+        flush=True,
+    )
+    return True
+
+
 def handle_control_processing_command(command: str, payload: dict[str, Any]) -> bool:
     if command == "start_task_screenshot":
         return queue_control_screenshot(payload)
@@ -2092,6 +2327,10 @@ def handle_control_processing_command(command: str, payload: dict[str, Any]) -> 
         return queue_process_chat_prompt(payload)
     if command == ADDITIONAL_CONTEXT_COMMAND:
         return queue_additional_context(payload)
+    if command == MULTI_SCREENSHOT_ADD_COMMAND:
+        return queue_multi_screenshot_capture(payload)
+    if command == MULTI_SCREENSHOT_SUBMIT_COMMAND:
+        return queue_multi_screenshot_submit(payload)
     if get_control_run_id(payload):
         publish_control_status(
             payload,

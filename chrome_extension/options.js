@@ -328,6 +328,7 @@ const TASK_ACTION_GOOGLE_SEARCH = "googleSearch";
 const TASK_ACTION_COMMENT_DRAFT = "commentDraft";
 const TASK_ACTION_PROCESS_CHAT = "processChat";
 const TASK_ACTION_ADDITIONAL_CONTEXT = "additionalContext";
+const TASK_ACTION_MULTI_SCREENSHOT = "multiScreenshot";
 const TASK_ACTION_KEYS = [
   TASK_ACTION_OCR,
   TASK_ACTION_SCREENSHOT,
@@ -335,6 +336,7 @@ const TASK_ACTION_KEYS = [
   TASK_ACTION_COMMENT_DRAFT,
   TASK_ACTION_PROCESS_CHAT,
   TASK_ACTION_ADDITIONAL_CONTEXT,
+  TASK_ACTION_MULTI_SCREENSHOT,
 ];
 const TASK_ACTION_LABELS = {
   [TASK_ACTION_OCR]: "OCR",
@@ -343,6 +345,7 @@ const TASK_ACTION_LABELS = {
   [TASK_ACTION_COMMENT_DRAFT]: "Comment",
   [TASK_ACTION_PROCESS_CHAT]: "Save for processing",
   [TASK_ACTION_ADDITIONAL_CONTEXT]: "Add context",
+  [TASK_ACTION_MULTI_SCREENSHOT]: "Multi-Screenshot",
 };
 const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
@@ -386,6 +389,16 @@ Output:
 - Why or why not?
 - Updated rating, if changed
 - Updated comment, if useful`;
+const DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT = `The attached screenshots are part of a multi-screenshot task.
+
+Transcribe and visually describe each screenshot in order so the final task prompt can reference this written chat content instead of relying on previous image attachments.
+
+For each screenshot, capture:
+- visible instructions and question text
+- answer choices or fields
+- relevant page state, selections, warnings, and navigation context
+
+Do not solve the full task yet. Output concise, clearly numbered notes by screenshot.`;
 const FULL_TASK_SCREENSHOT_REGION = {
   key: "fullTaskScreenshot",
   label: "Full task screenshot",
@@ -416,8 +429,20 @@ const DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS = [
   {
     key: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
     label: "Search Experience to Product Usefulness",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH, TASK_ACTION_COMMENT_DRAFT],
-    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_GOOGLE_SEARCH, TASK_ACTION_COMMENT_DRAFT],
+    actions: [
+      TASK_ACTION_OCR,
+      TASK_ACTION_SCREENSHOT,
+      TASK_ACTION_GOOGLE_SEARCH,
+      TASK_ACTION_COMMENT_DRAFT,
+      TASK_ACTION_MULTI_SCREENSHOT,
+    ],
+    visibleActions: [
+      TASK_ACTION_OCR,
+      TASK_ACTION_SCREENSHOT,
+      TASK_ACTION_GOOGLE_SEARCH,
+      TASK_ACTION_COMMENT_DRAFT,
+      TASK_ACTION_MULTI_SCREENSHOT,
+    ],
     requireWebSearchChip: true,
     regions: [
       { key: "query", label: "Query", kind: TASK_REGION_KIND_OCR },
@@ -436,12 +461,13 @@ Google results: [google results]
 
 Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
     chatProcessingPrompt: "",
+    multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   },
   {
     key: "get-rich-quick",
     label: "Get Rich Quick",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
-    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_MULTI_SCREENSHOT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_MULTI_SCREENSHOT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -454,6 +480,7 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
     chatProcessingPrompt: "",
+    multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   },
   {
     key: "video-games",
@@ -464,6 +491,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       TASK_ACTION_COMMENT_DRAFT,
       TASK_ACTION_PROCESS_CHAT,
       TASK_ACTION_ADDITIONAL_CONTEXT,
+      TASK_ACTION_MULTI_SCREENSHOT,
     ],
     visibleActions: [
       TASK_ACTION_OCR,
@@ -471,6 +499,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       TASK_ACTION_COMMENT_DRAFT,
       TASK_ACTION_PROCESS_CHAT,
       TASK_ACTION_ADDITIONAL_CONTEXT,
+      TASK_ACTION_MULTI_SCREENSHOT,
     ],
     requireWebSearchChip: true,
     regions: [
@@ -486,12 +515,13 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
     chatProcessingAbstractionPrompt: DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT,
     additionalContextPrompt: DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT,
+    multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   },
   {
     key: "weight-loss",
     label: "Weight Loss",
-    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
-    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT],
+    actions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_MULTI_SCREENSHOT],
+    visibleActions: [TASK_ACTION_OCR, TASK_ACTION_SCREENSHOT, TASK_ACTION_COMMENT_DRAFT, TASK_ACTION_MULTI_SCREENSHOT],
     requireWebSearchChip: true,
     regions: [
       FULL_TASK_SCREENSHOT_REGION,
@@ -504,6 +534,7 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
     chatProcessingPrompt: "",
+    multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   },
 ];
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
@@ -865,6 +896,9 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
     actions: Array.from(actions),
     visibleActions,
     regions,
+    multiScreenshotBatchPrompt: typeof taskDefinition.multiScreenshotBatchPrompt === "string"
+      ? taskDefinition.multiScreenshotBatchPrompt
+      : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   };
 }
 
@@ -921,9 +955,16 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
     if (key === "video-games" && !actions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
       actions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
     }
+    const addedMultiScreenshotAction = !actions.includes(TASK_ACTION_MULTI_SCREENSHOT);
+    if (!actions.includes(TASK_ACTION_MULTI_SCREENSHOT)) {
+      actions.push(TASK_ACTION_MULTI_SCREENSHOT);
+    }
     const visibleActions = normalizeVisibleTaskActionKeys(rawDefinition.visibleActions, actions);
     if (addedAdditionalContextAction && !visibleActions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
       visibleActions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
+    }
+    if (addedMultiScreenshotAction && !visibleActions.includes(TASK_ACTION_MULTI_SCREENSHOT)) {
+      visibleActions.push(TASK_ACTION_MULTI_SCREENSHOT);
     }
 
     const taskDefinition = ensureTaskDefinitionFeatures({
@@ -945,6 +986,9 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
       additionalContextPrompt: typeof rawDefinition.additionalContextPrompt === "string"
         ? rawDefinition.additionalContextPrompt.trim()
         : (key === "video-games" ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT : ""),
+      multiScreenshotBatchPrompt: typeof rawDefinition.multiScreenshotBatchPrompt === "string"
+        ? rawDefinition.multiScreenshotBatchPrompt.trim()
+        : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     });
 
     sanitizedDefinitions.push(taskDefinition);
@@ -2427,6 +2471,10 @@ function getTrafficDisplayLabel(sample) {
       return "save for processing";
     case "control:add_rating_context":
       return "add context";
+    case "control:multi_screenshot_add":
+      return "multi-screenshot add";
+    case "control:multi_screenshot_submit":
+      return "multi-screenshot submit";
     case "control:cancel_control_processing":
       return "cancel processing";
     default:
@@ -2959,6 +3007,7 @@ function syncTaskTypeDefinitionEditorValues() {
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const multiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   if (
     !(labelInput instanceof HTMLInputElement)
@@ -2966,6 +3015,7 @@ function syncTaskTypeDefinitionEditorValues() {
     && !(chatPromptInput instanceof HTMLTextAreaElement)
     && !(chatAbstractionPromptInput instanceof HTMLTextAreaElement)
     && !(additionalContextPromptInput instanceof HTMLTextAreaElement)
+    && !(multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement)
     && !(requireSearchChipInput instanceof HTMLInputElement)
   ) {
     return;
@@ -2996,6 +3046,9 @@ function syncTaskTypeDefinitionEditorValues() {
       additionalContextPrompt: additionalContextPromptInput instanceof HTMLTextAreaElement
         ? additionalContextPromptInput.value
         : (definition.additionalContextPrompt ?? ""),
+      multiScreenshotBatchPrompt: multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement
+        ? multiScreenshotBatchPromptInput.value
+        : (definition.multiScreenshotBatchPrompt ?? ""),
     };
   });
 }
@@ -3351,6 +3404,7 @@ function renderTaskTypeConfiguration() {
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const multiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
@@ -3371,6 +3425,9 @@ function renderTaskTypeConfiguration() {
   }
   if (additionalContextPromptInput instanceof HTMLTextAreaElement) {
     additionalContextPromptInput.value = taskDefinition.additionalContextPrompt || "";
+  }
+  if (multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement) {
+    multiScreenshotBatchPromptInput.value = taskDefinition.multiScreenshotBatchPrompt || "";
   }
   if (requireSearchChipInput instanceof HTMLInputElement) {
     requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
@@ -3409,6 +3466,7 @@ Use the screenshot and OCR text above to complete the task.`,
     chatProcessingPrompt: "",
     chatProcessingAbstractionPrompt: "",
     additionalContextPrompt: "",
+    multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   };
 
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions([
@@ -5526,6 +5584,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const taskTypeChatProcessingPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const taskTypeChatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const taskTypeAdditionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const taskTypeMultiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
@@ -5601,6 +5660,10 @@ document.addEventListener("DOMContentLoaded", () => {
   taskTypeAdditionalContextPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Additional context prompt changed. Save settings to apply it.");
+  });
+  taskTypeMultiScreenshotBatchPromptInput?.addEventListener("input", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Multi-screenshot batch prompt changed. Save settings to apply it.");
   });
   requireSearchChipToggle?.addEventListener("change", () => {
     syncTaskTypeDefinitionEditorValues();

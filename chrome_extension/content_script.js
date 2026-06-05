@@ -175,6 +175,10 @@ Base everything strictly on the screenshot attachment.`;
   const SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY = "ratingComment";
   const SERVER_CONTROL_ACTION_PROCESS_CHAT = "processChat";
   const SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT = "additionalContext";
+  const SERVER_CONTROL_ACTION_MULTI_SCREENSHOT = "multiScreenshot";
+  const SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD = "multi_screenshot_add";
+  const SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT = "multi_screenshot_submit";
+  const MULTI_SCREENSHOT_BATCH_SIZE = 10;
   const DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT = `Apply \`video_games_chat_processing_framework.md\` from project context to this completed chat.
 
 Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract a reusable case-derived reasoning node.
@@ -217,6 +221,16 @@ Output:
 - Why or why not?
 - Updated rating, if changed
 - Updated comment, if useful`;
+  const DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT = `The attached screenshots are part of a multi-screenshot task.
+
+Transcribe and visually describe each screenshot in order so the final task prompt can reference this written chat content instead of relying on previous image attachments.
+
+For each screenshot, capture:
+- visible instructions and question text
+- answer choices or fields
+- relevant page state, selections, warnings, and navigation context
+
+Do not solve the full task yet. Output concise, clearly numbered notes by screenshot.`;
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
   const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
@@ -423,6 +437,11 @@ Output:
       command: "add_rating_context",
       value: "additional-context",
     },
+    [SERVER_CONTROL_ACTION_MULTI_SCREENSHOT]: {
+      label: "Multi-Screenshot",
+      command: SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD,
+      value: "multi-screenshot",
+    },
   };
   const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
@@ -436,8 +455,8 @@ Output:
         SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
         SERVER_CONTROL_REGION_DEFAULT_KEY,
       ],
-      actions: ["ocr", "screenshot", "googleSearch", "commentDraft"],
-      visibleActions: ["ocr", "screenshot", "googleSearch", "commentDraft"],
+      actions: ["ocr", "screenshot", "googleSearch", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      visibleActions: ["ocr", "screenshot", "googleSearch", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
 
@@ -448,13 +467,14 @@ Google results: [google results]
 
 Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
       chatProcessingPrompt: "",
+      multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
       key: "get-rich-quick",
       label: "Get Rich Quick",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft"],
-      visibleActions: ["ocr", "screenshot", "commentDraft"],
+      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
@@ -462,6 +482,7 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
       chatProcessingPrompt: "",
+      multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
       key: "video-games",
@@ -473,6 +494,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         "commentDraft",
         SERVER_CONTROL_ACTION_PROCESS_CHAT,
         SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
       ],
       visibleActions: [
         "ocr",
@@ -480,6 +502,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         "commentDraft",
         SERVER_CONTROL_ACTION_PROCESS_CHAT,
         SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
       ],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Video Games task.
@@ -490,13 +513,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
       chatProcessingAbstractionPrompt: DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT,
       additionalContextPrompt: DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT,
+      multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
       key: "weight-loss",
       label: "Weight Loss",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft"],
-      visibleActions: ["ocr", "screenshot", "commentDraft"],
+      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
@@ -504,6 +528,7 @@ Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
       chatProcessingPrompt: "",
+      multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
   ];
   let SERVER_CONTROL_TASK_TYPE_DEFINITIONS = DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS.map((definition) => ({
@@ -519,6 +544,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     additionalContextPrompt: typeof definition.additionalContextPrompt === "string"
       ? definition.additionalContextPrompt
       : "",
+    multiScreenshotBatchPrompt: typeof definition.multiScreenshotBatchPrompt === "string"
+      ? definition.multiScreenshotBatchPrompt
+      : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
   }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
@@ -656,6 +684,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     ocrReviewText: "",
     persistTimerId: null,
     lastCommand: "",
+    multiScreenshotSession: {
+      sessionId: "",
+      screenshotCount: 0,
+      taskType: "",
+      submitting: false,
+    },
   };
 
   const serverControlStatusLogState = {
@@ -4304,7 +4338,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       || command === "ocr_google_results"
       || command === "draft_comment_feedback"
       || command === "process_chat"
-      || command === "add_rating_context";
+      || command === "add_rating_context"
+      || command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD
+      || command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT;
   }
 
   function getServerControlStatusLogColor(type) {
@@ -5424,6 +5460,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         return "save for processing";
       case "control:add_rating_context":
         return "add context";
+      case "control:multi_screenshot_add":
+        return "multi-screenshot add";
+      case "control:multi_screenshot_submit":
+        return "multi-screenshot submit";
       case "control:cancel_control_processing":
         return "cancel processing";
       default:
@@ -5755,6 +5795,47 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return type === "counter";
   }
 
+  function syncServerControlMultiScreenshotSessionFromStatus(entry) {
+    const details = entry?.details && typeof entry.details === "object" ? entry.details : {};
+    const command = typeof details.command === "string" ? details.command : "";
+    if (![
+      SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD,
+      SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT,
+    ].includes(command)) {
+      return;
+    }
+
+    if (command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD) {
+      if (entry.type === "response-complete") {
+        const screenshotCount = Math.max(0, Number.parseInt(`${details.screenshotCount ?? 0}`, 10) || 0);
+        serverControlMenuState.multiScreenshotSession = {
+          sessionId: typeof details.sessionId === "string" && details.sessionId
+            ? details.sessionId
+            : getServerControlMultiScreenshotSession().sessionId,
+          screenshotCount,
+          taskType: serverControlMenuState.currentTaskType,
+          submitting: false,
+        };
+        syncServerControlActionControls();
+        updateServerControlMenuStatus();
+      } else if (entry.type === "error" || entry.type === "cancel") {
+        const session = getServerControlMultiScreenshotSession();
+        if (!session.screenshotCount) {
+          resetServerControlMultiScreenshotSession();
+        }
+      }
+      return;
+    }
+
+    if (entry.type === "queued" || entry.type === "response-complete") {
+      resetServerControlMultiScreenshotSession();
+    } else if (entry.type === "error" || entry.type === "cancel") {
+      serverControlMenuState.multiScreenshotSession.submitting = false;
+      syncServerControlActionControls();
+      updateServerControlMenuStatus();
+    }
+  }
+
   function updateServerControlStatusLogPosition(panel = getServerControlStatusLog()) {
     if (!(panel instanceof HTMLElement)) {
       return;
@@ -5925,6 +6006,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function appendServerControlStatusLog(status) {
     const entry = normalizeServerControlStatusEntry(status);
+    syncServerControlMultiScreenshotSessionFromStatus(entry);
     updateTaskCounterBadgeFromStatusEntry(entry);
     if (entry.runId) {
       serverControlStatusLogState.currentRunId = entry.runId;
@@ -6828,7 +6910,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     for (let index = 0; index < actionEntries.length; index += 1) {
       const label = document.createElement("div");
       label.className = "local-query-bridge-server-control-zone-label";
-      label.textContent = actionEntries[index].label || actionEntries[index].actionKey || "";
+      label.textContent = actionEntries[index].actionKey === SERVER_CONTROL_ACTION_MULTI_SCREENSHOT
+        && isServerControlMultiScreenshotSessionActive()
+        ? "Next screenshot"
+        : (actionEntries[index].label || actionEntries[index].actionKey || "");
       label.title = label.textContent;
       label.style.left = `${((index + 0.5) / actionEntries.length) * 100}%`;
       label.style.top = `${labelTop}px`;
@@ -7371,9 +7456,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
         actions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
       }
+      const addedMultiScreenshotAction = !actions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
+      if (!actions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT)) {
+        actions.push(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
+      }
       const visibleActions = normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions);
       if (addedAdditionalContextAction && !visibleActions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
         visibleActions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
+      }
+      if (addedMultiScreenshotAction && !visibleActions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT)) {
+        visibleActions.push(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
       }
 
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
@@ -7395,6 +7487,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         additionalContextPrompt: typeof rawDefinition.additionalContextPrompt === "string"
           ? rawDefinition.additionalContextPrompt.trim()
           : (key === "video-games" ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT : ""),
+        multiScreenshotBatchPrompt: typeof rawDefinition.multiScreenshotBatchPrompt === "string"
+          ? rawDefinition.multiScreenshotBatchPrompt.trim()
+          : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
       }, regionDefinitionsByKey));
     }
 
@@ -7938,6 +8033,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getCurrentServerControlTaskTypeDefinition().additionalContextPrompt || "";
   }
 
+  function getActiveServerControlMultiScreenshotBatchPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().multiScreenshotBatchPrompt || DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT;
+  }
+
   function normalizePromptPlaceholderKey(value) {
     return (typeof value === "string" ? value : "")
       .replace(/^!/, "")
@@ -7982,7 +8081,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function prepareServerControlBoilerplatePromptForSubmission() {
     const prompt = getActiveServerControlBoilerplatePrompt();
     const placeholderValues = getServerControlPromptPlaceholderValues();
-    const screenshotMode = serverControlMenuState.processingMode === "screenshot";
+    const screenshotMode = (
+      serverControlMenuState.processingMode === "screenshot"
+      || serverControlMenuState.processingMode === SERVER_CONTROL_ACTION_MULTI_SCREENSHOT
+    );
     const missingRequiredKeys = new Set();
     const lines = [];
 
@@ -8014,7 +8116,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const zoneStatus = isServerControlZoneClickSuspended()
       ? "paused"
       : (serverControlMenuState.zoneClickEnabled ? "on" : "off");
-    return `${taskLabel} | Zones: ${zoneStatus} | Project: ${accountLabel}`;
+    const multiScreenshotSession = getServerControlMultiScreenshotSession();
+    const multiText = isServerControlMultiScreenshotSessionActive()
+      ? ` | Multi: ${multiScreenshotSession.screenshotCount}`
+      : "";
+    return `${taskLabel} | Zones: ${zoneStatus} | Project: ${accountLabel}${multiText}`;
   }
 
   function setServerControlMenuStatus(text) {
@@ -8164,6 +8270,56 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  function createMultiScreenshotSessionId() {
+    if (globalThis.crypto?.randomUUID) {
+      return `multi-${globalThis.crypto.randomUUID()}`;
+    }
+
+    return `multi-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function getServerControlMultiScreenshotSession() {
+    const session = serverControlMenuState.multiScreenshotSession;
+    return session && typeof session === "object" ? session : {
+      sessionId: "",
+      screenshotCount: 0,
+      taskType: "",
+      submitting: false,
+    };
+  }
+
+  function isServerControlMultiScreenshotSessionActive() {
+    const session = getServerControlMultiScreenshotSession();
+    return Boolean(session.sessionId && Number.parseInt(`${session.screenshotCount ?? 0}`, 10) > 0);
+  }
+
+  function ensureServerControlMultiScreenshotSessionId() {
+    const session = getServerControlMultiScreenshotSession();
+    if (session.sessionId) {
+      return session.sessionId;
+    }
+
+    const sessionId = createMultiScreenshotSessionId();
+    serverControlMenuState.multiScreenshotSession = {
+      sessionId,
+      screenshotCount: 0,
+      taskType: serverControlMenuState.currentTaskType,
+      submitting: false,
+    };
+    return sessionId;
+  }
+
+  function resetServerControlMultiScreenshotSession() {
+    serverControlMenuState.multiScreenshotSession = {
+      sessionId: "",
+      screenshotCount: 0,
+      taskType: "",
+      submitting: false,
+    };
+    syncServerControlActionControls();
+    updateServerControlMenuStatus();
+  }
+
   function syncServerControlActionControls() {
     const menu = getServerControlMenu();
     if (!(menu instanceof HTMLElement)) {
@@ -8191,21 +8347,44 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         ? "Zone click mode is on. Click to turn it off."
         : "Zone click mode is off. Click to turn it on.");
     for (const actionDefinition of actionEntries) {
+      const isMultiScreenshotAction = actionDefinition.actionKey === SERVER_CONTROL_ACTION_MULTI_SCREENSHOT;
+      const multiScreenshotSession = getServerControlMultiScreenshotSession();
+      const multiScreenshotActive = isMultiScreenshotAction && isServerControlMultiScreenshotSessionActive();
       const button = document.createElement("button");
       button.className = "local-query-bridge-server-control-button local-query-bridge-server-control-action-button";
       button.type = "button";
-      button.textContent = actionDefinition.label;
-      button.dataset.command = actionDefinition.command;
-      button.dataset.value = actionDefinition.value;
+      button.textContent = multiScreenshotActive
+        ? `Submit (${multiScreenshotSession.screenshotCount})`
+        : actionDefinition.label;
+      button.dataset.command = multiScreenshotActive
+        ? SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT
+        : actionDefinition.command;
+      button.dataset.value = multiScreenshotActive ? "multi-screenshot-submit" : actionDefinition.value;
       button.dataset.controlActionKey = actionDefinition.actionKey;
       button.classList.toggle(
         SERVER_CONTROL_MENU_BUTTON_ACTIVE_CLASS,
-        isServerControlZoneClickActive(),
+        isServerControlZoneClickActive() || multiScreenshotActive,
       );
-      button.disabled = isServerControlZoneClickSuspended();
+      button.disabled = isServerControlZoneClickSuspended() || Boolean(multiScreenshotSession.submitting);
       button.setAttribute("aria-pressed", isServerControlZoneClickActive() ? "true" : "false");
-      button.title = container.title;
+      button.title = multiScreenshotActive
+        ? "Submit captured multi-screenshot batch to ChatGPT."
+        : container.title;
       button.addEventListener("click", () => {
+        if (multiScreenshotActive) {
+          void sendServerControlMenuCommand(
+            {
+              ...actionDefinition,
+              label: "Submit",
+              command: SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT,
+              value: "multi-screenshot-submit",
+            },
+            "Action",
+            button,
+          );
+          return;
+        }
+
         toggleServerControlZoneClickEnabled();
       });
       container.append(button);
@@ -8390,6 +8569,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       chatProcessingPrompt: getActiveServerControlChatProcessingPrompt(),
       chatProcessingAbstractionPrompt: getActiveServerControlChatProcessingAbstractionPrompt(),
       additionalContextPrompt: getActiveServerControlAdditionalContextPrompt(),
+      multiScreenshotSessionId: getServerControlMultiScreenshotSession().sessionId,
+      multiScreenshotBatchPrompt: getActiveServerControlMultiScreenshotBatchPrompt(),
+      multiScreenshotBatchSize: MULTI_SCREENSHOT_BATCH_SIZE,
       activeProjectAccount,
       activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
       activeProjectId,
@@ -8466,6 +8648,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   async function sendServerControlMenuCommand(buttonConfig, groupLabel, button) {
+    if (buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT) {
+      if (!isServerControlMultiScreenshotSessionActive()) {
+        setServerControlMenuStatus("No multi-screenshots captured yet.");
+        return;
+      }
+      serverControlMenuState.multiScreenshotSession.submitting = true;
+      syncServerControlActionControls();
+    } else if (buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_ADD) {
+      ensureServerControlMultiScreenshotSessionId();
+      syncServerControlActionControls();
+    }
+
     const isProcessingCommand = isServerControlProcessingCommand(buttonConfig.command);
     const controlRunId = isProcessingCommand ? createServerControlRunId() : "";
     const commandConfig = controlRunId ? { ...buttonConfig, controlRunId } : buttonConfig;
@@ -8493,6 +8687,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
 
     try {
+      if (buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT) {
+        payload.boilerplatePrompt = prepareServerControlBoilerplatePromptForSubmission();
+      }
       console.log("Local Query Bridge sending server control command", payload);
       if (controlRunId) {
         appendServerControlStatusLog({
@@ -8535,9 +8732,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           });
         }
       }
+      if (buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT) {
+        resetServerControlMultiScreenshotSession();
+      }
       window.setTimeout(updateServerControlMenuStatus, 1800);
     } catch (error) {
       const errorText = String(error);
+      if (
+        buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT
+        && !errorText.includes("AbortError")
+      ) {
+        serverControlMenuState.multiScreenshotSession.submitting = false;
+        syncServerControlActionControls();
+      }
       if (controlRunId && isProcessingCommand && errorText.includes("AbortError")) {
         console.warn("Local Query Bridge server control acknowledgement timed out", error);
         setServerControlMenuStatus(`Sent: ${buttonConfig.label}`);
@@ -9898,7 +10105,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
-        startAutoScrollWatch({ allowLatestPromptRecheck, controlRunId });
+        if (options.startResponseWatch !== false) {
+          startAutoScrollWatch({ allowLatestPromptRecheck, controlRunId });
+        }
         return;
       }
 
@@ -10026,6 +10235,183 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       message,
       details: { error: `${error}` },
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  function chunkMultiScreenshotImages(imageDataUrls, batchSize = MULTI_SCREENSHOT_BATCH_SIZE) {
+    const normalizedBatchSize = Math.min(10, Math.max(1, Number.parseInt(`${batchSize ?? 10}`, 10) || 10));
+    const chunks = [];
+    for (let index = 0; index < imageDataUrls.length; index += normalizedBatchSize) {
+      chunks.push(imageDataUrls.slice(index, index + normalizedBatchSize));
+    }
+    return chunks;
+  }
+
+  async function waitForMultiScreenshotBatchResponse(batchIndex, batchCount, baselineAssistantCount, controlRunId = "") {
+    const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
+    let sawGenerating = false;
+
+    while (Date.now() < deadline) {
+      throwIfServerControlRunCancelled(controlRunId);
+      const assistantAdvanced = getAssistantMessages().length > baselineAssistantCount;
+      if (isResponseGenerating()) {
+        sawGenerating = true;
+      } else if (isResponseIdle() && (sawGenerating || assistantAdvanced)) {
+        if (controlRunId) {
+          appendServerControlStatusLog({
+            runId: controlRunId,
+            type: "prompt",
+            message: `Batch ${batchIndex + 1} of ${batchCount} response finished.`,
+            details: { batch: batchIndex + 1, batchCount },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return true;
+      }
+
+      await delay(RESPONSE_STATE_POLL_MS);
+    }
+
+    throw new Error(`Timed out waiting for multi-screenshot batch ${batchIndex + 1} response`);
+  }
+
+  function buildMultiScreenshotBatchPrompt(prompt, batchIndex, batchCount, firstScreenshotNumber, lastScreenshotNumber) {
+    return [
+      `Multi-screenshot batch ${batchIndex + 1} of ${batchCount}.`,
+      `The attached images are overall screenshot ${firstScreenshotNumber}`
+        + `${lastScreenshotNumber === firstScreenshotNumber ? "" : `-${lastScreenshotNumber}`} in the capture sequence.`,
+      prompt,
+    ].join("\n\n").trim();
+  }
+
+  async function sendMultiScreenshotBatch(
+    batchImageDataUrls,
+    taskCount,
+    prompt,
+    controlRunId,
+    batchIndex,
+    batchCount,
+    firstScreenshotNumber,
+  ) {
+    const lastScreenshotNumber = firstScreenshotNumber + batchImageDataUrls.length - 1;
+    const batchPrompt = buildMultiScreenshotBatchPrompt(
+      prompt,
+      batchIndex,
+      batchCount,
+      firstScreenshotNumber,
+      lastScreenshotNumber,
+    );
+    const screenshotFiles = batchImageDataUrls.map((imageDataUrl, screenshotIndex) => (
+      dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
+    ));
+    const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
+    throwIfServerControlRunCancelled(controlRunId);
+    editor.focus();
+    const baselineAttachmentCount = countRenderedAttachmentElements(editor);
+    await attachScreenshotFiles(screenshotFiles, editor);
+    throwIfServerControlRunCancelled(controlRunId);
+    await waitForRenderedBridgeAttachments(editor, screenshotFiles, baselineAttachmentCount);
+    throwIfServerControlRunCancelled(controlRunId);
+    populatePromptEditor(editor, batchPrompt);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: `Batch ${batchIndex + 1} of ${batchCount} inserted.`,
+        details: {
+          batch: batchIndex + 1,
+          batchCount,
+          screenshotCount: batchImageDataUrls.length,
+          promptLength: batchPrompt.length,
+          firstScreenshotNumber,
+          lastScreenshotNumber,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    const baselineAssistantCount = getAssistantMessages().length;
+    await clickSendWhenReady(taskCount, {
+      allowLatestPromptRecheck: false,
+      controlRunId,
+      startResponseWatch: false,
+    });
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt-sent",
+        message: `Batch ${batchIndex + 1} of ${batchCount} sent.`,
+        details: { batch: batchIndex + 1, batchCount },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return baselineAssistantCount;
+  }
+
+  async function submitMultiScreenshotSequence(
+    imageDataUrls,
+    taskCount,
+    taskTypeKey,
+    controlRunId,
+    options,
+  ) {
+    const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
+    const batchPrompt = typeof options?.batchPrompt === "string" ? options.batchPrompt.trim() : "";
+    const finalPrompt = typeof options?.finalPrompt === "string" && options.finalPrompt.trim()
+      ? options.finalPrompt.trim()
+      : prepareServerControlBoilerplatePromptForSubmission();
+    const batchSize = Math.min(10, Math.max(1, Number.parseInt(`${options?.batchSize ?? 10}`, 10) || 10));
+    if (normalizedImageDataUrls.length === 0) {
+      throw new Error("No multi-screenshot images were provided");
+    }
+    if (!batchPrompt) {
+      throw new Error("Multi-screenshot batch prompt is empty");
+    }
+    if (!finalPrompt) {
+      throw new Error("Final boilerplate prompt is empty");
+    }
+
+    const batches = chunkMultiScreenshotImages(normalizedImageDataUrls, batchSize);
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: `Multi-screenshot sequence started with ${normalizedImageDataUrls.length} screenshot(s).`,
+        details: {
+          screenshotCount: normalizedImageDataUrls.length,
+          batchCount: batches.length,
+          batchSize,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    let firstScreenshotNumber = 1;
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+      const baselineAssistantCount = await sendMultiScreenshotBatch(
+        batches[batchIndex],
+        taskCount,
+        batchPrompt,
+        controlRunId,
+        batchIndex,
+        batches.length,
+        firstScreenshotNumber,
+      );
+      firstScreenshotNumber += batches[batchIndex].length;
+      await waitForMultiScreenshotBatchResponse(batchIndex, batches.length, baselineAssistantCount, controlRunId);
+    }
+
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "prompt",
+        message: "Sending final multi-screenshot boilerplate prompt.",
+        details: { promptLength: finalPrompt.length },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    await submitPromptOnly(taskCount, finalPrompt, taskTypeKey, {
+      allowLatestPromptRecheck: false,
+      controlRunId,
     });
   }
 
@@ -10274,10 +10660,25 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       taskCount: message.taskCount ?? 0,
       promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
       screenshotCount: imageDataUrls.length,
+      multiScreenshot: message?.multiScreenshot?.kind === "multi_screenshot",
     });
     sendResponse({ ok: true });
 
     const controlRunId = typeof message.controlRunId === "string" ? message.controlRunId : "";
+    if (message?.multiScreenshot?.kind === "multi_screenshot") {
+      void submitMultiScreenshotSequence(
+        imageDataUrls,
+        message.taskCount ?? 0,
+        typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
+        controlRunId,
+        message.multiScreenshot,
+      ).catch((error) => {
+        console.error("Local Query Bridge multi-screenshot submit failed", error);
+        appendServerControlProcessingError(controlRunId, "Multi-screenshot submission failed.", error);
+      });
+      return false;
+    }
+
     void submitScreenshot(
       imageDataUrls,
       message.taskCount ?? 0,

@@ -225,14 +225,27 @@ const CONTROL_PROCESSING_COMMANDS = new Set([
   "draft_comment_feedback",
   "process_chat",
   "add_rating_context",
+  "multi_screenshot_add",
+  "multi_screenshot_submit",
 ]);
 const BATCHABLE_CONTROL_COMMANDS = new Set([
   "set_task_type",
   "set_project_account",
   "sync_task_type",
 ]);
-const NON_COUNTING_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat", "add_rating_context"]);
-const CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS = new Set(["draft_comment_feedback", "process_chat", "add_rating_context"]);
+const NON_COUNTING_CONTROL_COMMANDS = new Set([
+  "draft_comment_feedback",
+  "process_chat",
+  "add_rating_context",
+  "multi_screenshot_add",
+  "multi_screenshot_submit",
+]);
+const CURRENT_CHAT_REQUIRED_CONTROL_COMMANDS = new Set([
+  "draft_comment_feedback",
+  "process_chat",
+  "add_rating_context",
+  "multi_screenshot_submit",
+]);
 
 const state = {
   isPolling: false,
@@ -802,6 +815,10 @@ function getBridgeTrafficActionLabel(action) {
       return "save for processing";
     case "control:add_rating_context":
       return "add context";
+    case "control:multi_screenshot_add":
+      return "multi-screenshot add";
+    case "control:multi_screenshot_submit":
+      return "multi-screenshot submit";
     case "control:cancel_control_processing":
       return "cancel processing";
     case BRIDGE_ACTION_CONTROL:
@@ -1496,6 +1513,31 @@ function normalizePromptTexts(rawValue) {
   return [];
 }
 
+function normalizeMultiScreenshotPayloadMetadata(metadata, promptTexts) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.kind !== "multi_screenshot") {
+    return null;
+  }
+
+  const batchPrompt = Array.isArray(promptTexts) && typeof promptTexts[0] === "string" ? promptTexts[0].trim() : "";
+  const finalPrompt = Array.isArray(promptTexts) && typeof promptTexts[1] === "string" ? promptTexts[1].trim() : "";
+  const batchSize = Math.min(
+    10,
+    Math.max(1, Number.parseInt(`${metadata.batchSize ?? 10}`, 10) || 10),
+  );
+  if (!batchPrompt || !finalPrompt) {
+    return null;
+  }
+
+  return {
+    kind: "multi_screenshot",
+    batchPrompt,
+    finalPrompt,
+    batchSize,
+    sessionId: typeof metadata.sessionId === "string" ? metadata.sessionId.trim() : "",
+    screenshotCount: Number.parseInt(`${metadata.screenshotCount ?? 0}`, 10) || 0,
+  };
+}
+
 function selectPromptForIndex(promptTexts, index) {
   if (!Array.isArray(promptTexts) || promptTexts.length === 0) {
     return "";
@@ -1809,7 +1851,7 @@ async function ensureContentScript(tabId) {
   });
 }
 
-async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskType, controlRunId = "") {
+async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskType, controlRunId = "", options = {}) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -1819,6 +1861,7 @@ async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskTy
     promptText,
     taskType,
     controlRunId,
+    multiScreenshot: options.multiScreenshot ?? null,
   });
 
   return response?.ok === true;
@@ -2351,7 +2394,15 @@ async function deliverPendingSubmissionAttempt() {
         ? showAlertInChatGpt(target.tabId, taskCount, target.promptText, controlRunId)
         : isTextSubmission
         ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText, target.taskType, controlRunId)
-        : sendToChatGpt(target.tabId, imageDataUrls, taskCount, target.promptText, target.taskType, controlRunId)
+        : sendToChatGpt(
+          target.tabId,
+          imageDataUrls,
+          taskCount,
+          target.promptText,
+          target.taskType,
+          controlRunId,
+          { multiScreenshot: pendingSubmission.multiScreenshot ?? null },
+        )
     )),
   );
 
@@ -3714,12 +3765,26 @@ async function pollLocalBridge() {
           promptTexts = normalizePromptTexts(promptPayload);
         }
       }
+      let eventMetadata = {};
+      const metadataPayload = xorDecryptBase64ToString(payload.g ?? "", XOR_KEY).trim();
+      if (metadataPayload) {
+        try {
+          const parsedMetadata = JSON.parse(metadataPayload);
+          eventMetadata = parsedMetadata && typeof parsedMetadata === "object" && !Array.isArray(parsedMetadata)
+            ? parsedMetadata
+            : {};
+        } catch (_error) {
+          eventMetadata = {};
+        }
+      }
+      const multiScreenshot = normalizeMultiScreenshotPayloadMetadata(eventMetadata, promptTexts);
 
       console.log("Local Query Bridge retrieved new task screenshot", {
         taskCount,
         screenshotCount: imageDataUrls.length,
         taskType: eventTaskType || "(active)",
         controlRunId: controlRunId || "",
+        multiScreenshot: Boolean(multiScreenshot),
       });
       await reportControlRunStatus(
         controlRunId,
@@ -3729,6 +3794,7 @@ async function pollLocalBridge() {
           taskCount,
           screenshotCount: imageDataUrls.length,
           promptCount: promptTexts.length,
+          multiScreenshot: Boolean(multiScreenshot),
         },
         eventTaskType,
       );
@@ -3743,6 +3809,7 @@ async function pollLocalBridge() {
         controlRunId,
         preferredTabId: getControlRunTabId(controlRunId),
         requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
+        multiScreenshot,
       };
 
       await deliverPendingSubmission();
