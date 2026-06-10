@@ -471,8 +471,6 @@
 
     .sync-settings-diff-list {
       width: min(360px, calc(100vw - 48px));
-      max-height: 260px;
-      overflow: auto;
       padding: 10px;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -484,17 +482,27 @@
       display: none;
     }
 
+    .sync-settings-diff-details {
+      display: grid;
+      gap: 8px;
+    }
+
     .sync-settings-diff-heading {
-      margin: 0 0 8px;
+      margin: 0;
       color: var(--ink);
+      cursor: pointer;
       font-size: 12px;
       font-weight: 850;
+      list-style-position: inside;
+      user-select: none;
     }
 
     .sync-settings-diff-items {
       display: grid;
       gap: 6px;
+      max-height: 220px;
       margin: 0;
+      overflow: auto;
       padding: 0;
       list-style: none;
     }

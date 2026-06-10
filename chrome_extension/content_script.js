@@ -7472,16 +7472,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
         actions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
       }
-      const addedMultiScreenshotAction = !actions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
-      if (!actions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT)) {
-        actions.push(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
-      }
       const visibleActions = normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions);
       if (addedAdditionalContextAction && !visibleActions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
         visibleActions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
-      }
-      if (addedMultiScreenshotAction && !visibleActions.includes(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT)) {
-        visibleActions.push(SERVER_CONTROL_ACTION_MULTI_SCREENSHOT);
       }
 
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({

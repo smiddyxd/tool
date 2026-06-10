@@ -1674,7 +1674,8 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
     frame_bgr, task_count = capture_control_frame()
     effective_task_count = task_count if task_count is not None else 0
     screenshot_png = build_screenshot_payload(frame_bgr)
-    prompts = () if str(payload.get("boilerplatePrompt") or "").strip() else settings.prompts
+    boilerplate_prompt = str(payload.get("boilerplatePrompt") or "").strip()
+    prompts = (boilerplate_prompt,) if boilerplate_prompt else settings.prompts
     STATE.remember_repeatable_task(
         effective_task_count,
         settings.task_type,
@@ -1687,7 +1688,12 @@ def queue_control_screenshot(payload: dict[str, Any]) -> bool:
         run_id,
         "queued",
         "Screenshot event queued for ChatGPT.",
-        details={"taskCount": effective_task_count, "promptCount": len(prompts), "screenshotCount": 1},
+        details={
+            "command": "start_task_screenshot",
+            "taskCount": effective_task_count,
+            "promptCount": len(prompts),
+            "screenshotCount": 1,
+        },
         tab_id=get_control_payload_tab_id(payload),
         status_task_type=settings.task_type,
         task_count=effective_task_count,

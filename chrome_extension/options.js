@@ -613,6 +613,7 @@ const trafficHistoryState = {
 
 let settingsSyncDiffRefreshTimerId = null;
 let settingsSyncDiffRefreshToken = 0;
+let settingsSyncDiffListExpanded = true;
 
 const ANALYSIS_HEADING_ENTRIES = ANALYSIS_SECTION_HEADINGS.map((entry, index) => ({
   key: entry.key ?? normalizeAnalysisHeadingText(entry.heading),
@@ -962,16 +963,9 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
     if (key === "video-games" && !actions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
       actions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
     }
-    const addedMultiScreenshotAction = !actions.includes(TASK_ACTION_MULTI_SCREENSHOT);
-    if (!actions.includes(TASK_ACTION_MULTI_SCREENSHOT)) {
-      actions.push(TASK_ACTION_MULTI_SCREENSHOT);
-    }
     const visibleActions = normalizeVisibleTaskActionKeys(rawDefinition.visibleActions, actions);
     if (addedAdditionalContextAction && !visibleActions.includes(TASK_ACTION_ADDITIONAL_CONTEXT)) {
       visibleActions.push(TASK_ACTION_ADDITIONAL_CONTEXT);
-    }
-    if (addedMultiScreenshotAction && !visibleActions.includes(TASK_ACTION_MULTI_SCREENSHOT)) {
-      visibleActions.push(TASK_ACTION_MULTI_SCREENSHOT);
     }
 
     const taskDefinition = ensureTaskDefinitionFeatures({
@@ -5220,7 +5214,14 @@ function renderSettingsSyncDiffList(diffs) {
     return;
   }
 
-  const heading = document.createElement("p");
+  const details = document.createElement("details");
+  details.className = "sync-settings-diff-details";
+  details.open = settingsSyncDiffListExpanded;
+  details.addEventListener("toggle", () => {
+    settingsSyncDiffListExpanded = details.open;
+  });
+
+  const heading = document.createElement("summary");
   heading.className = "sync-settings-diff-heading";
   heading.textContent = `Changed settings (${normalizedDiffs.length})`;
 
@@ -5242,7 +5243,8 @@ function renderSettingsSyncDiffList(diffs) {
     list.append(item);
   }
 
-  container.append(heading, list);
+  details.append(heading, list);
+  container.append(details);
 }
 
 function renderSettingsSyncDiffState(diffs, { invalidatePending = true } = {}) {

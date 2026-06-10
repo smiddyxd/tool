@@ -316,10 +316,19 @@ function delay(milliseconds) {
 
 function pruneExpiredControlProcessingWatches() {
   const now = Date.now();
+  const expiredWatches = [];
   for (const [runId, watch] of state.controlProcessingWatchRuns.entries()) {
     if (!watch?.deadlineMs || watch.deadlineMs <= now) {
       state.controlProcessingWatchRuns.delete(runId);
+      expiredWatches.push([runId, watch ?? {}]);
     }
+  }
+  if (state.controlProcessingWatchRuns.size === 0 && state.controlProcessingWatchTimerId !== null) {
+    clearTimeout(state.controlProcessingWatchTimerId);
+    state.controlProcessingWatchTimerId = null;
+  }
+  for (const [runId, watch] of expiredWatches) {
+    void reportExpiredControlProcessingWatch(runId, watch);
   }
 }
 
@@ -368,9 +377,37 @@ function watchControlProcessingRun(runId, commandName = "") {
 
   state.controlProcessingWatchRuns.set(normalizedRunId, {
     command: typeof commandName === "string" ? commandName.trim() : "",
+    tabId: getControlRunTabId(normalizedRunId) ?? "",
+    startedAtMs: Date.now(),
     deadlineMs: Date.now() + CONTROL_PROCESSING_WATCH_TIMEOUT_MS,
   });
   scheduleControlProcessingWatchPoll(0);
+}
+
+async function reportExpiredControlProcessingWatch(runId, watch = {}) {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (!normalizedRunId) {
+    return;
+  }
+
+  try {
+    await sendControlStatusToChatGpt({
+      runId: normalizedRunId,
+      tabId: watch.tabId ?? getControlRunTabId(normalizedRunId) ?? "",
+      type: "error",
+      message: "Bridge processing status timed out after the request was accepted.",
+      details: {
+        command: typeof watch.command === "string" ? watch.command : "",
+        timeoutMs: CONTROL_PROCESSING_WATCH_TIMEOUT_MS,
+        ageMs: Date.now() - (Number.isFinite(watch.startedAtMs) ? watch.startedAtMs : Date.now()),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.warn("Local Query Bridge failed to report expired processing watch", error);
+  } finally {
+    forgetControlRunTab(normalizedRunId);
+  }
 }
 
 function normalizeTabId(value) {
@@ -3920,7 +3957,7 @@ async function pollLocalBridge() {
     }
   } finally {
     state.isPolling = false;
-    if (hasActiveControlProcessingWatch() && !state.pendingSubmission) {
+    if (hasActiveControlProcessingWatch()) {
       scheduleControlProcessingWatchPoll(CONTROL_PROCESSING_WATCH_POLL_DELAY_MS);
     }
     if (sawScrollEvent && !state.pendingSubmission) {
