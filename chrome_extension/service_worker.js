@@ -72,6 +72,7 @@ const STORAGE_KEY_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS = "taskTypeActiveProjectAcco
 const STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = "serverControlTaskTypeDefinitions";
 const STORAGE_KEY_RESET_LIMIT = "resetLimit";
 const STORAGE_KEY_MULTI_SCREENSHOT_BATCH_SIZE = "multiScreenshotBatchSize";
+const STORAGE_KEY_BRIDGE_CLIENT_ID = "bridgeClientId";
 const STORAGE_KEY_TAB_COUNTS = "tabSubmissionCounts";
 const STORAGE_KEY_TAB_PROMPT_SLOTS = "tabPromptSlots";
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
@@ -151,6 +152,11 @@ const SETTINGS_SYNC_SYNC_KEYS = [
   STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_WIDTH,
   STORAGE_KEY_SERVER_CONTROL_STATUS_LOG_LEFT,
 ];
+const BRIDGE_CLIENT_ID_ACTIONS = new Set([
+  BRIDGE_ACTION_POLL,
+  BRIDGE_ACTION_CONTROL,
+  BRIDGE_ACTION_REPEAT,
+]);
 
 const BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS = "search-experience-to-product-usefulness";
 const PROJECT_ACCOUNT_DEFAULT_KEY = "ascasdqwe";
@@ -312,6 +318,45 @@ function delay(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
+}
+
+let bridgeClientIdPromise = null;
+
+function createBridgeClientId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const randomBytes = new Uint32Array(3);
+  crypto.getRandomValues(randomBytes);
+  return `bridge-client-${Date.now().toString(36)}-${Array.from(randomBytes)
+    .map((value) => value.toString(36))
+    .join("-")}`;
+}
+
+async function getBridgeClientId() {
+  if (bridgeClientIdPromise) {
+    return bridgeClientIdPromise;
+  }
+
+  bridgeClientIdPromise = (async () => {
+    const stored = await chrome.storage.local.get({ [STORAGE_KEY_BRIDGE_CLIENT_ID]: "" });
+    const existingClientId = typeof stored[STORAGE_KEY_BRIDGE_CLIENT_ID] === "string"
+      ? stored[STORAGE_KEY_BRIDGE_CLIENT_ID].trim()
+      : "";
+    if (existingClientId) {
+      return existingClientId;
+    }
+
+    const nextClientId = createBridgeClientId();
+    await chrome.storage.local.set({ [STORAGE_KEY_BRIDGE_CLIENT_ID]: nextClientId });
+    return nextClientId;
+  })().catch((error) => {
+    bridgeClientIdPromise = null;
+    throw error;
+  });
+
+  return bridgeClientIdPromise;
 }
 
 function pruneExpiredControlProcessingWatches() {
@@ -1178,10 +1223,13 @@ async function broadcastBridgeTrafficSample(sample) {
 
 async function fetchBridgeOperation(action, params = {}, signal = undefined, options = {}) {
   const endpoint = getRandomBridgeOperationEndpoint();
-  const paddingTargets = chooseLargeBridgePaddingTargets(action, params, options);
   const requestParams = params && typeof params === "object" && !Array.isArray(params)
     ? { ...params }
     : {};
+  if (BRIDGE_CLIENT_ID_ACTIONS.has(action)) {
+    requestParams.bridgeClientId = await getBridgeClientId();
+  }
+  const paddingTargets = chooseLargeBridgePaddingTargets(action, requestParams, options);
   if (paddingTargets.responseTargetBytes !== null) {
     if (action === BRIDGE_ACTION_COVER) {
       requestParams.responseTargetBytes = paddingTargets.responseTargetBytes;
@@ -3582,7 +3630,7 @@ async function pollLocalBridge() {
   try {
     if (state.pendingSubmission) {
       await deliverPendingSubmission();
-      if (state.pendingSubmission) {
+      if (state.pendingSubmission && !hasActiveControlProcessingWatch()) {
         return;
       }
     }

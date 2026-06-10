@@ -433,6 +433,7 @@ class SharedState:
     last_seen_task_count: int | None = None
     pending_events: deque[dict[str, Any]] = field(default_factory=deque)
     cancelled_control_run_ids: set[str] = field(default_factory=set)
+    control_run_client_ids: dict[str, str] = field(default_factory=dict)
     armed_task: ArmedTask | None = None
     repeatable_task: RepeatableTask | None = None
     multi_screenshot_sessions: dict[str, MultiScreenshotSession] = field(default_factory=dict)
@@ -606,6 +607,28 @@ class SharedState:
         with self.lock:
             return normalized_run_id in self.cancelled_control_run_ids
 
+    def remember_control_run_client(self, run_id: str, client_id: str) -> None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        normalized_client_id = sanitize_control_command_field(client_id, 120)
+        if not normalized_run_id or not normalized_client_id:
+            return
+        with self.lock:
+            self.control_run_client_ids[normalized_run_id] = normalized_client_id
+
+    def get_control_run_client(self, run_id: str) -> str:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return ""
+        with self.lock:
+            return self.control_run_client_ids.get(normalized_run_id, "")
+
+    def forget_control_run_client(self, run_id: str) -> None:
+        normalized_run_id = sanitize_control_command_field(run_id, 120)
+        if not normalized_run_id:
+            return
+        with self.lock:
+            self.control_run_client_ids.pop(normalized_run_id, None)
+
     def publish_control_status(
         self,
         run_id: str,
@@ -615,6 +638,7 @@ class SharedState:
         details: dict[str, Any] | None = None,
         tab_id: str = "",
         task_type: str = "",
+        client_id: str = "",
     ) -> None:
         event = self.build_control_status_event(
             run_id,
@@ -623,6 +647,7 @@ class SharedState:
             details=details,
             tab_id=tab_id,
             task_type=task_type,
+            client_id=client_id,
         )
         if event is None:
             return
@@ -660,10 +685,14 @@ class SharedState:
         details: dict[str, Any] | None = None,
         tab_id: str = "",
         task_type: str = "",
+        client_id: str = "",
     ) -> dict[str, Any] | None:
         normalized_run_id = sanitize_control_command_field(run_id, 120)
         if not normalized_run_id:
             return None
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(
+            normalized_run_id
+        )
 
         return {
             "type": CONTROL_STATUS_EVENT_TYPE,
@@ -674,6 +703,7 @@ class SharedState:
             "tab_id": sanitize_control_command_field(tab_id, 40),
             "task_type": str(task_type or ""),
             "timestamp": timestamp_now(),
+            "client_id": normalized_client_id,
         }
 
     def publish_payload(
@@ -684,14 +714,20 @@ class SharedState:
         task_type: str = "",
         control_run_id: str = "",
         metadata: dict[str, Any] | None = None,
+        client_id: str = "",
     ) -> None:
+        normalized_control_run_id = sanitize_control_command_field(control_run_id, 120)
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(
+            normalized_control_run_id
+        )
         event = {
             "type": "task",
             "task_count": task_count,
             "screenshots_png": [bytes(screenshot_png) for screenshot_png in screenshots_png],
             "prompts": list(prompts),
             "task_type": str(task_type or ""),
-            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+            "control_run_id": normalized_control_run_id,
+            "client_id": normalized_client_id,
         }
         if isinstance(metadata, dict) and metadata:
             event["metadata"] = metadata
@@ -713,7 +749,9 @@ class SharedState:
         payload_task_type: str = "",
         control_run_id: str = "",
         metadata: dict[str, Any] | None = None,
+        client_id: str = "",
     ) -> None:
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(run_id)
         status_event = self.build_control_status_event(
             run_id,
             status_type,
@@ -721,6 +759,7 @@ class SharedState:
             details=details,
             tab_id=tab_id,
             task_type=status_task_type,
+            client_id=normalized_client_id,
         )
         payload_event = {
             "type": "task",
@@ -729,6 +768,7 @@ class SharedState:
             "prompts": list(prompts),
             "task_type": str(payload_task_type or ""),
             "control_run_id": sanitize_control_command_field(control_run_id, 120),
+            "client_id": normalized_client_id,
         }
         if isinstance(metadata, dict) and metadata:
             payload_event["metadata"] = metadata
@@ -744,13 +784,19 @@ class SharedState:
         task_type: str = "",
         control_run_id: str = "",
         task_text_record: dict[str, Any] | None = None,
+        client_id: str = "",
     ) -> None:
+        normalized_control_run_id = sanitize_control_command_field(control_run_id, 120)
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(
+            normalized_control_run_id
+        )
         event = {
             "type": TEXT_TASK_EVENT_TYPE,
             "task_count": task_count,
             "prompts": list(prompts),
             "task_type": str(task_type or ""),
-            "control_run_id": sanitize_control_command_field(control_run_id, 120),
+            "control_run_id": normalized_control_run_id,
+            "client_id": normalized_client_id,
         }
         if task_text_record is not None:
             event["task_text_record"] = task_text_record
@@ -773,7 +819,9 @@ class SharedState:
         control_run_id: str = "",
         task_text_record: dict[str, Any] | None = None,
         comment_draft_record: dict[str, Any] | None = None,
+        client_id: str = "",
     ) -> None:
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(run_id)
         status_event = self.build_control_status_event(
             run_id,
             status_type,
@@ -781,6 +829,7 @@ class SharedState:
             details=details,
             tab_id=tab_id,
             task_type=status_task_type,
+            client_id=normalized_client_id,
         )
         payload_event = {
             "type": TEXT_TASK_EVENT_TYPE,
@@ -788,6 +837,7 @@ class SharedState:
             "prompts": list(prompts),
             "task_type": str(payload_task_type or ""),
             "control_run_id": sanitize_control_command_field(control_run_id, 120),
+            "client_id": normalized_client_id,
         }
         if task_text_record is not None:
             payload_event["task_text_record"] = task_text_record
@@ -805,7 +855,12 @@ class SharedState:
         alerts: list[str] | tuple[str, ...],
         task_type: str = "",
         control_run_id: str = "",
+        client_id: str = "",
     ) -> None:
+        normalized_control_run_id = sanitize_control_command_field(control_run_id, 120)
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(
+            normalized_control_run_id
+        )
         with self.lock:
             self.pending_events.append(
                 {
@@ -813,7 +868,8 @@ class SharedState:
                     "task_count": task_count,
                     "alerts": list(alerts),
                     "task_type": str(task_type or ""),
-                    "control_run_id": sanitize_control_command_field(control_run_id, 120),
+                    "control_run_id": normalized_control_run_id,
+                    "client_id": normalized_client_id,
                 }
             )
 
@@ -830,7 +886,9 @@ class SharedState:
         alerts: list[str] | tuple[str, ...],
         payload_task_type: str = "",
         control_run_id: str = "",
+        client_id: str = "",
     ) -> None:
+        normalized_client_id = sanitize_control_command_field(client_id, 120) or self.get_control_run_client(run_id)
         status_event = self.build_control_status_event(
             run_id,
             status_type,
@@ -838,6 +896,7 @@ class SharedState:
             details=details,
             tab_id=tab_id,
             task_type=status_task_type,
+            client_id=normalized_client_id,
         )
         payload_event = {
             "type": ALERT_TASK_EVENT_TYPE,
@@ -845,6 +904,7 @@ class SharedState:
             "alerts": list(alerts),
             "task_type": str(payload_task_type or ""),
             "control_run_id": sanitize_control_command_field(control_run_id, 120),
+            "client_id": normalized_client_id,
         }
         with self.lock:
             if status_event is not None:
@@ -861,12 +921,25 @@ class SharedState:
                 }
             )
 
-    def consume_event(self) -> dict[str, str]:
+    def consume_event(self, client_id: str = "") -> dict[str, str]:
+        normalized_client_id = sanitize_control_command_field(client_id, 120)
         with self.lock:
             if not self.pending_events:
                 return {"a": "", "b": "", "c": "", "d": ""}
 
+            matching_event_index = None
+            for index, candidate_event in enumerate(self.pending_events):
+                target_client_id = sanitize_control_command_field(candidate_event.get("client_id"), 120)
+                if not target_client_id or (normalized_client_id and target_client_id == normalized_client_id):
+                    matching_event_index = index
+                    break
+
+            if matching_event_index is None:
+                return {"a": "", "b": "", "c": "", "d": ""}
+
+            self.pending_events.rotate(-matching_event_index)
             event = self.pending_events.popleft()
+            self.pending_events.rotate(matching_event_index)
 
         event_type = str(event.get("type", ""))
         if event_type == "task":
@@ -898,6 +971,7 @@ class SharedState:
                 f"[bridge {timestamp_now()}] served counter={task_count} screenshots={len(screenshot_pngs)} bytes={total_bytes} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
+            self.forget_control_run_client(control_run_id)
             return {
                 "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
                 "b": xor_encrypt_string_to_base64(json.dumps(encoded_screenshots, ensure_ascii=False), XOR_KEY),
@@ -940,6 +1014,7 @@ class SharedState:
                 f"[bridge {timestamp_now()}] served counter={task_count} text-prompts={len(prompts)} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
+            self.forget_control_run_client(control_run_id)
             return {
                 "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
                 "b": "",
@@ -958,6 +1033,7 @@ class SharedState:
                 f"[bridge {timestamp_now()}] served counter={task_count} alerts={len(alerts)} type={task_type or '-'} run={control_run_id or '-'}",
                 flush=True,
             )
+            self.forget_control_run_client(control_run_id)
             return {
                 "a": xor_encrypt_to_hex(str(task_count), XOR_KEY),
                 "b": "",
@@ -984,6 +1060,8 @@ class SharedState:
                 f"[bridge {timestamp_now()}] served control-status run={run_id or '-'} type={status_type or '-'} task={task_type or '-'}",
                 flush=True,
             )
+            if status_type in {"response-complete", "cancel", "error"}:
+                self.forget_control_run_client(run_id)
             return {
                 "a": xor_encrypt_to_hex(run_id, XOR_KEY),
                 "b": xor_encrypt_to_hex(status_type, XOR_KEY),
@@ -1259,6 +1337,9 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
     )
     tab_id = sanitize_control_command_field(payload.get("tabId"), 40)
     control_run_id = get_control_run_id(payload)
+    bridge_client_id = get_bridge_client_id(payload)
+    if control_run_id and bridge_client_id:
+        STATE.remember_control_run_client(control_run_id, bridge_client_id)
 
     print(
         "[control "
@@ -1270,7 +1351,8 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
         f"bounds={selected_region_bounds or '-'} regions={regions or '-'} review_chars={ocr_review_text_length} "
         f"project={active_project_id or '-'} project_url={project_url or '-'} prompt_chars={boilerplate_prompt_length} "
         f"context_prompt_chars={additional_context_prompt_length} "
-        f"tab={tab_id or '-'} run={control_run_id or '-'} source={source or '-'} page={page_url or '-'}",
+        f"tab={tab_id or '-'} run={control_run_id or '-'} client={bridge_client_id or '-'} "
+        f"source={source or '-'} page={page_url or '-'}",
         flush=True,
     )
 
@@ -1346,7 +1428,7 @@ def receive_obfuscated_bridge_request() -> Any:
 
     if action == BRIDGE_ACTION_POLL:
         maybe_log_handshake()
-        event_payload = STATE.consume_event()
+        event_payload = STATE.consume_event(params.get("bridgeClientId"))
         if response_target_size is None and not is_empty_bridge_event_payload(event_payload):
             response_target_size = choose_real_bridge_response_target_size(request.content_length)
         return jsonify(encode_bridge_operation_response(event_payload, target_size=response_target_size))
@@ -1425,6 +1507,10 @@ def get_control_run_id(payload: dict[str, Any]) -> str:
     return sanitize_control_command_field(payload.get("controlRunId") or payload.get("runId"), 120)
 
 
+def get_bridge_client_id(payload: dict[str, Any]) -> str:
+    return sanitize_control_command_field(payload.get("bridgeClientId") or payload.get("clientId"), 120)
+
+
 def get_control_payload_tab_id(payload: dict[str, Any]) -> str:
     return sanitize_control_command_field(payload.get("tabId"), 40)
 
@@ -1448,6 +1534,7 @@ def publish_control_status(
         details=details,
         tab_id=get_control_payload_tab_id(payload),
         task_type=task_type or get_control_payload_task_type_key(payload),
+        client_id=get_bridge_client_id(payload),
     )
 
 
