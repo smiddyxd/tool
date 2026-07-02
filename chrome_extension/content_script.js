@@ -9,8 +9,13 @@
   const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea";
   const SEND_BUTTON_SELECTOR = '[data-testid="send-button"]';
   const ATTACHMENT_INPUT_SELECTOR = 'input[type="file"]';
-  const STOP_STREAMING_BUTTON_SELECTOR = '#composer-submit-button[aria-label="Stop streaming"]';
-  const START_VOICE_BUTTON_SELECTOR = '[aria-label="Start Voice"]';
+  const COMPOSER_SUBMIT_BUTTON_SELECTOR = "#composer-submit-button";
+  const STOP_STREAMING_BUTTON_SELECTOR = [
+    '[data-testid="stop-button"]',
+    '[data-testid*="stop" i]',
+    COMPOSER_SUBMIT_BUTTON_SELECTOR,
+  ].join(",");
+  const STOP_STREAMING_LABEL_PARTS = ["stop", "beenden", "anhalten", "abbrechen"];
   const WEB_SEARCH_CHIP_SELECTOR = [
     "button.__composer-pill",
     '[data-inline-selection-pill][data-system-hint-type="search"]',
@@ -63,6 +68,7 @@ Base everything strictly on the screenshot attachment.`;
   const PROMPT_SETTLE_MS = 2000;
   const RESPONSE_STATE_POLL_MS = 250;
   const RESPONSE_COMPLETE_TIMEOUT_MS = 300000;
+  const RESPONSE_IDLE_CONFIRM_POLLS = 8;
   const SCROLL_STEP_VIEWPORT_RATIO = 0.18;
   const SCROLL_EXECUTION_INTERVAL_MS = 180;
   const SEND_BUTTON_RETRY_COUNT = 20;
@@ -3403,6 +3409,35 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     )) ?? null;
   }
 
+  function elementIdentifiesStopStreaming(element) {
+    if (!(element instanceof HTMLButtonElement) || !isElementVisible(element)) {
+      return false;
+    }
+
+    const testId = (element.getAttribute("data-testid") ?? "").trim().toLocaleLowerCase();
+    if (testId === "send-button") {
+      return false;
+    }
+    if (testId.includes("stop")) {
+      return true;
+    }
+
+    // ChatGPT reuses the composer submit slot for the stop control. Treat a
+    // visible non-send button in that slot as generating even if its localized
+    // label or test id changes again.
+    if (element.matches(COMPOSER_SUBMIT_BUTTON_SELECTOR)) {
+      return true;
+    }
+
+    const ariaLabel = (element.getAttribute("aria-label") ?? "").trim().toLocaleLowerCase();
+    return STOP_STREAMING_LABEL_PARTS.some((labelPart) => ariaLabel.includes(labelPart));
+  }
+
+  function findVisibleStopStreamingButton() {
+    return Array.from(document.querySelectorAll(STOP_STREAMING_BUTTON_SELECTOR))
+      .find(elementIdentifiesStopStreaming) ?? null;
+  }
+
   function normalizeWebSearchLabel(value) {
     return (typeof value === "string" ? value : "")
       .trim()
@@ -3446,11 +3481,17 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function isResponseGenerating() {
-    return document.querySelector(STOP_STREAMING_BUTTON_SELECTOR) instanceof HTMLElement;
+    return findVisibleStopStreamingButton() instanceof HTMLButtonElement;
   }
 
   function isResponseIdle() {
-    return document.querySelector(START_VOICE_BUTTON_SELECTOR) instanceof HTMLElement;
+    if (isResponseGenerating()) {
+      return false;
+    }
+
+    const editor = document.querySelector(PROMPT_TEXTAREA_SELECTOR);
+    return findVisibleEnabledSendButton() instanceof HTMLButtonElement
+      || (editor instanceof HTMLElement && isElementVisible(editor));
   }
 
   function noteManualScroll(source) {
@@ -3998,10 +4039,51 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return messages[messages.length - 1] ?? null;
   }
 
+  function createResponseStateProbe() {
+    return {
+      idleConfirmationPolls: 0,
+      lastAssistantSignature: "",
+    };
+  }
+
+  function sampleResponseState(probe, baselineAssistantCount) {
+    const messages = getAssistantMessages();
+    const assistantAdvanced = messages.length > baselineAssistantCount;
+    const currentAssistantElement = assistantAdvanced ? (messages[messages.length - 1] ?? null) : null;
+    const assistantText = currentAssistantElement instanceof HTMLElement
+      ? compactEditorText(currentAssistantElement.textContent ?? "")
+      : "";
+    const assistantSignature = assistantAdvanced
+      ? `${messages.length}:${assistantText.length}:${assistantText.slice(-256)}`
+      : "";
+    const generating = isResponseGenerating();
+
+    if (generating) {
+      probe.idleConfirmationPolls = 0;
+    } else if (
+      assistantAdvanced
+      && assistantText
+      && isResponseIdle()
+      && assistantSignature === probe.lastAssistantSignature
+    ) {
+      probe.idleConfirmationPolls += 1;
+    } else {
+      probe.idleConfirmationPolls = 0;
+    }
+    probe.lastAssistantSignature = assistantSignature;
+
+    return {
+      assistantAdvanced,
+      complete: probe.idleConfirmationPolls >= RESPONSE_IDLE_CONFIRM_POLLS,
+      currentAssistantElement,
+      generating,
+    };
+  }
+
   function getCurrentAssistantMessageForRun(baselineAssistantCount) {
     const messages = getAssistantMessages();
     if (messages.length <= baselineAssistantCount) {
-      return isResponseGenerating() ? (messages[messages.length - 1] ?? null) : null;
+      return null;
     }
 
     return messages[messages.length - 1] ?? null;
@@ -9306,6 +9388,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function scheduleCompletedResponseHighlightRefresh(source) {
+    const runId = analysisTocState.currentRunId;
+    if (runId !== 0 && !isAnalysisResponseCompletedForCurrentRun()) {
+      return false;
+    }
+
     if (isResponseGenerating()) {
       return false;
     }
@@ -9316,11 +9403,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       syncAnalysisTocButtonsForAssistantElement(assistantElement);
     }
 
-    const runId = analysisTocState.currentRunId;
     if (runId !== 0) {
-      if (!isAnalysisResponseCompletedForCurrentRun()) {
-        analysisTocState.responseCompletedRunId = runId;
-      }
       analysisTocState.highlightRefreshAllowed = false;
       syncAnalysisHeadingCountsForRun(runId);
     }
@@ -9982,7 +10065,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
     const allowLatestPromptRecheck = options.allowLatestPromptRecheck === true;
     const controlRunId = typeof options.controlRunId === "string" ? options.controlRunId : "";
-    let sawGenerating = false;
+    const responseProbe = createResponseStateProbe();
     let scrolledToLatestPrompt = false;
     let latestPromptScrollHoldUntil = 0;
     let nextLatestPromptScrollCheckAt = 0;
@@ -9994,16 +10077,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       allowLatestPromptRecheck,
     });
     while (Date.now() < deadline && autoScrollState.runId === runId) {
-      const currentAssistantElement = getCurrentAssistantMessageForRun(baselineAssistantCount);
+      const responseState = sampleResponseState(responseProbe, baselineAssistantCount);
+      const currentAssistantElement = responseState.currentAssistantElement;
       if (currentAssistantElement instanceof HTMLElement) {
         analysisTocState.currentAssistantElement = currentAssistantElement;
       }
 
       syncAnalysisHeadingCountsForRun(runId);
 
-      if (isResponseGenerating()) {
+      if (responseState.generating || responseState.assistantAdvanced) {
         const now = Date.now();
-        sawGenerating = true;
         if (!scrolledToLatestPrompt) {
           scrolledToLatestPrompt = true;
           const didScroll = scrollToAnalysisTocTarget(LATEST_USER_PROMPT_TOC_KEY);
@@ -10030,7 +10113,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           restoreLatestPromptJumpPositionIfNeeded(runId);
           nextLatestPromptScrollCheckAt += LATEST_PROMPT_SCROLL_CHECK_INTERVAL_MS;
         }
-      } else if ((sawGenerating || currentAssistantElement instanceof HTMLElement) && isResponseIdle()) {
+      }
+
+      if (responseState.complete) {
         responseCompleted = true;
         break;
       }
@@ -10413,14 +10498,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   async function waitForMultiScreenshotBatchResponse(batchIndex, batchCount, baselineAssistantCount, controlRunId = "") {
     const deadline = Date.now() + RESPONSE_COMPLETE_TIMEOUT_MS;
-    let sawGenerating = false;
+    const responseProbe = createResponseStateProbe();
 
     while (Date.now() < deadline) {
       throwIfServerControlRunCancelled(controlRunId);
-      const assistantAdvanced = getAssistantMessages().length > baselineAssistantCount;
-      if (isResponseGenerating()) {
-        sawGenerating = true;
-      } else if (isResponseIdle() && (sawGenerating || assistantAdvanced)) {
+      const responseState = sampleResponseState(responseProbe, baselineAssistantCount);
+      if (responseState.complete) {
         if (controlRunId) {
           appendServerControlStatusLog({
             runId: controlRunId,
