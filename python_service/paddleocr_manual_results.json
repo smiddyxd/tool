@@ -372057,6 +372057,649 @@
           ]
         }
       ]
+    },
+    "2026-07-02": {
+      "13": [
+        {
+          "timestamp": "2026-07-02T13:27:56",
+          "source_image": "F:\\Main\\code\\apps\\tool\\python_service\\manual_screenshots\\control_ocr_20260702_132747_061795.png",
+          "image_size": {
+            "width": 980,
+            "height": 800
+          },
+          "focus_region": {
+            "left": 0,
+            "top": 0,
+            "width": 980,
+            "height": 800,
+            "right": 980,
+            "bottom": 800,
+            "source_screen_region": {
+              "left": 330,
+              "top": 170,
+              "width": 980,
+              "height": 800,
+              "right": 1310,
+              "bottom": 970
+            }
+          },
+          "ocr_variant": "gray_native",
+          "ocr_debug_path": "F:\\Main\\code\\apps\\tool\\python_service\\paddleocr_debug\\control_ocr_20260702_132747_061795.json",
+          "ocr_variants_tried": [
+            {
+              "label": "original",
+              "raw_line_count": 4,
+              "total_text_length": 92,
+              "average_confidence": 0.9936,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "red_cleaned",
+              "raw_line_count": 4,
+              "total_text_length": 92,
+              "average_confidence": 0.9936,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "gray_native",
+              "raw_line_count": 4,
+              "total_text_length": 95,
+              "average_confidence": 0.9978,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            },
+            {
+              "label": "threshold_native",
+              "raw_line_count": 4,
+              "total_text_length": 95,
+              "average_confidence": 0.9591,
+              "image_size": {
+                "width": 980,
+                "height": 800
+              },
+              "det_side_len": 960,
+              "det_limit_type": "max"
+            }
+          ],
+          "raw_line_count": 4,
+          "selected_transcript": {
+            "strategy": "bottom_block_plus_query",
+            "gap_threshold_px": 10,
+            "query_prefix": "query:",
+            "text": "Query: stand-up wireless government phone\nPixel 8a Phone Bay 128GB (Unlocked)\n$499.00\nGoogle Store",
+            "query_line": {
+              "text": "Query: stand-up wireless government phone",
+              "confidence": 0.9937,
+              "bbox": [
+                [
+                  348.0,
+                  140.0
+                ],
+                [
+                  937.0,
+                  140.0
+                ],
+                [
+                  937.0,
+                  179.0
+                ],
+                [
+                  348.0,
+                  179.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 642.5,
+                  "y": 159.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            "bottom_block_text": "Pixel 8a Phone Bay 128GB (Unlocked)\n$499.00\nGoogle Store",
+            "selected_lines": [
+              {
+                "text": "Query: stand-up wireless government phone",
+                "confidence": 0.9937,
+                "bbox": [
+                  [
+                    348.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    179.0
+                  ],
+                  [
+                    348.0,
+                    179.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 642.5,
+                    "y": 159.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Pixel 8a Phone Bay 128GB (Unlocked)",
+                "confidence": 0.9975,
+                "bbox": [
+                  [
+                    456.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    652.0
+                  ],
+                  [
+                    456.0,
+                    652.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 605.5,
+                    "y": 640.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$499.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    459.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    671.0
+                  ],
+                  [
+                    459.0,
+                    671.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 660.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Google Store",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    456.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    696.0
+                  ],
+                  [
+                    456.0,
+                    696.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 510.5,
+                    "y": 683.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "bottom_block_lines": [
+              {
+                "text": "Pixel 8a Phone Bay 128GB (Unlocked)",
+                "confidence": 0.9975,
+                "bbox": [
+                  [
+                    456.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    652.0
+                  ],
+                  [
+                    456.0,
+                    652.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 605.5,
+                    "y": 640.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$499.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    459.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    671.0
+                  ],
+                  [
+                    459.0,
+                    671.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 660.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Google Store",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    456.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    696.0
+                  ],
+                  [
+                    456.0,
+                    696.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 510.5,
+                    "y": 683.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "product_signature": {
+              "is_complete_like": true,
+              "line_count": 3,
+              "price_line_indexes": [
+                1
+              ],
+              "dark_price_line_indexes": [
+                1
+              ],
+              "price_anchor_index": 1,
+              "blue_title_line_indexes": [
+                0
+              ],
+              "has_title_like_first_line": true,
+              "has_price_like_line_above_retailer": true,
+              "has_retailer_like_bottom_line": true,
+              "has_blue_like_title_line": true,
+              "has_lettered_blue_title_line": true,
+              "has_dark_like_price_line": true,
+              "has_green_like_retailer_line": true,
+              "line_color_hints": [
+                {
+                  "dominant": "blue",
+                  "dominant_ratio": 0.633,
+                  "ratios": {
+                    "blue": 0.633,
+                    "green": 0.016,
+                    "dark": 0.001
+                  },
+                  "ink_pixel_count": 2965
+                },
+                {
+                  "dominant": "dark",
+                  "dominant_ratio": 0.601,
+                  "ratios": {
+                    "blue": 0.022,
+                    "green": 0.017,
+                    "dark": 0.601
+                  },
+                  "ink_pixel_count": 691
+                },
+                {
+                  "dominant": "green",
+                  "dominant_ratio": 0.587,
+                  "ratios": {
+                    "blue": 0.0,
+                    "green": 0.587,
+                    "dark": 0.245
+                  },
+                  "ink_pixel_count": 823
+                }
+              ],
+              "reasons": []
+            },
+            "first_excluded_above_bottom_block": {
+              "line": {
+                "text": "Query: stand-up wireless government phone",
+                "confidence": 0.9937,
+                "bbox": [
+                  [
+                    348.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    179.0
+                  ],
+                  [
+                    348.0,
+                    179.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 642.5,
+                    "y": 159.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              "gap_px": 449.0
+            },
+            "row_lines": [
+              {
+                "text": "Query: stand-up wireless government phone",
+                "confidence": 0.9937,
+                "bbox": [
+                  [
+                    348.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    140.0
+                  ],
+                  [
+                    937.0,
+                    179.0
+                  ],
+                  [
+                    348.0,
+                    179.0
+                  ]
+                ],
+                "position": {
+                  "label": "top-mid",
+                  "vertical_band": "top",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 642.5,
+                    "y": 159.5
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Pixel 8a Phone Bay 128GB (Unlocked)",
+                "confidence": 0.9975,
+                "bbox": [
+                  [
+                    456.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    628.0
+                  ],
+                  [
+                    755.0,
+                    652.0
+                  ],
+                  [
+                    456.0,
+                    652.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 605.5,
+                    "y": 640.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "$499.00",
+                "confidence": 1.0,
+                "bbox": [
+                  [
+                    459.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    649.0
+                  ],
+                  [
+                    529.0,
+                    671.0
+                  ],
+                  [
+                    459.0,
+                    671.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 494.0,
+                    "y": 660.0
+                  }
+                },
+                "raw_item_count": 1
+              },
+              {
+                "text": "Google Store",
+                "confidence": 0.9999,
+                "bbox": [
+                  [
+                    456.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    670.0
+                  ],
+                  [
+                    565.0,
+                    696.0
+                  ],
+                  [
+                    456.0,
+                    696.0
+                  ]
+                ],
+                "position": {
+                  "label": "bottom-mid",
+                  "vertical_band": "bottom",
+                  "horizontal_band": "mid",
+                  "center": {
+                    "x": 510.5,
+                    "y": 683.0
+                  }
+                },
+                "raw_item_count": 1
+              }
+            ],
+            "retry_attempted": false,
+            "selected_variant_retry_phase": "base"
+          },
+          "summary_by_region": {
+            "top-mid": [
+              "Query: stand-up wireless government phone"
+            ],
+            "bottom-mid": [
+              "Pixel 8a Phone Bay 128GB (Unlocked)\n$499.00\nGoogle Store"
+            ]
+          },
+          "lines": [
+            {
+              "text": "Query: stand-up wireless government phone",
+              "confidence": 0.9937,
+              "bbox": [
+                [
+                  348.0,
+                  140.0
+                ],
+                [
+                  937.0,
+                  140.0
+                ],
+                [
+                  937.0,
+                  179.0
+                ],
+                [
+                  348.0,
+                  179.0
+                ]
+              ],
+              "position": {
+                "label": "top-mid",
+                "vertical_band": "top",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 642.5,
+                  "y": 159.5
+                }
+              },
+              "raw_item_count": 1
+            },
+            {
+              "text": "Pixel 8a Phone Bay 128GB (Unlocked)\n$499.00\nGoogle Store",
+              "confidence": 0.9991,
+              "bbox": [
+                [
+                  456.0,
+                  628.0
+                ],
+                [
+                  755.0,
+                  628.0
+                ],
+                [
+                  755.0,
+                  696.0
+                ],
+                [
+                  456.0,
+                  696.0
+                ]
+              ],
+              "position": {
+                "label": "bottom-mid",
+                "vertical_band": "bottom",
+                "horizontal_band": "mid",
+                "center": {
+                  "x": 605.5,
+                  "y": 662.0
+                }
+              },
+              "raw_item_count": 3
+            }
+          ]
+        }
+      ]
     }
   }
 }

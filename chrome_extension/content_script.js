@@ -11,10 +11,21 @@
   const ATTACHMENT_INPUT_SELECTOR = 'input[type="file"]';
   const STOP_STREAMING_BUTTON_SELECTOR = '#composer-submit-button[aria-label="Stop streaming"]';
   const START_VOICE_BUTTON_SELECTOR = '[aria-label="Start Voice"]';
-  const WEB_SEARCH_CHIP_SELECTOR = "button.__composer-pill";
-  const WEB_SEARCH_MENU_ITEM_SELECTOR = '[role="menuitemradio"], [role="menuitemcheckbox"], [role="menuitem"]';
-  const WEB_SEARCH_PILL_LABEL = "Search";
-  const WEB_SEARCH_MENU_LABEL = "Web search";
+  const WEB_SEARCH_CHIP_SELECTOR = [
+    "button.__composer-pill",
+    '[data-inline-selection-pill][data-system-hint-type="search"]',
+    '[data-inline-selection-pill][data-id="search"]',
+  ].join(",");
+  const WEB_SEARCH_MENU_ITEM_SELECTOR = [
+    '[role="menuitemradio"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitem"]',
+    '[data-system-hint-type="search"]',
+    '[data-id="search"]',
+  ].join(",");
+  const INLINE_SELECTION_PILL_SELECTOR = "[data-inline-selection-pill]";
+  const WEB_SEARCH_LABELS = ["search", "web search", "websuche"];
+  const WEB_SEARCH_MENU_LABELS = ["web search", "websuche", "search the web"];
 
   // Fallback prompt template if the server does not send one.
   const BOILERPLATE_PROMPT = `The attached screenshot contains the current task page. First extract the exact Google search query shown in the screenshot. Then, for each semantically distinct component, provide a bullet point explaining what it is. Keep explanations as short as possible -- ideally just a label like "brand name" or "model nr" or "file format". Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification, give the shortest explanation that captures the essential nature of the thing while still leaving someone unfamiliar with an accurate mental model.
@@ -44,6 +55,7 @@ Base everything strictly on the screenshot attachment.`;
   const ATTACHMENT_INPUT_WAIT_TIMEOUT_MS = 4000;
   const WEB_SEARCH_WAIT_POLL_MS = 500;
   const WEB_SEARCH_ENABLE_WAIT_TIMEOUT_MS = 2500;
+  const WEB_SEARCH_MANUAL_WAIT_TIMEOUT_MS = 30000;
   const WEB_SEARCH_POST_ENABLE_SETTLE_MS = 250;
   const ATTACHMENT_SETTLE_MS = 1500;
   const ATTACHMENT_RENDER_WAIT_TIMEOUT_MS = 12000;
@@ -3382,15 +3394,41 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return rect.width > 0 && rect.height > 0;
   }
 
+  function normalizeWebSearchLabel(value) {
+    return (typeof value === "string" ? value : "")
+      .trim()
+      .toLocaleLowerCase();
+  }
+
+  function elementIdentifiesWebSearch(element, fallbackLabels = WEB_SEARCH_LABELS) {
+    if (!(element instanceof Element)) {
+      return false;
+    }
+
+    const systemHintType = normalizeWebSearchLabel(element.getAttribute("data-system-hint-type"));
+    const dataId = normalizeWebSearchLabel(element.getAttribute("data-id"));
+    if (systemHintType === "search" || dataId === "search") {
+      return true;
+    }
+
+    const searchableLabels = [
+      element.textContent ?? "",
+      element.getAttribute("aria-label") ?? "",
+      element.getAttribute("data-keyword") ?? "",
+      element.getAttribute("title") ?? "",
+    ].map(normalizeWebSearchLabel);
+    return searchableLabels.some((label) => (
+      fallbackLabels.some((searchLabel) => label.includes(searchLabel))
+    ));
+  }
+
   function findVisibleWebSearchChip() {
     return Array.from(document.querySelectorAll(WEB_SEARCH_CHIP_SELECTOR)).find((element) => {
       if (!(element instanceof HTMLElement) || !isElementVisible(element)) {
         return false;
       }
 
-      const labelText = element.textContent?.trim() ?? "";
-      const ariaLabel = element.getAttribute("aria-label") ?? "";
-      return labelText.includes(WEB_SEARCH_PILL_LABEL) || ariaLabel.includes(WEB_SEARCH_PILL_LABEL);
+      return elementIdentifiesWebSearch(element);
     }) ?? null;
   }
 
@@ -3423,7 +3461,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         return false;
       }
 
-      return element.textContent?.trim().includes(WEB_SEARCH_MENU_LABEL);
+      return elementIdentifiesWebSearch(element, WEB_SEARCH_MENU_LABELS);
     }) ?? null;
   }
 
@@ -3441,17 +3479,19 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   async function waitForWebSearchEnabled() {
-    while (!isWebSearchEnabled()) {
-      await delay(WEB_SEARCH_WAIT_POLL_MS);
+    const enabled = await waitForWebSearchEnabledWithTimeout(WEB_SEARCH_MANUAL_WAIT_TIMEOUT_MS);
+    if (!enabled) {
+      throw new Error(
+        "Web Search was required but no active search chip was detected within 30 seconds.",
+      );
     }
-
-    await delay(WEB_SEARCH_POST_ENABLE_SETTLE_MS);
   }
 
   async function waitForWebSearchEnabledWithTimeout(timeoutMs) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (isWebSearchEnabled()) {
+        await delay(WEB_SEARCH_POST_ENABLE_SETTLE_MS);
         return true;
       }
       await delay(WEB_SEARCH_WAIT_POLL_MS);
@@ -3579,6 +3619,91 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
+  function getInlineSelectionPills(editor) {
+    if (!(editor instanceof HTMLElement)) {
+      return [];
+    }
+
+    return Array.from(editor.querySelectorAll(INLINE_SELECTION_PILL_SELECTOR))
+      .filter((element) => element instanceof HTMLElement);
+  }
+
+  function getEditorTextWithoutInlineSelectionPills(editor) {
+    if (!(editor instanceof HTMLElement)) {
+      return "";
+    }
+
+    const clone = editor.cloneNode(true);
+    if (!(clone instanceof HTMLElement)) {
+      return "";
+    }
+    for (const pill of clone.querySelectorAll(INLINE_SELECTION_PILL_SELECTOR)) {
+      pill.remove();
+    }
+    return clone.textContent ?? "";
+  }
+
+  function selectEditorContentsAfterInlinePill(editor, pill) {
+    if (!(editor instanceof HTMLElement) || !(pill instanceof HTMLElement) || !editor.contains(pill)) {
+      return false;
+    }
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection) {
+      return false;
+    }
+
+    try {
+      const range = document.createRange();
+      range.setStartAfter(pill);
+      range.setEnd(editor, editor.childNodes.length);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function replaceContentAfterInlinePill(editor, value, pill) {
+    const expectedText = compactEditorText(value);
+    if (compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText) {
+      return true;
+    }
+
+    if (selectEditorContentsAfterInlinePill(editor, pill)) {
+      try {
+        if (document.execCommand("insertText", false, value)) {
+          dispatchEditorEvents(editor, value);
+          if (compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText) {
+            return true;
+          }
+        }
+      } catch (_error) {
+        // Try a paste event below.
+      }
+    }
+
+    if (!selectEditorContentsAfterInlinePill(editor, pill)) {
+      return false;
+    }
+
+    try {
+      const pasteData = new DataTransfer();
+      pasteData.setData("text/plain", value);
+      const pasteEvent = typeof ClipboardEvent === "function"
+        ? new ClipboardEvent("paste", { bubbles: true, cancelable: true, composed: true })
+        : new Event("paste", { bubbles: true, cancelable: true, composed: true });
+      Object.defineProperty(pasteEvent, "clipboardData", { value: pasteData });
+      editor.dispatchEvent(pasteEvent);
+      dispatchEditorEvents(editor, value);
+      return compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   function setContentEditableValue(editor, value) {
     const expectedText = compactEditorText(value);
 
@@ -3609,6 +3734,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         editor.setSelectionRange(value.length, value.length);
       }
       return;
+    }
+
+    const inlineSelectionPills = getInlineSelectionPills(editor);
+    if (inlineSelectionPills.length > 0) {
+      const lastInlineSelectionPill = inlineSelectionPills[inlineSelectionPills.length - 1];
+      if (replaceContentAfterInlinePill(editor, value, lastInlineSelectionPill)) {
+        return;
+      }
+      throw new Error("Could not insert prompt while preserving the active inline selection pill");
     }
 
     setContentEditableValue(editor, value);
