@@ -3394,6 +3394,15 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return rect.width > 0 && rect.height > 0;
   }
 
+  function findVisibleEnabledSendButton() {
+    return Array.from(document.querySelectorAll(SEND_BUTTON_SELECTOR)).find((element) => (
+      element instanceof HTMLButtonElement
+      && isElementVisible(element)
+      && !element.disabled
+      && element.getAttribute("aria-disabled") !== "true"
+    )) ?? null;
+  }
+
   function normalizeWebSearchLabel(value) {
     return (typeof value === "string" ? value : "")
       .trim()
@@ -3551,6 +3560,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   function normalizeEditorText(value) {
     return (typeof value === "string" ? value : "")
       .replace(/\u00a0/g, " ")
+      .replace(/[\u200b-\u200d\u2060\ufeff]/gi, "")
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
       .replace(/\n+$/g, "");
@@ -3643,6 +3653,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return clone.textContent ?? "";
   }
 
+  function editorContainsExpectedTextWithoutInlinePills(editor, expectedText) {
+    const actualText = compactEditorText(getEditorTextWithoutInlineSelectionPills(editor));
+    return actualText === expectedText || actualText.endsWith(expectedText);
+  }
+
   function selectEditorContentsAfterInlinePill(editor, pill) {
     if (!(editor instanceof HTMLElement) || !(pill instanceof HTMLElement) || !editor.contains(pill)) {
       return false;
@@ -3668,7 +3683,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
   function replaceContentAfterInlinePill(editor, value, pill) {
     const expectedText = compactEditorText(value);
-    if (compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText) {
+    if (editorContainsExpectedTextWithoutInlinePills(editor, expectedText)) {
       return true;
     }
 
@@ -3676,9 +3691,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       try {
         if (document.execCommand("insertText", false, value)) {
           dispatchEditorEvents(editor, value);
-          if (compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText) {
-            return true;
+          if (!editorContainsExpectedTextWithoutInlinePills(editor, expectedText)) {
+            console.warn("Local Query Bridge inline-pill prompt verification differed after insertText");
           }
+          return true;
         }
       } catch (_error) {
         // Try a paste event below.
@@ -3698,7 +3714,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       Object.defineProperty(pasteEvent, "clipboardData", { value: pasteData });
       editor.dispatchEvent(pasteEvent);
       dispatchEditorEvents(editor, value);
-      return compactEditorText(getEditorTextWithoutInlineSelectionPills(editor)) === expectedText;
+      return editorContainsExpectedTextWithoutInlinePills(editor, expectedText);
     } catch (_error) {
       return false;
     }
@@ -10249,8 +10265,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       }
       throwIfServerControlRunCancelled(controlRunId);
 
-      const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
-      if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
+      const sendButton = findVisibleEnabledSendButton();
+      if (sendButton instanceof HTMLButtonElement) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
         if (options.startResponseWatch !== false) {
@@ -10640,8 +10656,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       }
       throwIfServerControlRunCancelled(controlRunId);
 
-      const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
-      if (sendButton instanceof HTMLButtonElement && !sendButton.disabled) {
+      const sendButton = findVisibleEnabledSendButton();
+      if (sendButton instanceof HTMLButtonElement) {
         console.log("Local Query Bridge clicking send", { taskCount, attempt });
         sendButton.click();
         startAutoScrollWatch({ allowLatestPromptRecheck: false, controlRunId });
