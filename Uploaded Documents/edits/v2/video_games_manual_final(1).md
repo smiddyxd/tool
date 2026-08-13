@@ -7,7 +7,7 @@ This manual contains original task guidance plus added supplemental guidance. Ad
 - **Official guidance** = original task instructions and category guidance.
 - **Added guidance** = supplemental practical guidance added to clarify rating behavior.
 - **Non-manual indicators** = useful case-specific indicators not explicitly listed in this manual; these may be mentioned in per-task output when relevant.
-- **Case-derived reasoning nodes** = reusable borderline-case reasoning patterns extracted from completed rating discussions. These do not override official guidance; they help apply the manual consistently when the current task has a similar decisive structure.
+- **Case-derived reasoning nodes** = reusable borderline-case reasoning patterns extracted from completed rating discussions. Multiple nodes may apply to one task. Identify and rank all materially applicable nodes, then use their reasoning components modularly. These do not override official guidance.
 
 ---
 
@@ -46,35 +46,67 @@ A visible webpage URL can be sufficient evidence when it clearly points to Video
 3. **Comments**. If you have comments regarding particular tasks, please use the comment section for that.
 4. **Not sure how to rate.** If you are not sure how to rate a whole task or part of it, please still provide your best answer and additionally add a brief comment saying that you are not sure. For example, "not sure how to rate" or "not sure how to rate creative since ...". It is very important that you leave comments in such situations. It will allow us to confirm the ratings and enrich this set of guidelines with additional explanations.
 
-### Added guidance — screenshot and OCR evidence discipline
+### Added guidance — task grounding and research
 
-Use only visible evidence from the screenshot or OCR text: visible text, visible URL, imagery, product name, CTA, page state, and visible branding. Do not assume what happens after clicking. Do not infer hidden landing-page behavior. If evidence is unclear, mark it unclear rather than inventing details.
+Begin with everything present in the task: visible text, URL, imagery, advertiser/brand information, product names, CTA, page state, and other visible details.
 
-### Added guidance — screenshot/OCR grounding and external research
+Research is a normal and expected part of task analysis. Do not restrict research only to terms that are obviously names or already seem game-related.
 
-Begin with the evidence visible in the task: visible text, URL, imagery, product name, advertiser/brand name, CTA, page state, and other visible branding.
+Before rating, investigate any visible element whose identity or meaning could plausibly affect the Video Games classification, including:
 
-External research is permitted and should be used whenever it can materially clarify the identity or category relevance of something visible in the task.
+- advertiser, company, developer, publisher, brand, product, app, service, platform, website, game, franchise, character, or organization names;
+- words or multi-word phrases that could plausibly be titles, product names, brand names, service names, slogans, event names, campaign names, or other named entities, even when they also make sense as ordinary words;
+- abbreviations, acronyms, stylized spellings, unusual capitalization, compound words, usernames, domains, and unfamiliar labels;
+- industry terminology, slang, jargon, mechanic names, feature names, technical terms, and other wording that may have a specialized meaning;
+- ordinary-looking words or phrases that may have a non-obvious secondary meaning, refer to a particular product/entity, or have a specific meaning in gaming or another category relevant to the rating;
+- any other visible wording for which discovering an external referent or specialized meaning could materially change the interpretation of the task.
 
-In particular:
-- If a visible advertiser, brand, company, product, app, service, site, game title, domain, or other named entity is unfamiliar or its identity is uncertain, research it before rating when that identity could affect the classification.
-- If an unfamiliar term or phrase could materially change the interpretation of the creative, research what it means rather than treating unfamiliarity as absence of evidence.
-- Do not rate a specific identifiable entity as generic, non-game-related, or Unrateable merely because its nature is not apparent from the creative itself.
-- Prefer authoritative first-party sources for entity identification, such as an official company/product site, official app-store listing, publisher/developer page, or other primary source. Use reliable secondary sources when primary sources do not resolve the question.
-- Research may establish what a visible named entity is, what business/category it belongs to, and what a visible named product or service does.
+Bias toward researching rather than assuming that an unfamiliar or ambiguous term is merely generic wording.
 
-Research does not permit inventing unseen ad behavior:
-- Do not assume what happens after clicking a CTA unless that destination is actually researched.
-- Do not infer an unseen landing page merely from a button such as “Open,” “Play,” or “Install.”
-- Keep visible evidence, verified research findings, and inference conceptually separate.
+Research should answer questions such as:
+- Is this a specific named entity?
+- What is this company, product, app, service, title, or platform?
+- Does this phrase refer to something beyond its ordinary-language meaning?
+- Does this term have a specialized meaning relevant to Video Games?
+- Is an apparently generic phrase actually associated with a particular game, publisher, product, event, mechanic, or gaming ecosystem?
 
-“Use visible evidence” means ground the analysis in what the task actually presents; it does not mean ignoring externally verifiable information about the entities or terms that the task visibly names.
+Prefer authoritative first-party sources when available, especially official company/product/game sites, developer or publisher pages, official app-store listings, and official documentation. Use reliable secondary sources when first-party material does not adequately resolve the question.
+
+Research may establish the identity, nature, category, purpose, or relevant meaning of something that appears in the task. This is different from inventing unseen behavior.
+
+Do not:
+- assume what happens after clicking a CTA unless the destination or behavior is actually researched;
+- invent unseen landing-page content;
+- attribute properties to the advertised product that neither the task nor research supports;
+- treat a search result for a similarly named but different entity as evidence for the task.
+
+Visible task evidence, verified research findings, and inference should remain conceptually distinct.
+
+Grounding the analysis in the task means that research should investigate things that are actually present in or reasonably prompted by the task. It does not mean restricting the analysis to facts already explained by the screenshot/OCR itself.
+
+### Added guidance — ordinary-looking wording can carry specific meaning
+
+Do not assume that wording is generic merely because it consists of ordinary words.
+
+A phrase such as “[ordinary-looking phrase]” may also be:
+- a game or app title;
+- a company or publisher name;
+- a named feature or game mechanic;
+- a franchise/event/campaign title;
+- a gaming term or community expression;
+- a branded service or platform.
+
+If such an interpretation could affect the rating, research the phrase before deciding how much evidentiary weight to give its ordinary-language meaning.
 
 ### Added guidance — Unrateable vs uncertain
 
 - Unrateable means you cannot assess the content at all because it failed to load, is in the wrong language, is behind a login wall, has too little visible evidence, or otherwise cannot be interpreted.
 - Uncertain means there is assessable content but classification is difficult; in that case, give your best rating and leave a brief comment.
 - Do not use Unrateable as a fallback for ambiguous but assessable Video Games cases.
+
+Before selecting Unrateable because the content contains too little information, complete the research sweep. Sparse visible content may still contain a name, phrase, domain, slogan, or other clue that research can resolve.
+
+Do not treat something as unidentifiable merely because its meaning is not self-explanatory from the creative.
 
 ---
 
@@ -121,7 +153,7 @@ This category includes **all types of video game genres**, e.g.
 
 ### Added guidance — practical core test
 
-Ask whether the visible content is related to playing, watching, selling, renting, downloading, earning rewards in, creating, developing, publishing, marketing, reviewing, or getting help with video games, computer games, console games, online games, downloadable games, in-game goods, or game-development products/services. This is a shorthand for applying the official scope above, not a replacement for it.
+Ask whether the content is related to playing, watching, selling, renting, downloading, earning rewards in, creating, developing, publishing, marketing, reviewing, or getting help with video games, computer games, console games, online games, downloadable games, in-game goods, or game-development products/services. This is a shorthand for applying the official scope above, not a replacement for it.
 
 ### Added guidance — main subject and subsection mapping
 
@@ -593,7 +625,7 @@ Topics:
 
 This section contains reusable reasoning nodes for recurring borderline Video Games cases.
 
-Use these nodes as reasoning shortcuts when the current task shares the same decisive structure. Do not apply a node just because it shares a word or superficial theme with the current task.
+Identify all materially applicable case-derived reasoning nodes and rank them by relevance.
 
 A node can apply at different strengths:
 
@@ -602,7 +634,18 @@ A node can apply at different strengths:
 - **Broad conceptual match**: the node does not control the rating, but it helps frame the distinction.
 - **No match**: no node materially helps the decision.
 
-When using a node, still apply the official and added manual guidance first. Nodes do not override the manual or visible evidence.
+Use them modularly:
+- use the most relevant node as the primary reasoning structure when one clearly dominates;
+- incorporate individual reasoning principles, distinctions, evidence interpretations, negative directions, and boundary conditions from other applicable nodes where useful;
+- use a lower-ranked node as a contrast or boundary check when appropriate;
+- do not mechanically combine nodes or treat them as votes;
+- when one node adequately resolves the task, do not introduce additional nodes unnecessarily.
+
+Use whatever combination of applicable case-derived reasoning best fits the task.
+
+Rank nodes according to how much useful work they do in resolving the specific task, based on the decisive structure, main advertised subject, classification boundary, and evidence pattern rather than shared words or superficial themes. Match level is useful but does not by itself determine ranking.
+
+Case-derived nodes remain subordinate to the official and added guidance. They are reasoning shortcuts and precedent-like examples, not rules that override the manual.
 
 ## Case Node: Game-Like Companion for a Real-World Trail
 
@@ -655,10 +698,10 @@ When the main offer is a real-world trail or location-based activity, do not rat
 - The page is about video-game media, reviews, walkthroughs, game downloads, in-game items, game rewards, game retail, eSports, streaming gameplay, or game development.
 - The only issue is a generic quiz with no real-world trail component; use the standalone/generic quiz-framing node instead.
 
-## Case Node: Sparse Creative Resolved by Product Research
+## Case Node: Sparse Creative Resolved by Named-Entity Research
 
 ### Case type
-A sparse or unclear ad creative names a product, but the creative itself does not clearly show whether the product is related to Video Games. Research into the named product identifies it as a game-related platform, app, portal, service, or site.
+A sparse or unclear creative contains a specific advertiser, brand, company, product, app, platform, service, site, game title, or other named entity whose category relevance is not apparent from the creative itself. Research identifies that entity and materially resolves the Video Games classification.
 
 ### Final verdict anchor
 Rating: Yes
@@ -666,42 +709,91 @@ Rating: Yes
 Final comment anchor:
 > Slamdjam appears to be a premium gaming platform.
 
-### Visible evidence pattern
-- The original creative is sparse and mainly shows the product/advertiser name.
-- The visible ad wording does not clearly show gameplay, a game title, a game genre, or video-game-specific language.
-- The named product is identifiable enough to research.
-- The researched landing page or product page clearly frames the named product as game-related.
-- In this case, the researched page shows “Premium Mobile Games,” describes Slamdjam as a premium gaming portal, and shows mobile-game imagery.
+### Evidence / research pattern
+- Visible:
+  - The original creative is sparse and mainly shows a potentially meaningful name or identifier.
+  - The task itself does not clearly explain what the named entity is or why it is relevant to Video Games.
+- Research-resolved:
+  - The exact entity can be reliably identified.
+  - Research establishes its identity, nature, category, purpose, or relevant meaning and materially resolves the classification.
+  - In the anchor case, the researched page shows “Premium Mobile Games,” describes Slamdjam as a premium gaming portal, and shows mobile-game imagery.
 
 ### Core reasoning path
-The original creative alone is weak because it only asks the user to activate/open Slamdjam and access content. That wording does not by itself establish a Video Games connection.
+The original creative may be too sparse to explain the visible name or identifier. That does not make the identifier meaningless. Research can establish what a visible advertiser, company, product, app, platform, service, site, title, or other entity is and how it relates to the Video Games scope.
 
-However, the product name is specific and research resolves the ambiguity. Once the named product is shown to be a premium mobile gaming portal or game-related content platform, the task fits the Video Games category. The rating should be based on the identified main product, not only on the sparse wording of the initial creative.
+Once the exact entity is reliably identified, apply the Video Games scope to the actual advertised subject. In the anchor case, research identifies Slamdjam as a premium mobile gaming portal, so the sparse creative can be rated Yes. The same reasoning can apply to other named entities whose researched identity materially resolves the category.
 
-This case belongs most closely under downloadable/mobile games or game download/game portal logic, depending on the researched page wording. If the researched page frames the product as a mobile games portal, that is enough to support a Yes rating.
+Entity identification is different from inventing hidden post-click behavior. The research must correspond to the exact task entity and support the property being used in the rating.
 
 ### Decision shortcut
-When a sparse creative names an unclear product, and research clearly identifies that exact product as a game-related app, portal, platform, or service, rate Yes. The comment can be short: “[Product] appears to be a [game-related product type].”
+When a creative contains a specific identifiable entity whose nature could materially affect the rating, research that entity rather than treating the name as meaningless or relying only on the sparse creative. Use reliable research to establish what the entity is, then apply the Video Games scope to the advertised subject.
 
 ### Abandoned reasoning paths / negative direction
-- Do not rate No just because the original creative is sparse if the named product can be researched and clearly turns out to be game-related.
-- Do not mark Unrateable only because the creative itself lacks detail, if the product name gives enough basis for reliable research.
-- Do not assume the product is game-related from a vague name alone. The research has to clearly support the Video Games connection.
+- Do not rate No just because the original creative is sparse if a visible named entity can be researched and clearly turns out to be game-related.
+- Do not mark Unrateable only because the creative itself lacks detail if a visible identifier gives enough basis for reliable research.
+- Do not assume an entity is game-related from a vague name alone. The research has to clearly support the Video Games connection.
+- Do not assume that ordinary-looking wording is generic before checking whether it is a title, name, slogan, event, service, feature, or term with a materially relevant meaning.
 - Do not use this shortcut when search results are weak, conflicting, unrelated, or only show generic entertainment/content without clear game framing.
-- Do not overstate the product type. If the page says “mobile games portal,” use that rather than a broader or more polished label.
+- Do not treat a similarly named but different entity as evidence for the task.
+- Do not overstate the entity type. State only what reliable research supports.
 
 ### Use this node when
-- The creative is sparse but contains a specific product, app, site, or service name.
-- The product can be reliably identified through research.
-- The researched page clearly uses game-related wording such as “mobile games,” “gaming portal,” “online games,” “game platform,” “download games,” or similar.
-- The researched product type clearly qualifies under the Video Games manual.
+- The creative is sparse but contains a specific advertiser, brand, company, product, app, platform, service, site, game title, or other potentially meaningful name.
+- The entity can be reliably identified through research.
+- Its researched identity, nature, category, purpose, or relevant meaning materially clarifies the Video Games classification.
+- The exact entity shown in the task can be distinguished from similarly named alternatives.
 
 ### Do not use this node when
-- The product name is too generic to confidently identify.
-- Research results point to multiple unrelated products with the same or similar name.
-- The researched page only shows generic entertainment, streaming, rewards, social content, or app-download framing without clear game-related wording.
-- The only evidence is a broad word like “content,” “play,” “fun,” “challenge,” or “activate.”
-- The research points mainly to a non-game product and only has minor game-like visuals or side content.
+- The entity cannot be confidently identified.
+- Research results point to multiple unrelated entities and the task context does not resolve which one is present.
+- Research does not materially clarify the advertised subject or its Video Games relevance.
+- The research points mainly to a non-game product or subject and only minor game-like visuals or side content are present.
+
+## Case Node: Known Game Publisher Promotion Without a Named Game
+
+### Case type
+A clearly identifiable video-game developer or publisher promotes rewards, events, celebrations, or other company- or portfolio-level activity without identifying a specific game.
+
+### Final verdict anchor
+Rating: Yes
+
+Final comment anchor:
+> Huuuge is a mobile game developer and publisher, and the anniversary promotion’s free gifts and limited-time events appear to relate to its games. Even though no specific title is shown, I would rate it Yes.
+
+### Evidence / research pattern
+- Visible:
+  - The creative is centered on a named company or publisher.
+  - It promotes a celebration, rewards, events, or similar company-level activity.
+  - It does not name or show a specific game.
+  - It does not clearly identify a separate non-game product or activity as the main subject.
+- Research-resolved:
+  - The named company is reliably identified as a video-game developer or publisher.
+  - In the anchor case, Huuuge is identified as a mobile-game developer and publisher.
+
+### Core reasoning path
+The official scope includes content related to video-game design, publishing, development, and marketing. A company-level promotion centered on an identifiable video-game developer or publisher can therefore qualify even when it does not name one particular game.
+
+The relevant distinction is between a game company that is itself the advertised subject and a game-company name that appears only incidentally beside a clearly separate non-game subject. In the Huuuge case, the creative promotes a Huuuge-branded anniversary celebration with gifts and events, so it can reasonably be treated as promotional or marketing content for the publisher and its game business.
+
+### Decision shortcut
+A creative centered on an identifiable video-game developer or publisher can qualify under video-game publishing or marketing even without naming a specific game, but incidental brand presence should not override a clearly unrelated advertised subject.
+
+### Abandoned reasoning paths / negative direction
+- Do not require a specific game title when the game developer or publisher and its promotional activity are themselves the main subject.
+- Do not treat every creative carrying a game-company name or logo as Video Games automatically.
+- Do not let incidental game-publisher branding override a clearly separate non-game subject.
+- Do not use this reasoning for recruitment, investor relations, corporate information, hardware, unrelated merchandise, education, or other clearly non-game products or activities.
+- Do not treat a merely suggestive advertiser name as a verified game developer or publisher; research the entity first.
+
+### Use this node when
+- Research reliably identifies the advertised company as a video-game developer or publisher.
+- The creative is centered on the company, its game portfolio, rewards, events, celebrations, releases, community activity, or other publishing/marketing activity.
+- No specific game is named, but the creative does not instead identify a separate non-game subject.
+
+### Do not use this node when
+- The company identity is only weakly or ambiguously game-related and research does not resolve it.
+- The branding is incidental to a clearly unrelated product or activity.
+- The main subject is recruitment, investor relations, corporate information, hardware, unrelated merchandise, education, or another non-game activity.
 
 ## Case Node: Standalone Trivia Quiz Without Clear Game Framing
 
@@ -758,29 +850,35 @@ Questions and answer buttons alone do not make a quiz a video game. Rate a quiz 
 A sparse app-download or app-downloader creative does not clearly identify the advertised app or product, but the visible advertiser or branding contains game-related wording such as “Games.”
 
 ### Final verdict anchor
-Rating: Unrateable / not enough visible evidence to classify clearly
+Rating: Unrateable / not enough evidence to classify clearly after research
 
 Final comment anchor:
 > Not sure how to rate because the creative does not clearly indicate what is being advertised. The advertiser appears to be "123 Games", which could point to video games, but I don't think the creative itself gives enough information to rate it clearly either way.
 
-### Visible evidence pattern
-- The creative uses generic app-download or app-downloader framing.
-- The visible product or app being promoted is not clearly named or explained.
-- The only game-related signal is the advertiser/branding, such as “123 Games.”
-- The creative does not show gameplay, a game title, a game genre, game characters, game currency, levels, missions, or other clear video-game framing.
-- The visible evidence does not clearly establish whether the advertised app downloader is specifically for games or for generic apps.
+### Evidence / research pattern
+- Visible:
+  - The creative uses generic app-download or app-downloader framing.
+  - The visible product or app being promoted is not clearly named or explained.
+  - The only initially apparent game-related signal is the advertiser/branding, such as “123 Games.”
+  - The creative does not show gameplay, a game title, a game genre, game characters, game currency, levels, missions, or other clear video-game framing.
+- Research-resolved:
+  - The advertiser name has been researched.
+  - Research does not reliably identify it as a covered game-related entity or otherwise resolve the advertised product.
 
 ### Core reasoning path
-A generic app downloader is not automatically Video Games. The official downloadable-games section includes downloadable games, gaming mobile apps, and game-download services, but excludes other downloadable apps and generic app stores. When the creative does not clearly show what app or download service is being advertised, a game-like advertiser name can be a relevant signal, but it may not be enough by itself to classify the creative as Video Games.
+A generic app downloader is not automatically Video Games. The official downloadable-games section includes downloadable games, gaming mobile apps, and game-download services, but excludes other downloadable apps and generic app stores. Before treating a game-like advertiser name as a weak signal, research whether it refers to a specific identifiable entity.
 
-The decisive issue is whether the visible creative makes the advertised product clearly game-related. If the only game-related evidence is an advertiser name like “123 Games,” and the creative itself remains too vague to identify the product, do not force a Yes rating based only on that weak signal.
+The decisive issue is whether the task evidence and research make the advertised product clearly game-related. A verified video-game developer, publisher, gaming platform, or other covered entity is materially different from a generic name that merely contains a word such as “Games.” Use this node only when research is inconclusive or still does not establish what the advertised subject is.
 
 ### Decision shortcut
-If a sparse app-download creative does not clearly identify the advertised app or service, and the only game-related signal is advertiser branding like “123 Games,” treat the case as insufficiently supported rather than assuming hidden game-download behavior.
+If a sparse app-download creative does not clearly identify the advertised app or service, research the advertiser first. If the advertiser cannot be reliably identified, research is inconclusive, or its verified identity still does not establish the advertised subject, treat the case as insufficiently supported rather than assuming game-download behavior.
 
 ### Abandoned reasoning paths / negative direction
 - Do not rate Yes solely because the advertiser name contains “Games.”
-- Do not assume the app downloader leads to games unless the visible creative says or shows that.
+- Do not treat an unfamiliar advertiser name as merely a weak branding signal before checking whether it refers to a specific identifiable entity.
+- If the advertiser can be reliably researched, identify it first. A verified video-game developer, publisher, gaming platform, or other covered entity is materially different from a generic name that merely contains words such as “Games.”
+- Use this weak-advertiser-signal node only when the advertiser cannot be reliably identified, research is inconclusive, or the verified advertiser identity still does not establish what the advertised subject is.
+- Do not assume the app downloader leads to games unless the task or research supports that.
 - Do not treat generic app-download wording as enough by itself; the app or service must be clearly game-related.
 - Do not assume hidden landing-page behavior after clicking the CTA.
 - Do not ignore the advertiser name entirely; it is a relevant weak signal, but not necessarily decisive on its own.
@@ -790,13 +888,14 @@ If a sparse app-download creative does not clearly identify the advertised app o
 - The visible creative is an app-download, app-downloader, download-zone, APK, install, or app-access style ad.
 - The advertised app or download service is not clearly identified.
 - The only meaningful game-related evidence is the advertiser or branding containing “Games” or similar wording.
-- There is no visible gameplay, game title, game genre, game platform, or explicit game-download wording.
+- Research does not reliably identify the advertiser as a covered game-related entity or otherwise resolve the product.
 
 ### Do not use this node when
 - The creative clearly names a specific game.
 - The creative clearly advertises a game-download service, game platform, or gaming mobile app.
 - The visible URL, title, product name, or imagery clearly points to downloadable games.
 - The creative shows gameplay, characters, levels, missions, game currency, or other strong video-game indicators.
+- Research reliably identifies the advertiser or advertised subject as a covered game-related entity.
 - The page is blank, cut off, failed to load, or otherwise has no assessable content at all; use the broader Unrateable guidance instead.
 
 ## Case Node: Sparse Creative Resolved by Product Research With Supporting Game-Mechanic Wording
@@ -810,21 +909,23 @@ Rating: Yes
 Final comment anchor:
 > "Cake Sort" appears to be a digital puzzle game. The creative is sparse, but the "Sort cake!" wording makes it look like a mobile or online game.
 
-### Visible evidence pattern
-- The creative is sparse and mostly shows the product title.
-- The visible title is “Cake Sort ...”
-- The visible description says “Sort Cake!”
-- The CTA says “Open.”
-- The advertiser line is missing or not useful.
-- The creative does not show gameplay imagery, app-store context, characters, levels, score, or explicit “game” wording.
-- Research outside the screenshot identifies the named product as a digital puzzle game.
+### Evidence / research pattern
+- Visible:
+  - The creative is sparse and mostly shows the product title.
+  - The visible title is “Cake Sort ...”
+  - The visible description says “Sort Cake!”
+  - The CTA says “Open.”
+  - The advertiser line is missing or not useful.
+  - The creative does not show gameplay imagery, app-store context, characters, levels, score, or explicit “game” wording.
+- Research-resolved:
+  - Research identifies the named product as a digital puzzle game.
 
 ### Core reasoning path
 The visible creative alone gives only a weak game signal. “Cake Sort” and “Sort Cake!” sound like a simple sorting/puzzle action, which is consistent with a casual mobile or online game, but that wording by itself would be too thin to treat as a high-confidence Video Games signal.
 
 The decisive factor is that the named product can be researched and identified as a digital puzzle game. Once the product is identified as a game, the visible wording becomes supporting evidence rather than the main proof. This fits the broader sparse-creative research pattern: a minimal creative can still be rated Yes when the named product clearly resolves to a covered game-related product.
 
-This case is adjacent to “Sparse Creative Resolved by Product Research,” but adds an extra visible clue: the creative’s action wording is consistent with the researched game type.
+This case is adjacent to “Sparse Creative Resolved by Named-Entity Research,” but adds an extra visible clue: the creative’s action wording is consistent with the researched game type.
 
 ### Decision shortcut
 When a sparse creative names a product, research identifies that exact product as a digital puzzle/mobile/online game, and the visible wording is consistent with a simple game mechanic, rate Yes. Treat the visible wording as supporting evidence, not as the sole basis for the rating.
@@ -862,22 +963,25 @@ Rating: Unrateable
 Final comment anchor:
 > Not sure how to rate because the creative only makes a vague reference to "playing". The ad contains too little information to tell what is even being advertised. Flagging it as unrateable seems most appropriate.
 
-### Visible evidence pattern
-- The creative contains vague mood/lifestyle wording such as “take a break” or “play.”
-- The CTA may be generic, such as “Open.”
-- The advertiser or product name is missing, hidden, generic, or not useful.
-- There is no visible game title, app name, gameplay, game genre, game platform, characters, levels, missions, score, currency, download framing, or other clear video-game signal.
-- The issue is not merely that the Video Games classification is borderline; the visible content is too sparse to identify what is being advertised.
+### Evidence / research pattern
+- Visible:
+  - The creative contains vague mood/lifestyle wording such as “take a break” or “play.”
+  - The CTA may be generic, such as “Open.”
+  - The advertiser or product name is missing, hidden, generic, or not useful.
+  - There is no visible game title, app name, gameplay, game genre, game platform, characters, levels, missions, score, currency, download framing, or other clear video-game signal.
+- Research-resolved:
+  - Plausible named-entity, title, slogan, specialized-meaning, and other non-obvious interpretations have been checked.
+  - The research sweep does not identify or meaningfully clarify the advertised subject.
 
 ### Core reasoning path
-The word “playing” can be a weak game-related signal, but it is too generic to identify the advertised product as a video game, game app, online game, downloadable game, game platform, or game-related service.
+The word “playing” can be a weak game-related signal, but its ordinary-language interpretation should not be assumed to be the only one. First check whether the wording is a name, title, slogan, feature, specialized term, or other non-obvious reference relevant to the rating.
 
-When the creative does not show what the product is, the task becomes an assessability problem rather than a normal Yes/No classification problem. In this pattern, there is too little visible evidence to determine the main advertised product at all. Since the manual allows Unrateable when content contains too little information to understand what it is about, Unrateable is appropriate.
+When the creative does not show what the product is and the research sweep does not resolve it, the task becomes an assessability problem rather than a normal Yes/No classification problem. Since the manual allows Unrateable when content contains too little information to understand what it is about, Unrateable is appropriate after that research prerequisite has been satisfied.
 
 The decisive point is that the vague “play” wording does not give enough content to rate. It should not be treated as a weak Yes, and it should not be forced into No if the product itself cannot be identified.
 
 ### Decision shortcut
-A vague reference to “play” is not enough to rate a sparse creative. If the product cannot even be identified from the visible creative, mark Unrateable and explain that there is too little information to tell what is being advertised.
+A vague reference to “play” is not enough by itself to rate a sparse creative. If the product still cannot be identified after researching plausible external referents and specialized meanings, mark Unrateable and explain that there is too little information to tell what is being advertised.
 
 ### Abandoned reasoning paths / negative direction
 - Do not rate Yes just because the creative says “play” or “playing.”
@@ -885,7 +989,8 @@ A vague reference to “play” is not enough to rate a sparse creative. If the 
 - Do not assume hidden landing-page behavior after clicking “Open.”
 - Do not treat generic relaxation or break-time wording as video-game framing by itself.
 - Do not phrase the issue only as classification ambiguity if the stronger problem is assessability: there is not enough visible content to tell what is being advertised.
-- Do not use this node for sparse creatives that contain a specific product name that can be reliably researched; use the “Sparse Creative Resolved by Product Research” node instead.
+- Do not treat “play,” “playing,” or other ordinary-looking wording as generic before checking whether it is a title, name, slogan, feature, term, or phrase with a materially relevant non-obvious meaning.
+- Do not use this node for sparse creatives that contain a specific entity, name, phrase, domain, slogan, or other clue that research can resolve; use the “Sparse Creative Resolved by Named-Entity Research” node instead.
 - Do not use this node when the creative is assessable but borderline; in those cases, give the best Yes/No rating and explain uncertainty.
 
 ### Use this node when
@@ -893,12 +998,14 @@ A vague reference to “play” is not enough to rate a sparse creative. If the 
 - The only possible game-related signal is a vague word such as “play,” “playing,” or “spiel(en).”
 - The advertiser or product name is missing or not informative.
 - The visible content does not show enough information to identify the advertised product.
+- The research sweep does not identify a relevant external referent or specialized meaning that resolves the task.
 - The appropriate issue is “too little information to assess,” not “unclear but assessable category fit.”
 
 ### Do not use this node when
 - The creative clearly names a game, game app, game platform, online game, downloadable game, or gaming service.
 - The creative shows gameplay, game characters, game UI, levels, missions, scores, rewards, game currency, or other clear gaming signals.
 - The visible product name or URL is specific enough to research and research clearly resolves the product as game-related.
+- An ordinary-looking word or phrase can be researched and identified as a relevant game, product, company, service, feature, event, or term.
 - The creative is a generic quiz, puzzle, challenge, or app that is identifiable enough to rate Yes or No.
 - The page or creative has enough visible evidence to assess the main subject, even if the Video Games classification is uncertain.
 
@@ -925,6 +1032,8 @@ A puzzle-like interaction is not enough by itself to make an app or creative par
 
 In this case type, the visible offer is an art/drawing or image-reveal activity. Even though connecting points or forming triangles can feel game-like or puzzle-like, the creative presents the activity as creating/revealing artwork rather than playing a digital game. Since downloadable apps that are not games are excluded, and app-style CTAs alone do not establish game relevance, rate No unless the creative adds clear video-game framing.
 
+If a named product or potentially specialized term is present, research it before relying on this visible-framing node. Verified product identity can outweigh an initial interpretation based only on surface wording.
+
 ### Decision shortcut
 Do not rate Yes just because a drawing or art app has a puzzle-like mechanic. If the visible framing is creating/revealing artwork rather than playing a game, rate No.
 
@@ -946,7 +1055,7 @@ Do not rate Yes just because a drawing or art app has a puzzle-like mechanic. If
 - The creative clearly advertises a puzzle game, coloring game, drawing game, or casual mobile game.
 - The visible content includes strong game framing such as levels, scores, timers, missions, lives, rewards, game currency, characters, “play now,” or “download game.”
 - The app is shown on a game platform or is explicitly described as a game.
-- Research clearly identifies the named product as a game-related app or gaming platform and the workflow allows using research.
+- Research clearly identifies the named product as a game-related app or gaming platform; apply that verified product identity rather than this visible-framing-only node.
 
 ## Case Node: Cumulative Implicit Game Framing Without Explicit Game Label
 
@@ -968,6 +1077,8 @@ Final comment anchor:
 
 ### Core reasoning path
 Explicit “game” wording is not required when the visible creative gives multiple converging signals that strongly identify the product as a digital game. In the Spider example, “Spider” alone could be ambiguous, but the surrounding references to cards, card faces, customization, and challenge make the Spider Solitaire interpretation strong.
+
+Research potentially meaningful names and phrases before relying solely on cumulative implicit inference. If research directly identifies the product or term, apply the verified identity rather than presenting the conclusion as purely implicit.
 
 The decisive issue is not whether the creative uses the exact formal title or explicitly says “game.” The decisive issue is whether the visible signals, taken together, are strong and specific enough to classify the main advertised product under Video Games.
 
@@ -995,7 +1106,7 @@ A creative can be rated Yes without explicitly saying “game” if several visi
 - The creative does not identify what is being advertised.
 - The visible evidence mainly frames a non-game app or activity, such as drawing, coloring, photo editing, generic app downloading, or a real-world activity.
 - The product name is too ambiguous and the surrounding wording does not resolve it.
-- Research would be needed to identify the product, but the workflow requires visible evidence only.
+- A specific visible product, brand, advertiser, or other named entity requires identification through research; research it before deciding whether the cumulative implicit-framing node is needed.
 
 # Task analysis template
 
@@ -1003,22 +1114,46 @@ This section is the per-task analysis template the LLM should execute after read
 
 ## Task-analysis process
 
-1. Identify what is visibly offered using only screenshot/OCR evidence.
-2. Check whether any Case-Derived Borderline Reasoning node applies directly, partially, or conceptually. Use the node as a reasoning shortcut only when it matches the visible evidence and decisive structure.
-3. Check whether the task is assessable at all. If not, rate Unrateable and briefly explain why.
-4. If the task is assessable but classification is difficult, give the best Yes/No rating under the manual and add a brief uncertainty comment.
-5. Do not use Unrateable as a fallback for ambiguous but assessable Video Games cases.
-6. Sparse creatives can still be rateable if product name, visible URL, CTA, imagery, or branding provides enough evidence.
-7. Apply the main-subject rule when a page or creative contains both game-related and non-game-related signals.
-8. When the rating is Yes, map the evidence to the most specific applicable topic section rather than leaving it at “Video Games generally” when a section clearly applies.
-9. If an exception or outlier example seems relevant, apply it only to sufficiently similar cases and return to the main category definition otherwise.
+1. Extract the task evidence from the screenshot/OCR/page, including all visible wording, branding, names, URLs, imagery, and other potentially meaningful signals.
+
+2. Perform a research sweep before classification. Identify and research every element that could plausibly:
+   - refer to a specific entity, product, title, brand, service, platform, event, campaign, franchise, or organization;
+   - have a specialized, technical, industry-specific, slang, or otherwise non-obvious meaning;
+   - have an alternate meaning or external referent that could materially affect the rating.
+
+   Do this even when the wording can also be read as ordinary generic language. When uncertain whether something warrants research, prefer researching it.
+
+3. Verify that researched meanings or entities correspond to the actual task. Resolve ambiguous names where possible using surrounding task context and reliable sources.
+
+4. Using the task evidence together with verified research findings, determine what is actually being advertised or discussed and identify the main subject.
+
+5. Apply the official and added guidance to that main subject.
+
+6. Identify all materially applicable case-derived reasoning nodes and rank them by relevance.
+
+7. Use them modularly:
+   - use the most relevant node as the primary reasoning structure when one clearly dominates;
+   - incorporate individual reasoning principles, distinctions, evidence interpretations, negative directions, and boundary conditions from other applicable nodes where useful;
+   - use a lower-ranked node as a contrast or boundary check when appropriate;
+   - do not mechanically combine nodes or treat them as votes;
+   - when one node adequately resolves the task, do not introduce additional nodes unnecessarily.
+
+   Use whatever combination of applicable case-derived reasoning best fits the task.
+
+8. Check whether the task is assessable at all. Before selecting Unrateable because the content contains too little information, complete the research sweep. If the task remains unassessable, rate Unrateable and briefly explain why.
+
+9. If the task is assessable but classification is difficult, give the best Yes/No rating under the manual and add a brief uncertainty comment. Do not use Unrateable as a fallback for ambiguous but assessable Video Games cases.
+
+10. When the rating is Yes, map the evidence to the most specific applicable topic section rather than leaving it at “Video Games generally” when a section clearly applies.
+
+11. If an exception or outlier example seems relevant, apply it only to sufficiently similar cases and return to the main category definition otherwise.
 
 ## Per-task indicator extraction
 
-For each task, list only indicators that actually apply to the visible content. Separate matching indicators by source:
+For each task, list indicators that apply based on the visible task evidence and any verified research findings. Separate matching indicators by source:
 - Official = directly present in original official guidance.
 - Added = directly present in added guidance sections of this manual.
-- Case-derived = directly supported by a case-derived reasoning node.
+- Case-derived = directly supported by one or more applicable case-derived reasoning nodes. Include the useful indicators from all materially applicable nodes rather than only the highest-ranked node. Do not duplicate the same indicator merely because several nodes support it.
 - Non-manual = useful practical indicators not explicitly present anywhere in this manual.
 
 When listing indicators in the output table, prefix a non-official indicator with `~` if it is at least partly redundant with an Official indicator already listed for that same task.
@@ -1033,22 +1168,31 @@ Use “None” in any indicator-table cell or Unrateable-indicator line where no
 
 Before finalizing, check:
 - Am I using Unrateable only because the task cannot be assessed at all?
-- If I rated Yes, is there visible evidence that the content belongs to the Video Games category under the manual?
-- If I rated No, am I ignoring strong visible evidence that the content belongs to the Video Games category?
+- If the task contains an unfamiliar or uncertain named advertiser, brand, company, product, app, service, site, game title, URL/domain, or material term, did I research it before rating?
+- Did I also research ordinary-looking wording that could plausibly be a name, title, slogan, event, feature, specialized term, or other non-obvious reference relevant to the rating?
+- If I rated Yes, is the rating supported by visible evidence and/or reliable research tied to something actually present in the task?
+- If I rated No, am I ignoring a visible named entity or potentially meaningful term whose researched identity materially connects the advertised subject to Video Games?
+- If I rated Unrateable for insufficient information, did I first check whether a specific visible identifier, phrase, domain, slogan, or other clue could resolve the task through research?
+- Did I distinguish verified entity or meaning identification from assumptions about unseen landing-page or post-click behavior?
 - Am I rating the main advertised product or main page subject, rather than sidebars, recommendations, background visuals, or generic game-like signals?
 - If I rated Yes, did I map the case to the most specific relevant topic, such as online games, downloadable games, retail/sale, media/reference, cheats/hints, rewards, video game playing, or development?
 - If an exception seems relevant, is this task sufficiently similar to the canonical/example exception?
-- Did I check whether any case-derived reasoning node applies directly, partially, or conceptually?
-- If I used a node, does the current task share the same decisive structure, not just similar wording?
-- If a node only partially applies, did I qualify that instead of treating it as controlling?
+- Did I identify all case-derived nodes that materially apply, rather than stopping at the first plausible match?
+- Did I rank the applicable nodes by actual relevance to the decisive structure of this task?
+- Am I using only the portions of each node that genuinely fit the current evidence?
+- If multiple nodes apply, did I synthesize them according to their relevance rather than treating them as equal or as votes?
+- If one node clearly dominates, did I avoid unnecessary synthesis and simply use that node where appropriate?
 
 ## Output format
 
 Task:
-[what is visibly offered]
+[what is actually being advertised or discussed]
 
 Evidence:
-- [key visible text, URL, imagery, CTA]
+- Visible:
+  - [key visible text, URL, imagery, CTA]
+- Research findings:
+  - [verified findings tied to something present in the task; omit if none were needed]
 
 Indicators:
 
@@ -1064,8 +1208,16 @@ Unrateable indicators:
 - Added: [...]
 - Non-manual: [...]
 
-Case node used:
-[None / node name — direct match / partial match / broad conceptual match]
+Applicable case nodes, ranked:
+1. [Node name] — [direct / partial / broad conceptual match]
+   - Relevant here because: [...]
+2. [Node name] — [match level]
+   - Relevant here because: [...]
+
+[Use “None” if no case-derived node materially applies. List only genuinely applicable nodes.]
+
+Case-derived synthesis:
+[Briefly state which reasoning components were selected from the applicable nodes. Omit if only one node applies straightforwardly.]
 
 Ambiguity:
 [include only if genuinely needed; otherwise omit this section]

@@ -32,13 +32,6 @@
   const WEB_SEARCH_LABELS = ["search", "web search", "websuche"];
   const WEB_SEARCH_MENU_LABELS = ["web search", "websuche", "search the web"];
 
-  // Fallback prompt template if the server does not send one.
-  const BOILERPLATE_PROMPT = `The attached screenshot contains the current task page. First extract the exact Google search query shown in the screenshot. Then, for each semantically distinct component, provide a bullet point explaining what it is. Keep explanations as short as possible -- ideally just a label like "brand name" or "model nr" or "file format". Only expand if the term is niche, technical, or foreign-domain, in which case explain proportionally longer and in plainer language the more it relies on assumed background knowledge. For terms that require simplification, give the shortest explanation that captures the essential nature of the thing while still leaving someone unfamiliar with an accurate mental model.
-
-Then, below the bullets, list the most plausible interpretations of the full query, each with an estimated likelihood percentage and a one-line description of what the user is probably trying to find.
-
-Base everything strictly on the screenshot attachment.`;
-
   // Content-script timing settings for DOM availability, upload settling, and send-button activation.
   const MESSAGE_TYPE = "submitScreenshot";
   const SUBMIT_TEXT_PROMPT_MESSAGE_TYPE = "submitTextPrompt";
@@ -242,7 +235,63 @@ Output:
 - Why or why not?
 - Updated rating, if changed
 - Updated comment, if useful`;
-  const DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT = `The attached screenshots are part of a multi-screenshot task.
+  const DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT = `Process this completed rating chat for the current task type.
+
+Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract reusable reasoning notes and comment-writing patterns.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
+
+Preserve the final verdict unless the final comment is internally inconsistent with the visible evidence. Use only visible evidence from the screenshot/OCR/chat. Do not assume hidden landing-page behavior.
+
+Output:
+- Case summary
+- Reusable decision principle
+- Reusable comment-pattern principle
+- Boundary conditions or caveats
+- Any wording that should be reused or avoided`;
+  const DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT = `Before processing this completed rating chat, identify the best reusable abstraction frame.
+
+Use the chat history, attached screenshot/OCR if present, and the final rating comment as the verdict anchor.
+
+Please do the following:
+
+1. Identify the concrete case.
+2. List several possible abstraction levels, from narrowest to broadest.
+3. Explain what each level captures and what it might miss.
+4. Recommend the best abstraction level for a reusable task-type guide note.
+5. State the reusable decision principle in one sentence.
+6. State the reusable comment-pattern principle in one sentence.
+7. Preserve the final verdict unless the final comment is internally inconsistent with the visible evidence.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]`;
+  const DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT = `Consider this additional visible context for the current rating task. The input may be an attached screenshot, OCR text, or both.
+
+Compare this new visible context against the earlier rating and explain whether it meaningfully changes the rating, confidence, reusable-case fit, or comment.
+
+Use only visible evidence from the added context. Do not assume anything beyond what is shown.
+
+Output:
+- Does this change the rating? Yes / No / Maybe
+- Why or why not?
+- Updated rating, if changed
+- Updated comment, if useful`;
+  const DEFAULT_OCR_TASK_INPUT_PROMPT = `Task input below is provided as labeled OCR text instead of a screenshot.
+
+[ocr warning]
+
+Query:
+[query]
+
+Product Text:
+[product text]`;
+  const DEFAULT_COMMENT_DRAFT_PROMPT = `Give me feedback on my rating comment. Use rating_comment_style_guide.md from the project context as the style reference. Focus on making the comment sound natural, personally written, and consistent with that guide while keeping the same meaning. Suggest a polished version if useful.
+
+Draft comment OCR:
+[rating comment]`;
+  const DEFAULT_REPEAT_SCREENSHOT_PROMPT = `Use the Google search screenshots to identify the user intent of the query that is most relatable to the product, assume that as the user intent, and update your final judgment accordingly.`;
+  const LEGACY_DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT = `The attached screenshots are part of a multi-screenshot task.
 
 Transcribe and visually describe each screenshot in order so the final task prompt can reference this written chat content instead of relying on previous image attachments.
 
@@ -252,6 +301,11 @@ For each screenshot, capture:
 - relevant page state, selections, warnings, and navigation context
 
 Do not solve the full task yet. Output concise, clearly numbered notes by screenshot.`;
+  const DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT = `Multi-screenshot batch [batch number] of [batch count].
+
+The attached images are screenshots [first screenshot] through [last screenshot] in the overall capture sequence.
+
+${LEGACY_DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT}`;
   const SERVER_CONTROL_UNIVERSAL_REGION_KEYS = new Set(["googleResults"]);
   const SERVER_CONTROL_REGION_KIND_OCR = "ocr";
   const SERVER_CONTROL_REGION_KIND_SCREENSHOT = "full-task-screenshot";
@@ -464,6 +518,35 @@ Do not solve the full task yet. Output concise, clearly numbered notes by screen
       value: "multi-screenshot",
     },
   };
+
+  function getDefaultServerControlChatProcessingPromptForTaskType(taskTypeKey) {
+    return taskTypeKey === "video-games"
+      ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT
+      : DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT;
+  }
+
+  function getDefaultServerControlChatProcessingAbstractionPromptForTaskType(taskTypeKey) {
+    return taskTypeKey === "video-games"
+      ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT
+      : DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT;
+  }
+
+  function getDefaultServerControlAdditionalContextPromptForTaskType(taskTypeKey) {
+    return taskTypeKey === "video-games"
+      ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT
+      : DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT;
+  }
+
+  function normalizeServerControlMultiScreenshotBatchPrompt(value) {
+    if (typeof value !== "string") {
+      return DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT;
+    }
+    const prompt = value.trim();
+    return prompt === LEGACY_DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT
+      ? DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT
+      : prompt;
+  }
+
   const DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS = [
     {
       key: SERVER_CONTROL_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
@@ -476,8 +559,24 @@ Do not solve the full task yet. Output concise, clearly numbered notes by screen
         SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY,
         SERVER_CONTROL_REGION_DEFAULT_KEY,
       ],
-      actions: ["ocr", "screenshot", "googleSearch", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
-      visibleActions: ["ocr", "screenshot", "googleSearch", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      actions: [
+        "ocr",
+        "screenshot",
+        "googleSearch",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
+      visibleActions: [
+        "ocr",
+        "screenshot",
+        "googleSearch",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Search Experience to Product Usefulness task.
 
@@ -487,22 +586,46 @@ Product description: [product description]
 Google results: [google results]
 
 Use the screenshot and any OCR text above to judge how useful the product is for satisfying the search experience. Base the answer on the visible screenshot evidence and bridge-provided OCR text.`,
-      chatProcessingPrompt: "",
+      chatProcessingPrompt: DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT,
+      chatProcessingAbstractionPrompt: DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT,
+      additionalContextPrompt: DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT,
+      ocrTaskInputPrompt: DEFAULT_OCR_TASK_INPUT_PROMPT,
+      commentDraftPrompt: DEFAULT_COMMENT_DRAFT_PROMPT,
+      repeatScreenshotPrompt: DEFAULT_REPEAT_SCREENSHOT_PROMPT,
       multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
       key: "get-rich-quick",
       label: "Get Rich Quick",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
-      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      actions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
+      visibleActions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Get Rich Quick task.
 
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Get Rich Quick criteria. Keep the reasoning tied to the visible task evidence.`,
-      chatProcessingPrompt: "",
+      chatProcessingPrompt: DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT,
+      chatProcessingAbstractionPrompt: DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT,
+      additionalContextPrompt: DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT,
+      ocrTaskInputPrompt: DEFAULT_OCR_TASK_INPUT_PROMPT,
+      commentDraftPrompt: DEFAULT_COMMENT_DRAFT_PROMPT,
+      repeatScreenshotPrompt: DEFAULT_REPEAT_SCREENSHOT_PROMPT,
       multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
@@ -534,21 +657,43 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       chatProcessingPrompt: DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT,
       chatProcessingAbstractionPrompt: DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT,
       additionalContextPrompt: DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT,
+      ocrTaskInputPrompt: DEFAULT_OCR_TASK_INPUT_PROMPT,
+      commentDraftPrompt: DEFAULT_COMMENT_DRAFT_PROMPT,
+      repeatScreenshotPrompt: DEFAULT_REPEAT_SCREENSHOT_PROMPT,
       multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
     {
       key: "weight-loss",
       label: "Weight Loss",
       regions: [SERVER_CONTROL_REGION_DEFAULT_KEY, "fullTaskOcr", SERVER_CONTROL_REGION_COMMENT_DRAFT_KEY],
-      actions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
-      visibleActions: ["ocr", "screenshot", "commentDraft", SERVER_CONTROL_ACTION_MULTI_SCREENSHOT],
+      actions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
+      visibleActions: [
+        "ocr",
+        "screenshot",
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+        SERVER_CONTROL_ACTION_MULTI_SCREENSHOT,
+      ],
       requireWebSearchChip: true,
       boilerplatePrompt: `The attached screenshot contains a Weight Loss task.
 
 Full task OCR: [full task ocr]
 
 Use the full screenshot and OCR text above to evaluate the task according to the Weight Loss criteria. Keep the reasoning tied to the visible task evidence.`,
-      chatProcessingPrompt: "",
+      chatProcessingPrompt: DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT,
+      chatProcessingAbstractionPrompt: DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT,
+      additionalContextPrompt: DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT,
+      ocrTaskInputPrompt: DEFAULT_OCR_TASK_INPUT_PROMPT,
+      commentDraftPrompt: DEFAULT_COMMENT_DRAFT_PROMPT,
+      repeatScreenshotPrompt: DEFAULT_REPEAT_SCREENSHOT_PROMPT,
       multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
     },
   ];
@@ -565,9 +710,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     additionalContextPrompt: typeof definition.additionalContextPrompt === "string"
       ? definition.additionalContextPrompt
       : "",
-    multiScreenshotBatchPrompt: typeof definition.multiScreenshotBatchPrompt === "string"
-      ? definition.multiScreenshotBatchPrompt
-      : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
+    ocrTaskInputPrompt: typeof definition.ocrTaskInputPrompt === "string"
+      ? definition.ocrTaskInputPrompt
+      : DEFAULT_OCR_TASK_INPUT_PROMPT,
+    commentDraftPrompt: typeof definition.commentDraftPrompt === "string"
+      ? definition.commentDraftPrompt
+      : DEFAULT_COMMENT_DRAFT_PROMPT,
+    repeatScreenshotPrompt: typeof definition.repeatScreenshotPrompt === "string"
+      ? definition.repeatScreenshotPrompt
+      : DEFAULT_REPEAT_SCREENSHOT_PROMPT,
+    multiScreenshotBatchPrompt: normalizeServerControlMultiScreenshotBatchPrompt(
+      definition.multiScreenshotBatchPrompt,
+    ),
   }));
   const ANALYSIS_SECTION_HEADINGS = [
     {
@@ -5299,10 +5453,12 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           normalizedUrl,
           status: ["queued", "opened", "done"].includes(item.status) ? item.status : "queued",
           taskType: typeof item.taskType === "string" ? item.taskType : "",
-          prompt: typeof item.prompt === "string" ? item.prompt : "",
+          prompt: typeof item.prompt === "string" && item.prompt.trim()
+            ? item.prompt
+            : getDefaultServerControlChatProcessingPromptForTaskType(item.taskType),
           abstractionPrompt: typeof item.abstractionPrompt === "string" && item.abstractionPrompt.trim()
             ? item.abstractionPrompt
-            : (item.taskType === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT : ""),
+            : getDefaultServerControlChatProcessingAbstractionPromptForTaskType(item.taskType),
         };
       })
       .filter(Boolean);
@@ -7632,6 +7788,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       actions: Array.from(actions),
       visibleActions,
       regions,
+      ocrTaskInputPrompt: typeof taskDefinition.ocrTaskInputPrompt === "string"
+        && taskDefinition.ocrTaskInputPrompt.trim()
+        ? taskDefinition.ocrTaskInputPrompt
+        : DEFAULT_OCR_TASK_INPUT_PROMPT,
+      commentDraftPrompt: typeof taskDefinition.commentDraftPrompt === "string"
+        && taskDefinition.commentDraftPrompt.trim()
+        ? taskDefinition.commentDraftPrompt
+        : DEFAULT_COMMENT_DRAFT_PROMPT,
+      repeatScreenshotPrompt: typeof taskDefinition.repeatScreenshotPrompt === "string"
+        ? taskDefinition.repeatScreenshotPrompt
+        : DEFAULT_REPEAT_SCREENSHOT_PROMPT,
+      multiScreenshotBatchPrompt: normalizeServerControlMultiScreenshotBatchPrompt(
+        taskDefinition.multiScreenshotBatchPrompt,
+      ),
     };
   }
 
@@ -7653,7 +7823,6 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     const sourceDefinitions = Array.isArray(rawValue) && rawValue.length > 0
       ? rawValue
       : DEFAULT_SERVER_CONTROL_TASK_TYPE_DEFINITIONS;
-    const addCommentDraftAction = Boolean(options.addCommentDraftAction);
     const usedTaskKeys = new Set();
     const regionDefinitionsByKey = new Map(
       DEFAULT_SERVER_CONTROL_REGION_DEFINITIONS.map((definition) => [
@@ -7691,22 +7860,24 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       }
 
       const actions = normalizeServerControlActionKeys(rawDefinition.actions);
-      if (addCommentDraftAction && !actions.includes("commentDraft")) {
+      if (!actions.includes("commentDraft")) {
         actions.push("commentDraft");
       }
-      if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_PROCESS_CHAT)) {
+      if (!actions.includes(SERVER_CONTROL_ACTION_PROCESS_CHAT)) {
         actions.push(SERVER_CONTROL_ACTION_PROCESS_CHAT);
       }
-      const addedAdditionalContextAction = (
-        key === "video-games"
-        && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)
-      );
-      if (key === "video-games" && !actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
+      if (!actions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
         actions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
       }
       const visibleActions = normalizeVisibleServerControlActionKeys(rawDefinition.visibleActions, actions);
-      if (addedAdditionalContextAction && !visibleActions.includes(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT)) {
-        visibleActions.push(SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT);
+      for (const actionKey of [
+        "commentDraft",
+        SERVER_CONTROL_ACTION_PROCESS_CHAT,
+        SERVER_CONTROL_ACTION_ADDITIONAL_CONTEXT,
+      ]) {
+        if (actions.includes(actionKey) && !visibleActions.includes(actionKey)) {
+          visibleActions.push(actionKey);
+        }
       }
 
       taskDefinitions.push(ensureServerControlTaskDefinitionFeatures({
@@ -7720,17 +7891,31 @@ Use the full screenshot and OCR text above to evaluate the task according to the
           ? rawDefinition.boilerplatePrompt.trim()
           : "",
         chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
+          && rawDefinition.chatProcessingPrompt.trim()
           ? rawDefinition.chatProcessingPrompt.trim()
-          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_PROCESSING_PROMPT : ""),
+          : getDefaultServerControlChatProcessingPromptForTaskType(key),
         chatProcessingAbstractionPrompt: typeof rawDefinition.chatProcessingAbstractionPrompt === "string"
+          && rawDefinition.chatProcessingAbstractionPrompt.trim()
           ? rawDefinition.chatProcessingAbstractionPrompt.trim()
-          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_CHAT_ABSTRACTION_PROMPT : ""),
+          : getDefaultServerControlChatProcessingAbstractionPromptForTaskType(key),
         additionalContextPrompt: typeof rawDefinition.additionalContextPrompt === "string"
+          && rawDefinition.additionalContextPrompt.trim()
           ? rawDefinition.additionalContextPrompt.trim()
-          : (key === "video-games" ? DEFAULT_VIDEO_GAMES_ADDITIONAL_CONTEXT_PROMPT : ""),
-        multiScreenshotBatchPrompt: typeof rawDefinition.multiScreenshotBatchPrompt === "string"
-          ? rawDefinition.multiScreenshotBatchPrompt.trim()
-          : DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
+          : getDefaultServerControlAdditionalContextPromptForTaskType(key),
+        ocrTaskInputPrompt: typeof rawDefinition.ocrTaskInputPrompt === "string"
+          && rawDefinition.ocrTaskInputPrompt.trim()
+          ? rawDefinition.ocrTaskInputPrompt.trim()
+          : DEFAULT_OCR_TASK_INPUT_PROMPT,
+        commentDraftPrompt: typeof rawDefinition.commentDraftPrompt === "string"
+          && rawDefinition.commentDraftPrompt.trim()
+          ? rawDefinition.commentDraftPrompt.trim()
+          : DEFAULT_COMMENT_DRAFT_PROMPT,
+        repeatScreenshotPrompt: typeof rawDefinition.repeatScreenshotPrompt === "string"
+          ? rawDefinition.repeatScreenshotPrompt.trim()
+          : DEFAULT_REPEAT_SCREENSHOT_PROMPT,
+        multiScreenshotBatchPrompt: normalizeServerControlMultiScreenshotBatchPrompt(
+          rawDefinition.multiScreenshotBatchPrompt,
+        ),
       }, regionDefinitionsByKey));
     }
 
@@ -8263,7 +8448,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function getActiveServerControlBoilerplatePrompt() {
-    return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || BOILERPLATE_PROMPT;
+    return getCurrentServerControlTaskTypeDefinition().boilerplatePrompt || "";
+  }
+
+  function getActiveServerControlOcrTaskInputPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().ocrTaskInputPrompt || DEFAULT_OCR_TASK_INPUT_PROMPT;
+  }
+
+  function getActiveServerControlCommentDraftPrompt() {
+    return getCurrentServerControlTaskTypeDefinition().commentDraftPrompt || DEFAULT_COMMENT_DRAFT_PROMPT;
+  }
+
+  function getActiveServerControlRepeatScreenshotPrompt() {
+    const prompt = getCurrentServerControlTaskTypeDefinition().repeatScreenshotPrompt;
+    return typeof prompt === "string" ? prompt : DEFAULT_REPEAT_SCREENSHOT_PROMPT;
   }
 
   function getActiveServerControlChatProcessingPrompt() {
@@ -8811,6 +9009,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
       processingMode: serverControlMenuState.processingMode,
       boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
+      ocrTaskInputPrompt: getActiveServerControlOcrTaskInputPrompt(),
+      commentDraftPrompt: getActiveServerControlCommentDraftPrompt(),
+      repeatScreenshotPrompt: getActiveServerControlRepeatScreenshotPrompt(),
       chatProcessingPrompt: getActiveServerControlChatProcessingPrompt(),
       chatProcessingAbstractionPrompt: getActiveServerControlChatProcessingAbstractionPrompt(),
       additionalContextPrompt: getActiveServerControlAdditionalContextPrompt(),
@@ -10523,12 +10724,20 @@ Use the full screenshot and OCR text above to evaluate the task according to the
   }
 
   function buildMultiScreenshotBatchPrompt(prompt, batchIndex, batchCount, firstScreenshotNumber, lastScreenshotNumber) {
-    return [
-      `Multi-screenshot batch ${batchIndex + 1} of ${batchCount}.`,
-      `The attached images are overall screenshot ${firstScreenshotNumber}`
-        + `${lastScreenshotNumber === firstScreenshotNumber ? "" : `-${lastScreenshotNumber}`} in the capture sequence.`,
-      prompt,
-    ].join("\n\n").trim();
+    const placeholderValues = {
+      "batch number": `${batchIndex + 1}`,
+      "batch count": `${batchCount}`,
+      "first screenshot": `${firstScreenshotNumber}`,
+      "last screenshot": `${lastScreenshotNumber}`,
+    };
+    let renderedPrompt = prompt;
+    for (const [placeholder, value] of Object.entries(placeholderValues)) {
+      renderedPrompt = renderedPrompt.replace(
+        new RegExp(`\\[${placeholder}\\]`, "gi"),
+        value,
+      );
+    }
+    return renderedPrompt.trim();
   }
 
   async function sendMultiScreenshotBatch(

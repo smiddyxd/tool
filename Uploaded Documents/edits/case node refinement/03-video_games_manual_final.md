@@ -50,26 +50,6 @@ A visible webpage URL can be sufficient evidence when it clearly points to Video
 
 Use only visible evidence from the screenshot or OCR text: visible text, visible URL, imagery, product name, CTA, page state, and visible branding. Do not assume what happens after clicking. Do not infer hidden landing-page behavior. If evidence is unclear, mark it unclear rather than inventing details.
 
-### Added guidance — screenshot/OCR grounding and external research
-
-Begin with the evidence visible in the task: visible text, URL, imagery, product name, advertiser/brand name, CTA, page state, and other visible branding.
-
-External research is permitted and should be used whenever it can materially clarify the identity or category relevance of something visible in the task.
-
-In particular:
-- If a visible advertiser, brand, company, product, app, service, site, game title, domain, or other named entity is unfamiliar or its identity is uncertain, research it before rating when that identity could affect the classification.
-- If an unfamiliar term or phrase could materially change the interpretation of the creative, research what it means rather than treating unfamiliarity as absence of evidence.
-- Do not rate a specific identifiable entity as generic, non-game-related, or Unrateable merely because its nature is not apparent from the creative itself.
-- Prefer authoritative first-party sources for entity identification, such as an official company/product site, official app-store listing, publisher/developer page, or other primary source. Use reliable secondary sources when primary sources do not resolve the question.
-- Research may establish what a visible named entity is, what business/category it belongs to, and what a visible named product or service does.
-
-Research does not permit inventing unseen ad behavior:
-- Do not assume what happens after clicking a CTA unless that destination is actually researched.
-- Do not infer an unseen landing page merely from a button such as “Open,” “Play,” or “Install.”
-- Keep visible evidence, verified research findings, and inference conceptually separate.
-
-“Use visible evidence” means ground the analysis in what the task actually presents; it does not mean ignoring externally verifiable information about the entities or terms that the task visibly names.
-
 ### Added guidance — Unrateable vs uncertain
 
 - Unrateable means you cannot assess the content at all because it failed to load, is in the wrong language, is behind a login wall, has too little visible evidence, or otherwise cannot be interpreted.

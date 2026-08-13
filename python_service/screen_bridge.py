@@ -4,6 +4,7 @@ import base64
 import ctypes
 import json
 import math
+import re
 import secrets
 import threading
 import time
@@ -68,17 +69,23 @@ TEXT_TASK_EVENT_TYPE = "text_task"
 ALERT_TASK_EVENT_TYPE = "alert_task"
 CONTROL_STATUS_EVENT_TYPE = "control_status"
 TEXT_TASK_QUERY_PREFIX = "query:"
-TEXT_TASK_INPUT_HEADER = "Task input below is provided as labeled OCR text instead of a screenshot."
 TEXT_TASK_QUERY_LABEL = "Query:"
 TEXT_TASK_PRODUCT_LABEL = "Product Text:"
 TEXT_TASK_OCR_WARNING_HEADER = "OCR warning:"
 TEXT_TASK_ABORT_HEADER = "OCR abort:"
-COMMENT_DRAFT_FEEDBACK_PROMPT = (
-    "Give me feedback on my rating comment. Use rating_comment_style_guide.md from the project context "
-    "as the style reference. Focus on making the comment sound natural, personally written, and consistent "
-    "with that guide while keeping the same meaning. Suggest a polished version if useful."
-)
-COMMENT_DRAFT_INPUT_HEADER = "Draft comment OCR:"
+DEFAULT_OCR_TASK_INPUT_PROMPT = """Task input below is provided as labeled OCR text instead of a screenshot.
+
+[ocr warning]
+
+Query:
+[query]
+
+Product Text:
+[product text]"""
+DEFAULT_COMMENT_DRAFT_PROMPT = """Give me feedback on my rating comment. Use rating_comment_style_guide.md from the project context as the style reference. Focus on making the comment sound natural, personally written, and consistent with that guide while keeping the same meaning. Suggest a polished version if useful.
+
+Draft comment OCR:
+[rating comment]"""
 MAX_CONTROL_COMMAND_FIELD_LENGTH = 500
 CONTROL_CANCEL_COMMAND = "cancel_control_processing"
 COMMENT_DRAFT_FEEDBACK_COMMAND = "draft_comment_feedback"
@@ -440,6 +447,9 @@ class SharedState:
     last_sent_task_reference: SentTaskReference | None = None
     active_task_type_key: str = DEFAULT_CONTROL_TASK_TYPE_KEY
     active_task_type_label: str = DEFAULT_CONTROL_TASK_TYPE_LABEL
+    active_boilerplate_prompt: str | None = None
+    active_repeat_screenshot_prompt: str | None = None
+    active_ocr_task_input_prompt: str | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def is_new_task(self, task_count: int) -> bool:
@@ -450,7 +460,15 @@ class SharedState:
         with self.lock:
             return self.last_seen_task_count
 
-    def set_active_task_type(self, task_type_key: str = "", task_type_label: str = "") -> tuple[str, str]:
+    def set_active_task_type(
+        self,
+        task_type_key: str = "",
+        task_type_label: str = "",
+        *,
+        boilerplate_prompt: str | None = None,
+        repeat_screenshot_prompt: str | None = None,
+        ocr_task_input_prompt: str | None = None,
+    ) -> tuple[str, str]:
         normalized_key = sanitize_control_command_field(task_type_key, 120)
         normalized_label = clean_ocr_text(str(task_type_label or ""))
         with self.lock:
@@ -460,11 +478,25 @@ class SharedState:
                 self.active_task_type_label = normalized_label
             elif normalized_key and not self.active_task_type_label:
                 self.active_task_type_label = normalized_key
+            if boilerplate_prompt is not None:
+                self.active_boilerplate_prompt = boilerplate_prompt.strip()
+            if repeat_screenshot_prompt is not None:
+                self.active_repeat_screenshot_prompt = repeat_screenshot_prompt.strip()
+            if ocr_task_input_prompt is not None:
+                self.active_ocr_task_input_prompt = ocr_task_input_prompt.strip()
             return self.active_task_type_key, self.active_task_type_label
 
     def get_active_task_type(self) -> tuple[str, str]:
         with self.lock:
             return self.active_task_type_key, self.active_task_type_label
+
+    def get_active_prompt_overrides(self) -> tuple[str | None, str | None, str | None]:
+        with self.lock:
+            return (
+                self.active_boilerplate_prompt,
+                self.active_repeat_screenshot_prompt,
+                self.active_ocr_task_input_prompt,
+            )
 
     def ignore_task(self, task_count: int) -> bool:
         with self.lock:
@@ -1316,6 +1348,17 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
     value = sanitize_control_command_field(payload.get("value"), 120)
     current_task_type = sanitize_control_command_field(payload.get("currentTaskType"), 120)
     current_task_type_label = sanitize_control_command_field(payload.get("currentTaskTypeLabel"), 160)
+    boilerplate_prompt = str(payload.get("boilerplatePrompt") or "").strip() if "boilerplatePrompt" in payload else None
+    repeat_screenshot_prompt = (
+        str(payload.get("repeatScreenshotPrompt") or "").strip()
+        if "repeatScreenshotPrompt" in payload
+        else None
+    )
+    ocr_task_input_prompt = (
+        str(payload.get("ocrTaskInputPrompt") or "").strip()
+        if "ocrTaskInputPrompt" in payload
+        else None
+    )
     processing_mode = sanitize_control_command_field(payload.get("processingMode"), 120)
     selected_region = sanitize_control_command_field(payload.get("selectedRegion"), 120)
     selected_region_label = sanitize_control_command_field(payload.get("selectedRegionLabel"), 160)
@@ -1362,6 +1405,9 @@ def handle_control_command_payload(payload: dict[str, Any]) -> dict[str, Any]:
         stored_task_type_key, stored_task_type_label = STATE.set_active_task_type(
             active_task_type_key,
             active_task_type_label,
+            boilerplate_prompt=boilerplate_prompt,
+            repeat_screenshot_prompt=repeat_screenshot_prompt,
+            ocr_task_input_prompt=ocr_task_input_prompt,
         )
         if command in {"set_task_type", "sync_task_type"}:
             print(
@@ -1553,6 +1599,7 @@ def get_control_payload_task_type_key(payload: dict[str, Any], fallback: str = "
 
 def resolve_control_task_settings(payload: dict[str, Any]) -> TaskSettings | None:
     config = CONFIG_CACHE.load()
+    matched_settings: TaskSettings | None = None
     candidates = [
         str(payload.get("currentTaskTypeLabel") or ""),
         str(payload.get("currentTaskType") or ""),
@@ -1563,21 +1610,34 @@ def resolve_control_task_settings(payload: dict[str, Any]) -> TaskSettings | Non
             continue
         settings = resolve_task_settings(task_type, config)
         if settings is not None:
-            return TaskSettings(
-                task_type=settings.task_type,
-                wait_for_edge=False,
-                prompts=settings.prompts,
-                repeat_prefix=settings.repeat_prefix,
-            )
+            matched_settings = settings
+            break
 
     boilerplate_prompt = str(payload.get("boilerplatePrompt") or "").strip()
+    has_repeat_prompt = "repeatScreenshotPrompt" in payload
+    repeat_prompt = str(payload.get("repeatScreenshotPrompt") or "").strip()
+    if matched_settings is not None:
+        return TaskSettings(
+            task_type=matched_settings.task_type,
+            wait_for_edge=False,
+            prompts=(boilerplate_prompt.replace("[TASK_TYPE]", matched_settings.task_type),)
+            if boilerplate_prompt
+            else matched_settings.prompts,
+            repeat_prefix=repeat_prompt.replace("[TASK_TYPE]", matched_settings.task_type)
+            if has_repeat_prompt
+            else matched_settings.repeat_prefix,
+        )
+
     if boilerplate_prompt:
         task_type = get_control_payload_task_type(payload)
         return TaskSettings(
             task_type=task_type,
             wait_for_edge=False,
             prompts=(boilerplate_prompt.replace("[TASK_TYPE]", task_type),),
-            repeat_prefix=DEFAULT_REPEAT_PREFIX.replace("[TASK_TYPE]", task_type),
+            repeat_prefix=(repeat_prompt if has_repeat_prompt else DEFAULT_REPEAT_PREFIX).replace(
+                "[TASK_TYPE]",
+                task_type,
+            ),
         )
 
     return resolve_test_task_settings(config)
@@ -1643,22 +1703,43 @@ def extract_plain_ocr_result_text(ocr_result: dict[str, Any]) -> str:
     return clean_multiline_ocr_text(str(ocr_result.get("text", "")))
 
 
-def build_comment_draft_feedback_prompt(comment_text: str) -> str:
-    return "\n\n".join(
-        [
-            COMMENT_DRAFT_FEEDBACK_PROMPT,
-            COMMENT_DRAFT_INPUT_HEADER,
-            comment_text.strip(),
-        ]
-    ).strip()
+def replace_prompt_template_placeholders(
+    template: str,
+    placeholder_values: dict[str, str],
+) -> tuple[str, set[str]]:
+    rendered = str(template or "")
+    replaced_keys: set[str] = set()
+    for key, value in placeholder_values.items():
+        pattern = re.compile(rf"\[{re.escape(key)}\]", re.IGNORECASE)
+        replacement = str(value or "").strip()
+        rendered, replacement_count = pattern.subn(lambda _match: replacement, rendered)
+        if replacement_count:
+            replaced_keys.add(key)
+    rendered = re.sub(r"\n[ \t]+\n", "\n\n", rendered)
+    rendered = re.sub(r"\n{3,}", "\n\n", rendered)
+    return rendered.strip(), replaced_keys
+
+
+def build_comment_draft_feedback_prompt(prompt_template: str, comment_text: str) -> str:
+    template = prompt_template.strip() or DEFAULT_COMMENT_DRAFT_PROMPT
+    rendered, replaced_keys = replace_prompt_template_placeholders(
+        template,
+        {"rating comment": comment_text},
+    )
+    if "rating comment" not in replaced_keys:
+        rendered = "\n\n".join([rendered, comment_text.strip()]).strip()
+    return rendered
 
 
 def build_additional_context_prompt(base_prompt: str, ocr_text: str = "") -> str:
-    parts = [base_prompt.strip()]
     cleaned_ocr_text = clean_multiline_ocr_text(ocr_text)
-    if cleaned_ocr_text:
-        parts.extend(["Additional context OCR:", cleaned_ocr_text])
-    return "\n\n".join(parts).strip()
+    rendered, replaced_keys = replace_prompt_template_placeholders(
+        base_prompt,
+        {"additional context ocr": cleaned_ocr_text},
+    )
+    if cleaned_ocr_text and "additional context ocr" not in replaced_keys:
+        rendered = "\n\n".join([rendered, cleaned_ocr_text]).strip()
+    return rendered
 
 
 def get_multi_screenshot_session_id(payload: dict[str, Any]) -> str:
@@ -1899,6 +1980,7 @@ def queue_control_ocr(payload: dict[str, Any]) -> bool:
         query_text,
         product_text,
         ocr_warning=ocr_warning,
+        input_prompt_template=str(payload.get("ocrTaskInputPrompt") or ""),
     )
     if not text_prompts:
         print(f"[control {timestamp_now()}] ocr no-text-prompts type={settings.task_type}", flush=True)
@@ -2066,7 +2148,10 @@ def queue_comment_draft_feedback(payload: dict[str, Any]) -> bool:
         )
         return False
 
-    prompt = build_comment_draft_feedback_prompt(comment_text)
+    prompt = build_comment_draft_feedback_prompt(
+        str(payload.get("commentDraftPrompt") or ""),
+        comment_text,
+    )
     STATE.publish_control_status_and_text_payload(
         run_id,
         "queued",
@@ -2761,6 +2846,22 @@ def apply_counted_task_type(settings: TaskSettings, counted_task_type: str) -> T
         repeat_prefix=settings.repeat_prefix,
     )
 
+
+def apply_active_task_prompt_overrides(settings: TaskSettings) -> TaskSettings:
+    boilerplate_prompt, repeat_screenshot_prompt, _ocr_task_input_prompt = STATE.get_active_prompt_overrides()
+    prompts = settings.prompts
+    if boilerplate_prompt:
+        prompts = (boilerplate_prompt.replace("[TASK_TYPE]", settings.task_type),)
+    repeat_prefix = settings.repeat_prefix
+    if repeat_screenshot_prompt is not None:
+        repeat_prefix = repeat_screenshot_prompt.replace("[TASK_TYPE]", settings.task_type)
+    return TaskSettings(
+        task_type=settings.task_type,
+        wait_for_edge=settings.wait_for_edge,
+        prompts=prompts,
+        repeat_prefix=repeat_prefix,
+    )
+
 def resolve_test_task_settings(config: dict[str, Any]) -> TaskSettings | None:
     for rule in config.get("rules", []):
         if not bool(rule.get("enabled", True)):
@@ -3147,25 +3248,39 @@ def get_text_task_abort_reasons(entry: dict[str, Any], query_text: str, product_
     return reasons
 
 
-def build_text_task_input(query_text: str, product_text: str, *, ocr_warning: str = "") -> str:
-    sections = [TEXT_TASK_INPUT_HEADER]
-    if ocr_warning.strip():
-        sections.extend(["", ocr_warning.strip()])
-    sections.extend(
-        [
-            "",
-            TEXT_TASK_QUERY_LABEL,
-            query_text,
-            "",
-            TEXT_TASK_PRODUCT_LABEL,
-            product_text,
-        ]
+def build_text_task_input(
+    query_text: str,
+    product_text: str,
+    *,
+    ocr_warning: str = "",
+    prompt_template: str = "",
+) -> str:
+    template = prompt_template.strip() or DEFAULT_OCR_TASK_INPUT_PROMPT
+    rendered, _replaced_keys = replace_prompt_template_placeholders(
+        template,
+        {
+            "query": query_text,
+            "product text": product_text,
+            "ocr warning": ocr_warning,
+        },
     )
-    return "\n".join(sections).strip()
+    return rendered
 
 
-def build_text_task_prompts(prompts: tuple[str, ...], query_text: str, product_text: str, *, ocr_warning: str = "") -> tuple[str, ...]:
-    task_input_text = build_text_task_input(query_text, product_text, ocr_warning=ocr_warning)
+def build_text_task_prompts(
+    prompts: tuple[str, ...],
+    query_text: str,
+    product_text: str,
+    *,
+    ocr_warning: str = "",
+    input_prompt_template: str = "",
+) -> tuple[str, ...]:
+    task_input_text = build_text_task_input(
+        query_text,
+        product_text,
+        ocr_warning=ocr_warning,
+        prompt_template=input_prompt_template,
+    )
     return tuple(f"{prompt}\n\n{task_input_text}".strip() for prompt in prompts if str(prompt).strip())
 
 
@@ -3690,6 +3805,7 @@ def monitor_screen() -> None:
                             flush=True,
                         )
                     else:
+                        test_settings = apply_active_task_prompt_overrides(test_settings)
                         screenshot_png = build_screenshot_payload(frame_bgr)
                         effective_task_count = task_count if task_count is not None else 0
                         STATE.remember_repeatable_task(
@@ -3736,6 +3852,7 @@ def monitor_screen() -> None:
                                 flush=True,
                             )
                         else:
+                            test_settings = apply_active_task_prompt_overrides(test_settings)
                             query_text, product_text = extract_text_task_parts(entry)
                             effective_task_count = task_count if task_count is not None else 0
                             ocr_warning = build_text_task_ocr_warning(entry)
@@ -3758,11 +3875,15 @@ def monitor_screen() -> None:
                                         flush=True,
                                     )
                             else:
+                                _active_boilerplate, _active_repeat, active_ocr_input_prompt = (
+                                    STATE.get_active_prompt_overrides()
+                                )
                                 text_prompts = build_text_task_prompts(
                                     test_settings.prompts,
                                     query_text,
                                     product_text,
                                     ocr_warning=ocr_warning,
+                                    input_prompt_template=active_ocr_input_prompt or "",
                                 )
                                 if text_prompts:
                                     STATE.publish_text_payload(
@@ -3817,6 +3938,7 @@ def monitor_screen() -> None:
                             )
                             counter_status_reported = True
                     else:
+                        settings = apply_active_task_prompt_overrides(settings)
                         settings = apply_counted_task_type(settings, counted_task_type)
                         action = STATE.register_task(task_count, settings)
                         if action == "ready":

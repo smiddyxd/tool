@@ -160,11 +160,16 @@ The options page also edits the control-menu task type definitions stored in Chr
 - enable Google search results, which adds the `Google search` processing button and `Google results` region
 - enable comment feedback, which adds the `Comment` processing button and `Rating comment` OCR region
 - enable full task screenshot, which adds the `Screenshot` processing button and `Full task screenshot` region
+- enable chat saving, which adds the `Save for processing` button and stores the current ChatGPT chat in the Options page queue
+- enable additional context, which adds the `Add context` processing button for follow-up screenshots/OCR
 - enable OCR and add one or more OCR regions
 - toggle whether the ChatGPT `Search` chip must be present before the prompt is inserted
 - edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
 - set the on-screen processing-zone divider translucence and separate top/bottom visible segment lengths
-- edit the boilerplate prompt and insert case-insensitive region placeholders such as `[query]` or `[full task ocr]`
+- edit every task-facing instruction under `Boilerplate prompt`: the main boilerplate, OCR input template, rating-comment feedback, repeat screenshot, saved-chat processing, abstraction, additional context, and multi-screenshot batch prompts
+- use `[query]`, `[product text]`, and `[ocr warning]` in the OCR input template, and `[rating comment]` in the rating-comment feedback prompt
+- use `[batch number]`, `[batch count]`, `[first screenshot]`, and `[last screenshot]` to place dynamic batch metadata inside the multi-screenshot prompt
+- leave the repeat screenshot prompt blank to repeat the main boilerplate without prepending another instruction
 
 Prompt placeholder behavior:
 - Put placeholder fields on their own labeled line, for example `Query: [query]`.
@@ -181,10 +186,10 @@ Keyword highlight rules and Analysis TOC button settings are task-type-specific.
 `Search Experience to Product Usefulness` keeps its built-in Analysis TOC targets and can also have custom string TOC buttons. Custom TOC entries define a button label plus one or more response text strings to find, one per line in options. Matching is case-insensitive by default, but each TOC button has a Case toggle that requires exact casing when enabled. Those custom targets are HTML-agnostic; the content script scans the latest assistant response text, so the target does not have to be rendered as an actual heading tag. Repeated clicks on a custom string button cycle through repeated occurrences in that latest response. If a task type has no custom TOC buttons yet, the options page offers a source-task dropdown that copies another task type's TOC buttons and button settings into it.
 
 Configured task types:
-- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, `Rating comment`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, `Google search`, and `Comment`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
-- `Get Rich Quick`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
-- `Video Games`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
-- `Weight Loss`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, and `Comment`.
+- `Search Experience to Product Usefulness`: regions are `Query`, `Product card`, `Product description`, universal `Google results`, `Rating comment`, and `Full task screenshot`; actions are `OCR`, `Screenshot`, `Google search`, `Comment`, `Save for processing`, `Add context`, and `Multi-Screenshot`; the default boilerplate includes `[query]`, `[product card]`, `[product description]`, and `[google results]`.
+- `Get Rich Quick`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, `Comment`, `Save for processing`, `Add context`, and `Multi-Screenshot`.
+- `Video Games`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, `Comment`, `Save for processing`, `Add context`, and `Multi-Screenshot`.
+- `Weight Loss`: regions are `Full task screenshot`, `Full task OCR`, and `Rating comment`; actions are `OCR`, `Screenshot`, `Comment`, `Save for processing`, `Add context`, and `Multi-Screenshot`.
 
 Region coordinates are stored in Chrome extension local storage as side coordinates:
 - `top`: top Y coordinate
@@ -269,6 +274,7 @@ Notes:
 - `test_trigger=true` marks the rule used by the manual `Shift+Alt+Z` test run
 - rules are checked in order; the first match wins
 - `[TASK_TYPE]` inside each prompt is replaced with the selected bridge-control task type text used to resolve the automation rule
+- after a ChatGPT tab syncs the active task type, that task type's Options-page boilerplate and repeat screenshot prompt override the matching config rule's prompt text; the config still controls whether the task is enabled and whether it waits for the edge trigger
 - with `default.enabled=false`, unmatched task types are ignored completely
 
 ## PaddleOCR manual test

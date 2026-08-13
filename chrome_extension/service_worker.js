@@ -188,6 +188,62 @@ const BRIDGE_TASK_TYPE_DEFINITIONS = [
     label: "Weight Loss",
   },
 ];
+const DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT = `Process this completed rating chat for the current task type.
+
+Use the chat history, attached task screenshot/OCR if present, and the final rating comment below to extract reusable reasoning notes and comment-writing patterns.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]
+
+Preserve the final verdict unless the final comment is internally inconsistent with the visible evidence. Use only visible evidence from the screenshot/OCR/chat. Do not assume hidden landing-page behavior.
+
+Output:
+- Case summary
+- Reusable decision principle
+- Reusable comment-pattern principle
+- Boundary conditions or caveats
+- Any wording that should be reused or avoided`;
+const DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT = `Before processing this completed rating chat, identify the best reusable abstraction frame.
+
+Use the chat history, attached screenshot/OCR if present, and the final rating comment as the verdict anchor.
+
+Please do the following:
+
+1. Identify the concrete case.
+2. List several possible abstraction levels, from narrowest to broadest.
+3. Explain what each level captures and what it might miss.
+4. Recommend the best abstraction level for a reusable task-type guide note.
+5. State the reusable decision principle in one sentence.
+6. State the reusable comment-pattern principle in one sentence.
+7. Preserve the final verdict unless the final comment is internally inconsistent with the visible evidence.
+
+Final rating comment:
+[PASTE FINAL COMMENT HERE]`;
+const DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT = `Consider this additional visible context for the current rating task. The input may be an attached screenshot, OCR text, or both.
+
+Compare this new visible context against the earlier rating and explain whether it meaningfully changes the rating, confidence, reusable-case fit, or comment.
+
+Use only visible evidence from the added context. Do not assume anything beyond what is shown.
+
+Output:
+- Does this change the rating? Yes / No / Maybe
+- Why or why not?
+- Updated rating, if changed
+- Updated comment, if useful`;
+const DEFAULT_OCR_TASK_INPUT_PROMPT = `Task input below is provided as labeled OCR text instead of a screenshot.
+
+[ocr warning]
+
+Query:
+[query]
+
+Product Text:
+[product text]`;
+const DEFAULT_COMMENT_DRAFT_PROMPT = `Give me feedback on my rating comment. Use rating_comment_style_guide.md from the project context as the style reference. Focus on making the comment sound natural, personally written, and consistent with that guide while keeping the same meaning. Suggest a polished version if useful.
+
+Draft comment OCR:
+[rating comment]`;
+const DEFAULT_REPEAT_SCREENSHOT_PROMPT = `Use the Google search screenshots to identify the user intent of the query that is most relatable to the product, assume that as the user intent, and update your final judgment accordingly.`;
 const DEFAULT_TASK_TYPE_PROJECT_IDS = Object.fromEntries(
   BRIDGE_TASK_TYPE_DEFINITIONS.map((definition) => [
     definition.key,
@@ -1430,6 +1486,136 @@ function getBridgeTaskTypeLabel(taskType) {
     ?? taskType;
 }
 
+function getDefaultChatProcessingPromptForTaskType() {
+  return DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT;
+}
+
+function getDefaultChatProcessingAbstractionPromptForTaskType() {
+  return DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT;
+}
+
+function getDefaultAdditionalContextPromptForTaskType() {
+  return DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT;
+}
+
+function normalizeStoredServerControlTaskDefinitions(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue.filter((definition) => (
+      definition && typeof definition === "object" && !Array.isArray(definition)
+    ));
+  }
+
+  if (!rawValue || typeof rawValue !== "object") {
+    return [];
+  }
+
+  return Object.entries(rawValue)
+    .map(([key, definition]) => {
+      if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
+        return null;
+      }
+
+      return {
+        ...definition,
+        key: typeof definition.key === "string" && definition.key.trim()
+          ? definition.key.trim()
+          : key,
+      };
+    })
+    .filter(Boolean);
+}
+
+function findStoredServerControlTaskDefinition(definitions, taskType) {
+  const sanitizedTaskType = sanitizeBridgeTaskType(taskType);
+  const taskTypeAlias = normalizeBridgeTaskTypeAlias(taskType || sanitizedTaskType);
+  return definitions.find((definition) => {
+    const key = typeof definition.key === "string" ? definition.key.trim() : "";
+    const label = typeof definition.label === "string" ? definition.label.trim() : "";
+    return key === sanitizedTaskType
+      || normalizeBridgeTaskTypeAlias(key) === taskTypeAlias
+      || normalizeBridgeTaskTypeAlias(label) === taskTypeAlias;
+  }) ?? null;
+}
+
+async function getStoredServerControlTaskDefinition(taskType) {
+  try {
+    const stored = await chrome.storage.local.get({
+      [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
+    });
+    return findStoredServerControlTaskDefinition(
+      normalizeStoredServerControlTaskDefinitions(stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]),
+      taskType,
+    );
+  } catch (_error) {
+    return null;
+  }
+}
+
+function getPromptFieldValue(definition, fieldName, fallback) {
+  const value = definition && typeof definition[fieldName] === "string"
+    ? definition[fieldName].trim()
+    : "";
+  return value || fallback;
+}
+
+async function withServerControlPromptFallbacks(payload) {
+  const nextPayload = {
+    ...(payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}),
+  };
+  const taskType = sanitizeBridgeTaskType(nextPayload.currentTaskType || nextPayload.taskType || "");
+  const definition = await getStoredServerControlTaskDefinition(taskType);
+
+  if (!(typeof nextPayload.boilerplatePrompt === "string" && nextPayload.boilerplatePrompt.trim())) {
+    nextPayload.boilerplatePrompt = getPromptFieldValue(definition, "boilerplatePrompt", "");
+  }
+  if (!(typeof nextPayload.ocrTaskInputPrompt === "string" && nextPayload.ocrTaskInputPrompt.trim())) {
+    nextPayload.ocrTaskInputPrompt = getPromptFieldValue(
+      definition,
+      "ocrTaskInputPrompt",
+      DEFAULT_OCR_TASK_INPUT_PROMPT,
+    );
+  }
+  if (!(typeof nextPayload.commentDraftPrompt === "string" && nextPayload.commentDraftPrompt.trim())) {
+    nextPayload.commentDraftPrompt = getPromptFieldValue(
+      definition,
+      "commentDraftPrompt",
+      DEFAULT_COMMENT_DRAFT_PROMPT,
+    );
+  }
+  if (typeof nextPayload.repeatScreenshotPrompt !== "string") {
+    nextPayload.repeatScreenshotPrompt = definition && typeof definition.repeatScreenshotPrompt === "string"
+      ? definition.repeatScreenshotPrompt.trim()
+      : DEFAULT_REPEAT_SCREENSHOT_PROMPT;
+  }
+
+  if (!(typeof nextPayload.chatProcessingPrompt === "string" && nextPayload.chatProcessingPrompt.trim())) {
+    nextPayload.chatProcessingPrompt = getPromptFieldValue(
+      definition,
+      "chatProcessingPrompt",
+      getDefaultChatProcessingPromptForTaskType(taskType),
+    );
+  }
+  if (
+    !(typeof nextPayload.chatProcessingAbstractionPrompt === "string"
+      && nextPayload.chatProcessingAbstractionPrompt.trim())
+  ) {
+    nextPayload.chatProcessingAbstractionPrompt = getPromptFieldValue(
+      definition,
+      "chatProcessingAbstractionPrompt",
+      getDefaultChatProcessingAbstractionPromptForTaskType(taskType),
+    );
+  }
+  if (!(typeof nextPayload.additionalContextPrompt === "string" && nextPayload.additionalContextPrompt.trim())) {
+    nextPayload.additionalContextPrompt = getPromptFieldValue(
+      definition,
+      "additionalContextPrompt",
+      getDefaultAdditionalContextPromptForTaskType(taskType),
+    );
+  }
+
+  return nextPayload;
+}
+
 function sanitizeProjectAccountKey(value) {
   const accountKey = typeof value === "string" ? value.trim() : "";
   return PROJECT_ACCOUNT_DEFINITIONS.some((definition) => definition.key === accountKey)
@@ -1740,18 +1926,19 @@ async function resolveBridgeTaskType(value) {
   const taskTypeAlias = normalizeBridgeTaskTypeAlias(taskType);
   try {
     const stored = await chrome.storage.local.get({
-      [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: {},
+      [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: null,
     });
-    const definitions = stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS];
-    if (definitions && typeof definitions === "object" && !Array.isArray(definitions)) {
-      for (const [key, definition] of Object.entries(definitions)) {
-        const label = definition && typeof definition === "object" ? definition.label : "";
-        if (
-          normalizeBridgeTaskTypeAlias(key) === taskTypeAlias
-          || normalizeBridgeTaskTypeAlias(label) === taskTypeAlias
-        ) {
-          return key;
-        }
+    const definitions = normalizeStoredServerControlTaskDefinitions(
+      stored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
+    );
+    for (const definition of definitions) {
+      const key = typeof definition.key === "string" ? definition.key.trim() : "";
+      const label = typeof definition.label === "string" ? definition.label.trim() : "";
+      if (
+        normalizeBridgeTaskTypeAlias(key) === taskTypeAlias
+        || normalizeBridgeTaskTypeAlias(label) === taskTypeAlias
+      ) {
+        return key || sanitizedTaskType;
       }
     }
   } catch (_error) {
@@ -3260,19 +3447,24 @@ function normalizeChatProcessingQueue(rawValue) {
       }
       seenIds.add(id);
 
+      const taskType = sanitizeBridgeTaskType(item.taskType);
       return {
         id,
         url,
         normalizedUrl,
         title: typeof item.title === "string" && item.title.trim() ? item.title.trim() : "ChatGPT chat",
-        taskType: sanitizeBridgeTaskType(item.taskType),
+        taskType,
         taskTypeLabel: typeof item.taskTypeLabel === "string" ? item.taskTypeLabel.trim() : "",
         status: ["queued", "opened", "done"].includes(item.status) ? item.status : "queued",
         savedAt: typeof item.savedAt === "string" ? item.savedAt : "",
         openedAt: typeof item.openedAt === "string" ? item.openedAt : "",
         doneAt: typeof item.doneAt === "string" ? item.doneAt : "",
-        prompt: typeof item.prompt === "string" ? item.prompt : "",
-        abstractionPrompt: typeof item.abstractionPrompt === "string" ? item.abstractionPrompt : "",
+        prompt: typeof item.prompt === "string" && item.prompt.trim()
+          ? item.prompt
+          : getDefaultChatProcessingPromptForTaskType(taskType),
+        abstractionPrompt: typeof item.abstractionPrompt === "string" && item.abstractionPrompt.trim()
+          ? item.abstractionPrompt
+          : getDefaultChatProcessingAbstractionPromptForTaskType(taskType),
       };
     })
     .filter(Boolean);
@@ -3287,20 +3479,23 @@ function createChatProcessingItemId() {
 }
 
 async function saveProcessChatForLater(payload) {
-  const pageUrl = typeof payload.pageUrl === "string" && payload.pageUrl
-    ? payload.pageUrl
-    : (typeof payload.tabUrl === "string" ? payload.tabUrl : "");
+  const resolvedPayload = await withServerControlPromptFallbacks(payload);
+  const pageUrl = typeof resolvedPayload.pageUrl === "string" && resolvedPayload.pageUrl
+    ? resolvedPayload.pageUrl
+    : (typeof resolvedPayload.tabUrl === "string" ? resolvedPayload.tabUrl : "");
   const normalizedUrl = normalizeChatProcessingUrl(pageUrl);
   if (!normalizedUrl || !isChatGptUrl(normalizedUrl)) {
     return { ok: false, error: "Save for processing can only save a ChatGPT chat URL." };
   }
 
-  const prompt = typeof payload.chatProcessingPrompt === "string" ? payload.chatProcessingPrompt.trim() : "";
+  const prompt = typeof resolvedPayload.chatProcessingPrompt === "string"
+    ? resolvedPayload.chatProcessingPrompt.trim()
+    : "";
   if (!prompt) {
     return { ok: false, error: "Save for processing prompt is empty. Set it in Options first." };
   }
-  const abstractionPrompt = typeof payload.chatProcessingAbstractionPrompt === "string"
-    ? payload.chatProcessingAbstractionPrompt.trim()
+  const abstractionPrompt = typeof resolvedPayload.chatProcessingAbstractionPrompt === "string"
+    ? resolvedPayload.chatProcessingAbstractionPrompt.trim()
     : "";
 
   const stored = await chrome.storage.local.get({
@@ -3314,11 +3509,13 @@ async function saveProcessChatForLater(payload) {
     id: existing?.id ?? createChatProcessingItemId(),
     url: pageUrl,
     normalizedUrl,
-    title: typeof payload.pageTitle === "string" && payload.pageTitle.trim()
-      ? payload.pageTitle.trim()
+    title: typeof resolvedPayload.pageTitle === "string" && resolvedPayload.pageTitle.trim()
+      ? resolvedPayload.pageTitle.trim()
       : "ChatGPT chat",
-    taskType: sanitizeBridgeTaskType(payload.currentTaskType),
-    taskTypeLabel: typeof payload.currentTaskTypeLabel === "string" ? payload.currentTaskTypeLabel.trim() : "",
+    taskType: sanitizeBridgeTaskType(resolvedPayload.currentTaskType),
+    taskTypeLabel: typeof resolvedPayload.currentTaskTypeLabel === "string"
+      ? resolvedPayload.currentTaskTypeLabel.trim()
+      : "",
     status: "opened",
     savedAt: existing?.savedAt || now,
     openedAt: now,
@@ -3374,11 +3571,11 @@ async function sendServerControlCommand(command, sender) {
     }
   }
 
-  const basePayload = {
+  const basePayload = await withServerControlPromptFallbacks({
     ...(command && typeof command === "object" && !Array.isArray(command) ? command : {}),
     tabId: sender?.tab?.id ?? null,
     tabUrl: sender?.tab?.url ?? "",
-  };
+  });
   if (basePayload.command === "process_chat") {
     if (controlRunId) {
       rememberControlRunTab(controlRunId, basePayload.tabId);

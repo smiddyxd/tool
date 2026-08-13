@@ -1435,6 +1435,24 @@
 
           <div id="task-type-placeholder-buttons" class="placeholder-buttons" aria-label="Prompt placeholders"></div>
 
+          <label for="task-type-ocr-input-prompt">
+            OCR task input template
+            <textarea id="task-type-ocr-input-prompt" rows="8" spellcheck="true"></textarea>
+            <p class="hint">Appended to the boilerplate prompt when task OCR is sent instead of a screenshot. Supports [query], [product text], and [ocr warning].</p>
+          </label>
+
+          <label for="task-type-comment-draft-prompt">
+            Rating comment feedback prompt
+            <textarea id="task-type-comment-draft-prompt" rows="7" spellcheck="true"></textarea>
+            <p class="hint">Used by the Comment action. Put [rating comment] where the OCRed draft should be inserted.</p>
+          </label>
+
+          <label for="task-type-repeat-screenshot-prompt">
+            Repeat screenshot prompt
+            <textarea id="task-type-repeat-screenshot-prompt" rows="5" spellcheck="true"></textarea>
+            <p class="hint">Prepended to the boilerplate prompt for repeat captures. Leave blank to resend the boilerplate prompt without an extra instruction.</p>
+          </label>
+
           <label for="task-type-chat-processing-prompt">
             Chat processing prompt
             <textarea id="task-type-chat-processing-prompt" rows="9" spellcheck="true"></textarea>
@@ -1450,13 +1468,13 @@
           <label for="task-type-additional-context-prompt">
             Additional context prompt
             <textarea id="task-type-additional-context-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used by the Add context bridge-control action. It attaches a fresh screenshot, adds OCR text when available, and sends it into the current chat.</p>
+            <p class="hint">Used by the Add context bridge-control action. It attaches a fresh screenshot and sends OCR text into the current chat. Add [additional context ocr] to choose where that text appears; otherwise it is appended.</p>
           </label>
 
           <label for="task-type-multi-screenshot-batch-prompt">
             Multi-screenshot batch prompt
             <textarea id="task-type-multi-screenshot-batch-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used for each group of up to 10 captured screenshots before the final boilerplate prompt is sent.</p>
+            <p class="hint">Used for each screenshot group before the final boilerplate prompt. Supports [batch number], [batch count], [first screenshot], and [last screenshot].</p>
           </label>
         </section>
 

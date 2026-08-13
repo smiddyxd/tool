@@ -2,12 +2,6 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../../extensions/yt-transcript-chatgpt-gemini"
-		},
-		{
-			"path": "C:/Users/Alex/telus"
 		}
 	],
 	"settings": {}
