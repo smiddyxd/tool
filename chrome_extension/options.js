@@ -923,6 +923,14 @@ function normalizeTaskRequireWebSearchChip(value) {
   return value !== false;
 }
 
+function normalizeTaskPromptAutoSend(value) {
+  return value !== false;
+}
+
+function normalizeTaskPromptUseOcr(value) {
+  return value !== false;
+}
+
 function normalizeTaskRegionKind(value) {
   const kind = typeof value === "string" ? value.trim() : "";
   if ([TASK_REGION_KIND_OCR, TASK_REGION_KIND_SCREENSHOT, TASK_REGION_KIND_GOOGLE_RESULTS].includes(kind)) {
@@ -1043,6 +1051,14 @@ function ensureTaskDefinitionFeatures(taskDefinition) {
     actions: Array.from(actions),
     visibleActions,
     regions,
+    boilerplateAutoSend: normalizeTaskPromptAutoSend(taskDefinition.boilerplateAutoSend),
+    ocrTaskInputAutoSend: normalizeTaskPromptAutoSend(taskDefinition.ocrTaskInputAutoSend),
+    commentDraftUseOcr: normalizeTaskPromptUseOcr(taskDefinition.commentDraftUseOcr),
+    commentDraftAutoSend: normalizeTaskPromptAutoSend(taskDefinition.commentDraftAutoSend),
+    repeatScreenshotAutoSend: normalizeTaskPromptAutoSend(taskDefinition.repeatScreenshotAutoSend),
+    additionalContextUseOcr: normalizeTaskPromptUseOcr(taskDefinition.additionalContextUseOcr),
+    additionalContextAutoSend: normalizeTaskPromptAutoSend(taskDefinition.additionalContextAutoSend),
+    multiScreenshotFinalAutoSend: normalizeTaskPromptAutoSend(taskDefinition.multiScreenshotFinalAutoSend),
     ocrTaskInputPrompt: typeof taskDefinition.ocrTaskInputPrompt === "string"
       && taskDefinition.ocrTaskInputPrompt.trim()
       ? taskDefinition.ocrTaskInputPrompt
@@ -1130,6 +1146,14 @@ function sanitizeTaskTypeDefinitions(rawValue, options = {}) {
       boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
         ? rawDefinition.boilerplatePrompt.trim()
         : "",
+      boilerplateAutoSend: normalizeTaskPromptAutoSend(rawDefinition.boilerplateAutoSend),
+      ocrTaskInputAutoSend: normalizeTaskPromptAutoSend(rawDefinition.ocrTaskInputAutoSend),
+      commentDraftUseOcr: normalizeTaskPromptUseOcr(rawDefinition.commentDraftUseOcr),
+      commentDraftAutoSend: normalizeTaskPromptAutoSend(rawDefinition.commentDraftAutoSend),
+      repeatScreenshotAutoSend: normalizeTaskPromptAutoSend(rawDefinition.repeatScreenshotAutoSend),
+      additionalContextUseOcr: normalizeTaskPromptUseOcr(rawDefinition.additionalContextUseOcr),
+      additionalContextAutoSend: normalizeTaskPromptAutoSend(rawDefinition.additionalContextAutoSend),
+      multiScreenshotFinalAutoSend: normalizeTaskPromptAutoSend(rawDefinition.multiScreenshotFinalAutoSend),
       chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
         && rawDefinition.chatProcessingPrompt.trim()
         ? rawDefinition.chatProcessingPrompt.trim()
@@ -3181,24 +3205,40 @@ function syncTaskTypeDefinitionEditorValues() {
   const activeTaskType = highlightState.activeBridgeTaskType;
   const labelInput = document.querySelector("#task-type-label");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const boilerplateAutoSendInput = document.querySelector("#task-type-boilerplate-auto-send");
   const ocrInputPromptInput = document.querySelector("#task-type-ocr-input-prompt");
+  const ocrInputAutoSendInput = document.querySelector("#task-type-ocr-input-auto-send");
   const commentDraftPromptInput = document.querySelector("#task-type-comment-draft-prompt");
+  const commentDraftUseOcrInput = document.querySelector("#task-type-comment-draft-use-ocr");
+  const commentDraftAutoSendInput = document.querySelector("#task-type-comment-draft-auto-send");
   const repeatScreenshotPromptInput = document.querySelector("#task-type-repeat-screenshot-prompt");
+  const repeatScreenshotAutoSendInput = document.querySelector("#task-type-repeat-screenshot-auto-send");
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const additionalContextUseOcrInput = document.querySelector("#task-type-additional-context-use-ocr");
+  const additionalContextAutoSendInput = document.querySelector("#task-type-additional-context-auto-send");
   const multiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
+  const multiScreenshotFinalAutoSendInput = document.querySelector("#task-type-multi-screenshot-final-auto-send");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   if (
     !(labelInput instanceof HTMLInputElement)
     && !(promptInput instanceof HTMLTextAreaElement)
+    && !(boilerplateAutoSendInput instanceof HTMLInputElement)
     && !(ocrInputPromptInput instanceof HTMLTextAreaElement)
+    && !(ocrInputAutoSendInput instanceof HTMLInputElement)
     && !(commentDraftPromptInput instanceof HTMLTextAreaElement)
+    && !(commentDraftUseOcrInput instanceof HTMLInputElement)
+    && !(commentDraftAutoSendInput instanceof HTMLInputElement)
     && !(repeatScreenshotPromptInput instanceof HTMLTextAreaElement)
+    && !(repeatScreenshotAutoSendInput instanceof HTMLInputElement)
     && !(chatPromptInput instanceof HTMLTextAreaElement)
     && !(chatAbstractionPromptInput instanceof HTMLTextAreaElement)
     && !(additionalContextPromptInput instanceof HTMLTextAreaElement)
+    && !(additionalContextUseOcrInput instanceof HTMLInputElement)
+    && !(additionalContextAutoSendInput instanceof HTMLInputElement)
     && !(multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement)
+    && !(multiScreenshotFinalAutoSendInput instanceof HTMLInputElement)
     && !(requireSearchChipInput instanceof HTMLInputElement)
   ) {
     return;
@@ -3220,15 +3260,30 @@ function syncTaskTypeDefinitionEditorValues() {
       boilerplatePrompt: promptInput instanceof HTMLTextAreaElement
         ? promptInput.value
         : definition.boilerplatePrompt,
+      boilerplateAutoSend: boilerplateAutoSendInput instanceof HTMLInputElement
+        ? boilerplateAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.boilerplateAutoSend),
       ocrTaskInputPrompt: ocrInputPromptInput instanceof HTMLTextAreaElement
         ? ocrInputPromptInput.value
         : (definition.ocrTaskInputPrompt ?? ""),
+      ocrTaskInputAutoSend: ocrInputAutoSendInput instanceof HTMLInputElement
+        ? ocrInputAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.ocrTaskInputAutoSend),
       commentDraftPrompt: commentDraftPromptInput instanceof HTMLTextAreaElement
         ? commentDraftPromptInput.value
         : (definition.commentDraftPrompt ?? ""),
+      commentDraftUseOcr: commentDraftUseOcrInput instanceof HTMLInputElement
+        ? commentDraftUseOcrInput.checked
+        : normalizeTaskPromptUseOcr(definition.commentDraftUseOcr),
+      commentDraftAutoSend: commentDraftAutoSendInput instanceof HTMLInputElement
+        ? commentDraftAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.commentDraftAutoSend),
       repeatScreenshotPrompt: repeatScreenshotPromptInput instanceof HTMLTextAreaElement
         ? repeatScreenshotPromptInput.value
         : (definition.repeatScreenshotPrompt ?? ""),
+      repeatScreenshotAutoSend: repeatScreenshotAutoSendInput instanceof HTMLInputElement
+        ? repeatScreenshotAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.repeatScreenshotAutoSend),
       chatProcessingPrompt: chatPromptInput instanceof HTMLTextAreaElement
         ? chatPromptInput.value
         : (definition.chatProcessingPrompt ?? ""),
@@ -3238,9 +3293,18 @@ function syncTaskTypeDefinitionEditorValues() {
       additionalContextPrompt: additionalContextPromptInput instanceof HTMLTextAreaElement
         ? additionalContextPromptInput.value
         : (definition.additionalContextPrompt ?? ""),
+      additionalContextUseOcr: additionalContextUseOcrInput instanceof HTMLInputElement
+        ? additionalContextUseOcrInput.checked
+        : normalizeTaskPromptUseOcr(definition.additionalContextUseOcr),
+      additionalContextAutoSend: additionalContextAutoSendInput instanceof HTMLInputElement
+        ? additionalContextAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.additionalContextAutoSend),
       multiScreenshotBatchPrompt: multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement
         ? multiScreenshotBatchPromptInput.value
         : (definition.multiScreenshotBatchPrompt ?? ""),
+      multiScreenshotFinalAutoSend: multiScreenshotFinalAutoSendInput instanceof HTMLInputElement
+        ? multiScreenshotFinalAutoSendInput.checked
+        : normalizeTaskPromptAutoSend(definition.multiScreenshotFinalAutoSend),
     };
   });
 }
@@ -3593,13 +3657,21 @@ function renderTaskTypeConfiguration() {
   const labelInput = document.querySelector("#task-type-label");
   const keyText = document.querySelector("#task-type-key");
   const promptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const boilerplateAutoSendInput = document.querySelector("#task-type-boilerplate-auto-send");
   const ocrInputPromptInput = document.querySelector("#task-type-ocr-input-prompt");
+  const ocrInputAutoSendInput = document.querySelector("#task-type-ocr-input-auto-send");
   const commentDraftPromptInput = document.querySelector("#task-type-comment-draft-prompt");
+  const commentDraftUseOcrInput = document.querySelector("#task-type-comment-draft-use-ocr");
+  const commentDraftAutoSendInput = document.querySelector("#task-type-comment-draft-auto-send");
   const repeatScreenshotPromptInput = document.querySelector("#task-type-repeat-screenshot-prompt");
+  const repeatScreenshotAutoSendInput = document.querySelector("#task-type-repeat-screenshot-auto-send");
   const chatPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const chatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const additionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const additionalContextUseOcrInput = document.querySelector("#task-type-additional-context-use-ocr");
+  const additionalContextAutoSendInput = document.querySelector("#task-type-additional-context-auto-send");
   const multiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
+  const multiScreenshotFinalAutoSendInput = document.querySelector("#task-type-multi-screenshot-final-auto-send");
   const requireSearchChipInput = document.querySelector("#task-type-require-search-chip");
   const deleteButton = document.querySelector("#delete-task-type");
 
@@ -3612,14 +3684,29 @@ function renderTaskTypeConfiguration() {
   if (promptInput instanceof HTMLTextAreaElement) {
     promptInput.value = taskDefinition.boilerplatePrompt || "";
   }
+  if (boilerplateAutoSendInput instanceof HTMLInputElement) {
+    boilerplateAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.boilerplateAutoSend);
+  }
   if (ocrInputPromptInput instanceof HTMLTextAreaElement) {
     ocrInputPromptInput.value = taskDefinition.ocrTaskInputPrompt || "";
+  }
+  if (ocrInputAutoSendInput instanceof HTMLInputElement) {
+    ocrInputAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.ocrTaskInputAutoSend);
   }
   if (commentDraftPromptInput instanceof HTMLTextAreaElement) {
     commentDraftPromptInput.value = taskDefinition.commentDraftPrompt || "";
   }
+  if (commentDraftUseOcrInput instanceof HTMLInputElement) {
+    commentDraftUseOcrInput.checked = normalizeTaskPromptUseOcr(taskDefinition.commentDraftUseOcr);
+  }
+  if (commentDraftAutoSendInput instanceof HTMLInputElement) {
+    commentDraftAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.commentDraftAutoSend);
+  }
   if (repeatScreenshotPromptInput instanceof HTMLTextAreaElement) {
     repeatScreenshotPromptInput.value = taskDefinition.repeatScreenshotPrompt || "";
+  }
+  if (repeatScreenshotAutoSendInput instanceof HTMLInputElement) {
+    repeatScreenshotAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.repeatScreenshotAutoSend);
   }
   if (chatPromptInput instanceof HTMLTextAreaElement) {
     chatPromptInput.value = taskDefinition.chatProcessingPrompt || "";
@@ -3630,8 +3717,17 @@ function renderTaskTypeConfiguration() {
   if (additionalContextPromptInput instanceof HTMLTextAreaElement) {
     additionalContextPromptInput.value = taskDefinition.additionalContextPrompt || "";
   }
+  if (additionalContextUseOcrInput instanceof HTMLInputElement) {
+    additionalContextUseOcrInput.checked = normalizeTaskPromptUseOcr(taskDefinition.additionalContextUseOcr);
+  }
+  if (additionalContextAutoSendInput instanceof HTMLInputElement) {
+    additionalContextAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.additionalContextAutoSend);
+  }
   if (multiScreenshotBatchPromptInput instanceof HTMLTextAreaElement) {
     multiScreenshotBatchPromptInput.value = taskDefinition.multiScreenshotBatchPrompt || "";
+  }
+  if (multiScreenshotFinalAutoSendInput instanceof HTMLInputElement) {
+    multiScreenshotFinalAutoSendInput.checked = normalizeTaskPromptAutoSend(taskDefinition.multiScreenshotFinalAutoSend);
   }
   if (requireSearchChipInput instanceof HTMLInputElement) {
     requireSearchChipInput.checked = normalizeTaskRequireWebSearchChip(taskDefinition.requireWebSearchChip);
@@ -3681,13 +3777,21 @@ function addTaskTypeDefinition() {
 Full task OCR: [full task ocr]
 
 Use the screenshot and OCR text above to complete the task.`,
+    boilerplateAutoSend: true,
     ocrTaskInputPrompt: DEFAULT_OCR_TASK_INPUT_PROMPT,
+    ocrTaskInputAutoSend: true,
     commentDraftPrompt: DEFAULT_COMMENT_DRAFT_PROMPT,
+    commentDraftUseOcr: true,
+    commentDraftAutoSend: true,
     repeatScreenshotPrompt: DEFAULT_REPEAT_SCREENSHOT_PROMPT,
+    repeatScreenshotAutoSend: true,
     chatProcessingPrompt: DEFAULT_GENERIC_CHAT_PROCESSING_PROMPT,
     chatProcessingAbstractionPrompt: DEFAULT_GENERIC_CHAT_ABSTRACTION_PROMPT,
     additionalContextPrompt: DEFAULT_GENERIC_ADDITIONAL_CONTEXT_PROMPT,
+    additionalContextUseOcr: true,
+    additionalContextAutoSend: true,
     multiScreenshotBatchPrompt: DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT,
+    multiScreenshotFinalAutoSend: true,
   };
 
   highlightState.taskTypeDefinitions = sanitizeTaskTypeDefinitions([
@@ -5843,13 +5947,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const deleteTaskTypeButton = document.querySelector("#delete-task-type");
   const taskTypeLabelInput = document.querySelector("#task-type-label");
   const taskTypePromptInput = document.querySelector("#task-type-boilerplate-prompt");
+  const taskTypeBoilerplateAutoSendInput = document.querySelector("#task-type-boilerplate-auto-send");
   const taskTypeOcrInputPromptInput = document.querySelector("#task-type-ocr-input-prompt");
+  const taskTypeOcrInputAutoSendInput = document.querySelector("#task-type-ocr-input-auto-send");
   const taskTypeCommentDraftPromptInput = document.querySelector("#task-type-comment-draft-prompt");
+  const taskTypeCommentDraftUseOcrInput = document.querySelector("#task-type-comment-draft-use-ocr");
+  const taskTypeCommentDraftAutoSendInput = document.querySelector("#task-type-comment-draft-auto-send");
   const taskTypeRepeatScreenshotPromptInput = document.querySelector("#task-type-repeat-screenshot-prompt");
+  const taskTypeRepeatScreenshotAutoSendInput = document.querySelector("#task-type-repeat-screenshot-auto-send");
   const taskTypeChatProcessingPromptInput = document.querySelector("#task-type-chat-processing-prompt");
   const taskTypeChatAbstractionPromptInput = document.querySelector("#task-type-chat-abstraction-prompt");
   const taskTypeAdditionalContextPromptInput = document.querySelector("#task-type-additional-context-prompt");
+  const taskTypeAdditionalContextUseOcrInput = document.querySelector("#task-type-additional-context-use-ocr");
+  const taskTypeAdditionalContextAutoSendInput = document.querySelector("#task-type-additional-context-auto-send");
   const taskTypeMultiScreenshotBatchPromptInput = document.querySelector("#task-type-multi-screenshot-batch-prompt");
+  const taskTypeMultiScreenshotFinalAutoSendInput = document.querySelector("#task-type-multi-screenshot-final-auto-send");
   const requireSearchChipToggle = document.querySelector("#task-type-require-search-chip");
   const addOcrRegionButton = document.querySelector("#add-ocr-region");
   const addCustomTocEntryButton = document.querySelector("#add-custom-toc-entry");
@@ -5915,17 +6027,37 @@ document.addEventListener("DOMContentLoaded", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Boilerplate prompt changed. Save settings to apply it.");
   });
+  taskTypeBoilerplateAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Boilerplate send behavior changed. Save settings to apply it.");
+  });
   taskTypeOcrInputPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("OCR task input template changed. Save settings to apply it.");
+  });
+  taskTypeOcrInputAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Task OCR send behavior changed. Save settings to apply it.");
   });
   taskTypeCommentDraftPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Rating comment feedback prompt changed. Save settings to apply it.");
   });
+  taskTypeCommentDraftUseOcrInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Rating comment OCR behavior changed. Save settings to apply it.");
+  });
+  taskTypeCommentDraftAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Rating comment send behavior changed. Save settings to apply it.");
+  });
   taskTypeRepeatScreenshotPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Repeat screenshot prompt changed. Save settings to apply it.");
+  });
+  taskTypeRepeatScreenshotAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Repeat screenshot send behavior changed. Save settings to apply it.");
   });
   taskTypeChatProcessingPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
@@ -5939,9 +6071,21 @@ document.addEventListener("DOMContentLoaded", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Additional context prompt changed. Save settings to apply it.");
   });
+  taskTypeAdditionalContextUseOcrInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Additional context OCR behavior changed. Save settings to apply it.");
+  });
+  taskTypeAdditionalContextAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Additional context send behavior changed. Save settings to apply it.");
+  });
   taskTypeMultiScreenshotBatchPromptInput?.addEventListener("input", () => {
     syncTaskTypeDefinitionEditorValues();
     setStatus("Multi-screenshot batch prompt changed. Save settings to apply it.");
+  });
+  taskTypeMultiScreenshotFinalAutoSendInput?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    setStatus("Final multi-screenshot send behavior changed. Save settings to apply it.");
   });
   requireSearchChipToggle?.addEventListener("change", () => {
     syncTaskTypeDefinitionEditorValues();

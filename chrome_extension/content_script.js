@@ -703,6 +703,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     actions: [...definition.actions],
     visibleActions: Array.isArray(definition.visibleActions) ? [...definition.visibleActions] : [...definition.actions],
     requireWebSearchChip: definition.requireWebSearchChip !== false,
+    boilerplateAutoSend: definition.boilerplateAutoSend !== false,
+    ocrTaskInputAutoSend: definition.ocrTaskInputAutoSend !== false,
+    commentDraftUseOcr: definition.commentDraftUseOcr !== false,
+    commentDraftAutoSend: definition.commentDraftAutoSend !== false,
+    repeatScreenshotAutoSend: definition.repeatScreenshotAutoSend !== false,
+    additionalContextUseOcr: definition.additionalContextUseOcr !== false,
+    additionalContextAutoSend: definition.additionalContextAutoSend !== false,
+    multiScreenshotFinalAutoSend: definition.multiScreenshotFinalAutoSend !== false,
     chatProcessingPrompt: typeof definition.chatProcessingPrompt === "string" ? definition.chatProcessingPrompt : "",
     chatProcessingAbstractionPrompt: typeof definition.chatProcessingAbstractionPrompt === "string"
       ? definition.chatProcessingAbstractionPrompt
@@ -867,6 +875,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       submitting: false,
     },
   };
+  let pendingManualBridgeDraft = null;
+  let repeatDraftAttachmentBaselineCount = null;
 
   const serverControlStatusLogState = {
     entries: [],
@@ -7734,6 +7744,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return value !== false;
   }
 
+  function normalizeServerControlPromptAutoSend(value) {
+    return value !== false;
+  }
+
+  function normalizeServerControlPromptUseOcr(value) {
+    return value !== false;
+  }
+
   function ensureServerControlTaskDefinitionFeatures(taskDefinition, regionDefinitionsByKey) {
     const actions = new Set(normalizeServerControlActionKeys(taskDefinition.actions));
     const visibleActions = normalizeVisibleServerControlActionKeys(taskDefinition.visibleActions, Array.from(actions));
@@ -7788,6 +7806,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       actions: Array.from(actions),
       visibleActions,
       regions,
+      boilerplateAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.boilerplateAutoSend),
+      ocrTaskInputAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.ocrTaskInputAutoSend),
+      commentDraftUseOcr: normalizeServerControlPromptUseOcr(taskDefinition.commentDraftUseOcr),
+      commentDraftAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.commentDraftAutoSend),
+      repeatScreenshotAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.repeatScreenshotAutoSend),
+      additionalContextUseOcr: normalizeServerControlPromptUseOcr(taskDefinition.additionalContextUseOcr),
+      additionalContextAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.additionalContextAutoSend),
+      multiScreenshotFinalAutoSend: normalizeServerControlPromptAutoSend(taskDefinition.multiScreenshotFinalAutoSend),
       ocrTaskInputPrompt: typeof taskDefinition.ocrTaskInputPrompt === "string"
         && taskDefinition.ocrTaskInputPrompt.trim()
         ? taskDefinition.ocrTaskInputPrompt
@@ -7890,6 +7916,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         boilerplatePrompt: typeof rawDefinition.boilerplatePrompt === "string"
           ? rawDefinition.boilerplatePrompt.trim()
           : "",
+        boilerplateAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.boilerplateAutoSend),
+        ocrTaskInputAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.ocrTaskInputAutoSend),
+        commentDraftUseOcr: normalizeServerControlPromptUseOcr(rawDefinition.commentDraftUseOcr),
+        commentDraftAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.commentDraftAutoSend),
+        repeatScreenshotAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.repeatScreenshotAutoSend),
+        additionalContextUseOcr: normalizeServerControlPromptUseOcr(rawDefinition.additionalContextUseOcr),
+        additionalContextAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.additionalContextAutoSend),
+        multiScreenshotFinalAutoSend: normalizeServerControlPromptAutoSend(rawDefinition.multiScreenshotFinalAutoSend),
         chatProcessingPrompt: typeof rawDefinition.chatProcessingPrompt === "string"
           && rawDefinition.chatProcessingPrompt.trim()
           ? rawDefinition.chatProcessingPrompt.trim()
@@ -8480,6 +8514,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     return getCurrentServerControlTaskTypeDefinition().multiScreenshotBatchPrompt || DEFAULT_MULTI_SCREENSHOT_BATCH_PROMPT;
   }
 
+  function getActiveServerControlPromptAutoSend(fieldName) {
+    return normalizeServerControlPromptAutoSend(getCurrentServerControlTaskTypeDefinition()[fieldName]);
+  }
+
+  function getActiveServerControlPromptUseOcr(fieldName) {
+    return normalizeServerControlPromptUseOcr(getCurrentServerControlTaskTypeDefinition()[fieldName]);
+  }
+
   function normalizePromptPlaceholderKey(value) {
     return (typeof value === "string" ? value : "")
       .replace(/^!/, "")
@@ -8521,8 +8563,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     };
   }
 
-  function prepareServerControlBoilerplatePromptForSubmission() {
-    const prompt = getActiveServerControlBoilerplatePrompt();
+  function prepareServerControlBoilerplatePromptForSubmission(options = {}) {
+    const taskTypeKey = typeof options.taskTypeKey === "string" && options.taskTypeKey
+      ? sanitizeServerControlTaskTypeKey(options.taskTypeKey)
+      : serverControlMenuState.currentTaskType;
+    const prompt = getServerControlTaskTypeDefinition(taskTypeKey).boilerplatePrompt || "";
+    if (options.preserveMissingPlaceholders === true) {
+      return prompt.trim();
+    }
     const placeholderValues = getServerControlPromptPlaceholderValues();
     const screenshotMode = (
       serverControlMenuState.processingMode === "screenshot"
@@ -9009,15 +9057,23 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       currentTaskTypeLabel: getCurrentServerControlTaskTypeDefinition().label,
       processingMode: serverControlMenuState.processingMode,
       boilerplatePrompt: getActiveServerControlBoilerplatePrompt(),
+      boilerplateAutoSend: getActiveServerControlPromptAutoSend("boilerplateAutoSend"),
       ocrTaskInputPrompt: getActiveServerControlOcrTaskInputPrompt(),
+      ocrTaskInputAutoSend: getActiveServerControlPromptAutoSend("ocrTaskInputAutoSend"),
       commentDraftPrompt: getActiveServerControlCommentDraftPrompt(),
+      commentDraftUseOcr: getActiveServerControlPromptUseOcr("commentDraftUseOcr"),
+      commentDraftAutoSend: getActiveServerControlPromptAutoSend("commentDraftAutoSend"),
       repeatScreenshotPrompt: getActiveServerControlRepeatScreenshotPrompt(),
+      repeatScreenshotAutoSend: getActiveServerControlPromptAutoSend("repeatScreenshotAutoSend"),
       chatProcessingPrompt: getActiveServerControlChatProcessingPrompt(),
       chatProcessingAbstractionPrompt: getActiveServerControlChatProcessingAbstractionPrompt(),
       additionalContextPrompt: getActiveServerControlAdditionalContextPrompt(),
+      additionalContextUseOcr: getActiveServerControlPromptUseOcr("additionalContextUseOcr"),
+      additionalContextAutoSend: getActiveServerControlPromptAutoSend("additionalContextAutoSend"),
       multiScreenshotSessionId: getServerControlMultiScreenshotSession().sessionId,
       multiScreenshotBatchPrompt: getActiveServerControlMultiScreenshotBatchPrompt(),
       multiScreenshotBatchSize: sanitizeMultiScreenshotBatchSize(serverControlMenuState.multiScreenshotBatchSize),
+      multiScreenshotFinalAutoSend: getActiveServerControlPromptAutoSend("multiScreenshotFinalAutoSend"),
       activeProjectAccount,
       activeProjectAccountLabel: getServerControlProjectAccountLabel(activeProjectAccount),
       activeProjectId,
@@ -9134,7 +9190,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     try {
       if (buttonConfig.command === SERVER_CONTROL_COMMAND_MULTI_SCREENSHOT_SUBMIT) {
-        payload.boilerplatePrompt = prepareServerControlBoilerplatePromptForSubmission();
+        payload.boilerplatePrompt = prepareServerControlBoilerplatePromptForSubmission({
+          preserveMissingPlaceholders: payload.multiScreenshotFinalAutoSend === false,
+        });
       }
       console.log("Local Query Bridge sending server control command", payload);
       if (controlRunId) {
@@ -10567,12 +10625,70 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     throw new Error("Send button did not become clickable");
   }
 
+  function hasPendingManualBridgeDraft() {
+    if (!pendingManualBridgeDraft) {
+      return false;
+    }
+
+    const editor = document.querySelector(PROMPT_TEXTAREA_SELECTOR);
+    if (!(editor instanceof HTMLElement)) {
+      return true;
+    }
+
+    const hasPromptText = Boolean(compactEditorText(getEditorText(editor)));
+    const attachmentBaselineCount = Number.isFinite(pendingManualBridgeDraft.attachmentBaselineCount)
+      ? pendingManualBridgeDraft.attachmentBaselineCount
+      : countRenderedAttachmentElements(editor);
+    const hasAttachments = countRenderedAttachmentElements(editor) > attachmentBaselineCount;
+    if (hasPromptText || hasAttachments) {
+      return true;
+    }
+
+    pendingManualBridgeDraft = null;
+    return false;
+  }
+
+  function throwIfPendingManualBridgeDraft() {
+    if (hasPendingManualBridgeDraft()) {
+      throw new Error("A bridge prompt is waiting for manual editing or sending in this chat");
+    }
+  }
+
+  function markManualBridgeDraft(
+    editor,
+    taskCount,
+    taskTypeKey,
+    controlRunId,
+    attachmentBaselineCount = null,
+  ) {
+    pendingManualBridgeDraft = {
+      taskCount,
+      taskTypeKey: sanitizeServerControlTaskTypeKey(taskTypeKey),
+      controlRunId,
+      attachmentBaselineCount: Number.isFinite(attachmentBaselineCount)
+        ? attachmentBaselineCount
+        : countRenderedAttachmentElements(editor),
+      createdAt: Date.now(),
+    };
+    editor.focus();
+    if (controlRunId) {
+      appendServerControlStatusLog({
+        runId: controlRunId,
+        type: "response-complete",
+        message: "Prompt prepared for manual editing and sending.",
+        details: { taskCount, autoSend: false },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   async function queueRepeatScreenshotDraft(imageDataUrls, taskCount) {
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
     console.log("Local Query Bridge received repeat screenshot request", {
       taskCount,
       screenshotCount: normalizedImageDataUrls.length,
     });
+    throwIfPendingManualBridgeDraft();
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     const screenshotFiles = normalizedImageDataUrls.map((imageDataUrl, screenshotIndex) => (
       dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
@@ -10580,6 +10696,9 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     editor.focus();
     const baselineAttachmentCount = countRenderedAttachmentElements(editor);
+    if (!Number.isFinite(repeatDraftAttachmentBaselineCount)) {
+      repeatDraftAttachmentBaselineCount = baselineAttachmentCount;
+    }
     await attachScreenshotFiles(screenshotFiles, editor);
     await waitForRenderedBridgeAttachments(editor, screenshotFiles, baselineAttachmentCount);
     console.log("Local Query Bridge queued repeat screenshots in draft", {
@@ -10594,13 +10713,18 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     taskTypeKey = serverControlMenuState.currentTaskType,
     options = {},
   ) {
+    const autoSend = options.autoSend !== false;
     console.log("Local Query Bridge received prompt-only submit request", {
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
+      autoSend,
     });
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : prepareServerControlBoilerplatePromptForSubmission();
+      : prepareServerControlBoilerplatePromptForSubmission({
+        taskTypeKey,
+        preserveMissingPlaceholders: !autoSend,
+      });
     const controlRunId = typeof options.controlRunId === "string" ? options.controlRunId : "";
     if (controlRunId) {
       appendServerControlStatusLog({
@@ -10612,16 +10736,22 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       });
     }
 
-    await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
+    const ensureWebSearch = options.ensureWebSearch !== false;
+    if (ensureWebSearch) {
+      await ensureWebSearchForTaskTypeIfRequired(taskTypeKey, taskCount);
+    }
     throwIfServerControlRunCancelled(controlRunId);
     if (controlRunId) {
       appendServerControlStatusLog({
         runId: controlRunId,
         type: "prompt",
-        message: "Web search requirement checked.",
+        message: ensureWebSearch
+          ? "Web search requirement checked."
+          : "Web search requirement skipped for this prompt.",
         timestamp: new Date().toISOString(),
       });
     }
+    throwIfPendingManualBridgeDraft();
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     throwIfServerControlRunCancelled(controlRunId);
     editor.focus();
@@ -10633,6 +10763,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         message: "Prompt inserted.",
         timestamp: new Date().toISOString(),
       });
+    }
+    if (!autoSend) {
+      markManualBridgeDraft(
+        editor,
+        taskCount,
+        taskTypeKey,
+        controlRunId,
+        options.manualDraftAttachmentBaselineCount,
+      );
+      return;
     }
     await clickSendWhenReady(taskCount, {
       allowLatestPromptRecheck: options.allowLatestPromptRecheck !== false,
@@ -10648,10 +10788,21 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     }
   }
 
-  async function submitRepeatDraft(taskCount, promptText, taskTypeKey = serverControlMenuState.currentTaskType) {
-    await submitPromptOnly(taskCount, promptText, taskTypeKey, {
-      allowLatestPromptRecheck: false,
-    });
+  async function submitRepeatDraft(
+    taskCount,
+    promptText,
+    taskTypeKey = serverControlMenuState.currentTaskType,
+    autoSend = true,
+  ) {
+    try {
+      await submitPromptOnly(taskCount, promptText, taskTypeKey, {
+        allowLatestPromptRecheck: false,
+        autoSend,
+        manualDraftAttachmentBaselineCount: repeatDraftAttachmentBaselineCount,
+      });
+    } finally {
+      repeatDraftAttachmentBaselineCount = null;
+    }
   }
 
   function showNativeAlert(taskCount, alertText, controlRunId = "") {
@@ -10811,10 +10962,14 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     options,
   ) {
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
+    const finalAutoSend = options?.finalAutoSend !== false;
     const batchPrompt = typeof options?.batchPrompt === "string" ? options.batchPrompt.trim() : "";
     const finalPrompt = typeof options?.finalPrompt === "string" && options.finalPrompt.trim()
       ? options.finalPrompt.trim()
-      : prepareServerControlBoilerplatePromptForSubmission();
+      : prepareServerControlBoilerplatePromptForSubmission({
+        taskTypeKey,
+        preserveMissingPlaceholders: !finalAutoSend,
+      });
     const batchSize = sanitizeMultiScreenshotBatchSize(options?.batchSize);
     if (normalizedImageDataUrls.length === 0) {
       throw new Error("No multi-screenshot images were provided");
@@ -10825,6 +10980,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     if (!finalPrompt) {
       throw new Error("Final boilerplate prompt is empty");
     }
+    throwIfPendingManualBridgeDraft();
 
     const batches = chunkMultiScreenshotImages(normalizedImageDataUrls, batchSize);
     if (controlRunId) {
@@ -10868,6 +11024,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     await submitPromptOnly(taskCount, finalPrompt, taskTypeKey, {
       allowLatestPromptRecheck: false,
       controlRunId,
+      autoSend: finalAutoSend,
     });
   }
 
@@ -10877,19 +11034,25 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     promptText,
     taskTypeKey = serverControlMenuState.currentTaskType,
     controlRunId = "",
+    options = {},
   ) {
+    const autoSend = options.autoSend !== false;
     const normalizedImageDataUrls = normalizeImageDataUrls(imageDataUrls);
     console.log("Local Query Bridge received submit request", {
       taskCount,
       promptLength: typeof promptText === "string" ? promptText.length : 0,
       screenshotCount: normalizedImageDataUrls.length,
+      autoSend,
     });
     const screenshotFiles = normalizedImageDataUrls.map((imageDataUrl, screenshotIndex) => (
       dataUrlToFile(imageDataUrl, taskCount, screenshotIndex)
     ));
     const prompt = typeof promptText === "string" && promptText.trim().length > 0
       ? promptText
-      : prepareServerControlBoilerplatePromptForSubmission();
+      : prepareServerControlBoilerplatePromptForSubmission({
+        taskTypeKey,
+        preserveMissingPlaceholders: !autoSend,
+      });
     if (controlRunId) {
       appendServerControlStatusLog({
         runId: controlRunId,
@@ -10916,6 +11079,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         timestamp: new Date().toISOString(),
       });
     }
+    throwIfPendingManualBridgeDraft();
     const editor = await waitForElement(PROMPT_TEXTAREA_SELECTOR, ELEMENT_WAIT_TIMEOUT_MS);
     throwIfServerControlRunCancelled(controlRunId);
     editor.focus();
@@ -10932,6 +11096,11 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         message: "Screenshot and prompt inserted.",
         timestamp: new Date().toISOString(),
       });
+    }
+
+    if (!autoSend) {
+      markManualBridgeDraft(editor, taskCount, taskTypeKey, controlRunId, baselineAttachmentCount);
+      return;
     }
 
     const earliestSendAt = Date.now() + PROMPT_SETTLE_MS;
@@ -11038,8 +11207,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     if (message?.type === QUEUE_REPEAT_SCREENSHOT_MESSAGE_TYPE) {
       hotkeyState.enabled = true;
       const imageDataUrls = normalizeImageDataUrls(message?.imageDataUrls ?? message?.imageDataUrl);
-      if (imageDataUrls.length === 0) {
-        sendResponse({ ok: false });
+      if (imageDataUrls.length === 0 || hasPendingManualBridgeDraft()) {
+        sendResponse({ ok: false, manualDraftPending: hasPendingManualBridgeDraft() });
         return false;
       }
 
@@ -11052,11 +11221,16 @@ Use the full screenshot and OCR text above to evaluate the task according to the
 
     if (message?.type === SUBMIT_REPEAT_DRAFT_MESSAGE_TYPE) {
       hotkeyState.enabled = true;
+      if (hasPendingManualBridgeDraft()) {
+        sendResponse({ ok: false, manualDraftPending: true });
+        return false;
+      }
       sendResponse({ ok: true });
       void submitRepeatDraft(
         message.taskCount ?? 0,
         typeof message.promptText === "string" ? message.promptText : "",
         typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
+        message.autoSend !== false,
       ).catch((error) => {
         console.error("Local Query Bridge repeat draft submit failed", error);
       });
@@ -11066,6 +11240,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     if (message?.type === SUBMIT_TEXT_PROMPT_MESSAGE_TYPE) {
       hotkeyState.enabled = true;
       const controlRunId = typeof message.controlRunId === "string" ? message.controlRunId : "";
+      if (hasPendingManualBridgeDraft()) {
+        sendResponse({ ok: false, manualDraftPending: true });
+        return false;
+      }
       console.log("Local Query Bridge content script got text prompt message", {
         taskCount: message.taskCount ?? 0,
         promptLength: typeof message.promptText === "string" ? message.promptText.length : 0,
@@ -11077,6 +11255,8 @@ Use the full screenshot and OCR text above to evaluate the task according to the
         typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
         {
           controlRunId,
+          autoSend: message.autoSend !== false,
+          ensureWebSearch: message.promptKind !== "rating_comment",
         },
       ).catch((error) => {
         console.error("Local Query Bridge text prompt submit failed", error);
@@ -11110,6 +11290,10 @@ Use the full screenshot and OCR text above to evaluate the task according to the
     if (message?.type !== MESSAGE_TYPE || imageDataUrls.length === 0) {
       return false;
     }
+    if (hasPendingManualBridgeDraft()) {
+      sendResponse({ ok: false, manualDraftPending: true });
+      return false;
+    }
 
     hotkeyState.enabled = true;
     console.log("Local Query Bridge content script got screenshot message", {
@@ -11141,6 +11325,7 @@ Use the full screenshot and OCR text above to evaluate the task according to the
       typeof message.promptText === "string" ? message.promptText : "",
       typeof message.taskType === "string" ? message.taskType : serverControlMenuState.currentTaskType,
       controlRunId,
+      { autoSend: message.autoSend !== false },
     ).catch((error) => {
       console.error("Local Query Bridge submit failed", error);
       appendServerControlProcessingError(controlRunId, "Screenshot submission failed.", error);

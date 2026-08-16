@@ -167,6 +167,8 @@ The options page also edits the control-menu task type definitions stored in Chr
 - edit region coordinates; Google results coordinates are shared, while task-specific regions are saved per task type
 - set the on-screen processing-zone divider translucence and separate top/bottom visible segment lengths
 - edit every task-facing instruction under `Boilerplate prompt`: the main boilerplate, OCR input template, rating-comment feedback, repeat screenshot, saved-chat processing, abstraction, additional context, and multi-screenshot batch prompts
+- choose per task type whether boilerplate, OCR, rating-comment, repeat-screenshot, additional-context, and final multi-screenshot prompts are sent automatically after insertion; unchecked prompts remain in the ChatGPT composer for manual editing and sending
+- choose independently whether rating-comment and additional-context prompts use OCR to fill their placeholders; this defaults on for existing task types
 - use `[query]`, `[product text]`, and `[ocr warning]` in the OCR input template, and `[rating comment]` in the rating-comment feedback prompt
 - use `[batch number]`, `[batch count]`, `[first screenshot]`, and `[last screenshot]` to place dynamic batch metadata inside the multi-screenshot prompt
 - leave the repeat screenshot prompt blank to repeat the main boilerplate without prepending another instruction
@@ -176,6 +178,11 @@ Prompt placeholder behavior:
 - If an optional placeholder has no OCR text, the whole line is omitted before submission.
 - If a placeholder starts with `!`, for example `[!query]`, it is required and submission is stopped when no value is available.
 - If the current processing button is `Screenshot`, all placeholders are treated as optional.
+- Manual insertion preserves unresolved placeholders so they can be replaced directly in the ChatGPT composer.
+- When rating-comment OCR is disabled, the Comment action skips capture and OCR and inserts the raw template with `[rating comment]` preserved. Additional-context OCR can be disabled independently while still attaching its fresh screenshot.
+- OCR use and automatic sending are independent. Automatic sending is blocked when OCR is disabled and the corresponding `[rating comment]` or `[additional context ocr]` placeholder remains unresolved.
+- Multi-screenshot batch prompts remain automatic because each batch waits for a ChatGPT response before the sequence can continue; only the final boilerplate prompt can be left for manual sending.
+- While a manual bridge draft remains in a composer, later bridge submissions wait instead of overwriting it.
 
 The `Screenshot` processing button queues the same screenshot submission path used by `Shift+Alt+Z`. The `OCR` processing button queues the same PaddleOCR text-task path used by `Shift+Alt+X`. The `Comment` processing button OCRs the configured `Rating comment` region and queues a text-only feedback prompt that references `rating_comment_style_guide.md` from project context, so you can iterate on rating-comment phrasing after the main task has already been sent. Comment feedback prompts do not increment the per-tab task reset counter. The Python bridge still logs each decrypted control-menu command before dispatching those actions.
 

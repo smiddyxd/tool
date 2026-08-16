@@ -285,6 +285,7 @@ const NEW_TAB_READY_TIMEOUT_MS = 20000;
 const MAX_EVENTS_PER_POLL = 30;
 const MAX_DELIVERY_ATTEMPTS = 3;
 const DELIVERY_RETRY_DELAY_MS = 1000;
+const MANUAL_DRAFT_RETRY_DELAY_MS = 5000;
 const CONTROL_PROCESSING_COMMANDS = new Set([
   "start_task_ocr",
   "start_task_screenshot",
@@ -1558,6 +1559,19 @@ function getPromptFieldValue(definition, fieldName, fallback) {
   return value || fallback;
 }
 
+function getPromptAutoSendFieldValue(definition, fieldName) {
+  return definition?.[fieldName] !== false;
+}
+
+function getPromptUseOcrFieldValue(definition, fieldName) {
+  return definition?.[fieldName] !== false;
+}
+
+async function getTaskTypePromptAutoSend(taskType, fieldName) {
+  const definition = await getStoredServerControlTaskDefinition(taskType);
+  return getPromptAutoSendFieldValue(definition, fieldName);
+}
+
 async function withServerControlPromptFallbacks(payload) {
   const nextPayload = {
     ...(payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}),
@@ -1568,12 +1582,18 @@ async function withServerControlPromptFallbacks(payload) {
   if (!(typeof nextPayload.boilerplatePrompt === "string" && nextPayload.boilerplatePrompt.trim())) {
     nextPayload.boilerplatePrompt = getPromptFieldValue(definition, "boilerplatePrompt", "");
   }
+  if (typeof nextPayload.boilerplateAutoSend !== "boolean") {
+    nextPayload.boilerplateAutoSend = getPromptAutoSendFieldValue(definition, "boilerplateAutoSend");
+  }
   if (!(typeof nextPayload.ocrTaskInputPrompt === "string" && nextPayload.ocrTaskInputPrompt.trim())) {
     nextPayload.ocrTaskInputPrompt = getPromptFieldValue(
       definition,
       "ocrTaskInputPrompt",
       DEFAULT_OCR_TASK_INPUT_PROMPT,
     );
+  }
+  if (typeof nextPayload.ocrTaskInputAutoSend !== "boolean") {
+    nextPayload.ocrTaskInputAutoSend = getPromptAutoSendFieldValue(definition, "ocrTaskInputAutoSend");
   }
   if (!(typeof nextPayload.commentDraftPrompt === "string" && nextPayload.commentDraftPrompt.trim())) {
     nextPayload.commentDraftPrompt = getPromptFieldValue(
@@ -1582,10 +1602,19 @@ async function withServerControlPromptFallbacks(payload) {
       DEFAULT_COMMENT_DRAFT_PROMPT,
     );
   }
+  if (typeof nextPayload.commentDraftAutoSend !== "boolean") {
+    nextPayload.commentDraftAutoSend = getPromptAutoSendFieldValue(definition, "commentDraftAutoSend");
+  }
+  if (typeof nextPayload.commentDraftUseOcr !== "boolean") {
+    nextPayload.commentDraftUseOcr = getPromptUseOcrFieldValue(definition, "commentDraftUseOcr");
+  }
   if (typeof nextPayload.repeatScreenshotPrompt !== "string") {
     nextPayload.repeatScreenshotPrompt = definition && typeof definition.repeatScreenshotPrompt === "string"
       ? definition.repeatScreenshotPrompt.trim()
       : DEFAULT_REPEAT_SCREENSHOT_PROMPT;
+  }
+  if (typeof nextPayload.repeatScreenshotAutoSend !== "boolean") {
+    nextPayload.repeatScreenshotAutoSend = getPromptAutoSendFieldValue(definition, "repeatScreenshotAutoSend");
   }
 
   if (!(typeof nextPayload.chatProcessingPrompt === "string" && nextPayload.chatProcessingPrompt.trim())) {
@@ -1610,6 +1639,18 @@ async function withServerControlPromptFallbacks(payload) {
       definition,
       "additionalContextPrompt",
       getDefaultAdditionalContextPromptForTaskType(taskType),
+    );
+  }
+  if (typeof nextPayload.additionalContextAutoSend !== "boolean") {
+    nextPayload.additionalContextAutoSend = getPromptAutoSendFieldValue(definition, "additionalContextAutoSend");
+  }
+  if (typeof nextPayload.additionalContextUseOcr !== "boolean") {
+    nextPayload.additionalContextUseOcr = getPromptUseOcrFieldValue(definition, "additionalContextUseOcr");
+  }
+  if (typeof nextPayload.multiScreenshotFinalAutoSend !== "boolean") {
+    nextPayload.multiScreenshotFinalAutoSend = getPromptAutoSendFieldValue(
+      definition,
+      "multiScreenshotFinalAutoSend",
     );
   }
 
@@ -1882,6 +1923,7 @@ function normalizeMultiScreenshotPayloadMetadata(metadata, promptTexts) {
     batchSize,
     sessionId: typeof metadata.sessionId === "string" ? metadata.sessionId.trim() : "",
     screenshotCount: Number.parseInt(`${metadata.screenshotCount ?? 0}`, 10) || 0,
+    finalAutoSend: metadata.finalAutoSend !== false,
   };
 }
 
@@ -2212,13 +2254,28 @@ async function sendToChatGpt(tabId, imageDataUrls, taskCount, promptText, taskTy
     promptText,
     taskType,
     controlRunId,
+    autoSend: options.autoSend !== false,
     multiScreenshot: options.multiScreenshot ?? null,
   });
+
+  if (response?.manualDraftPending === true) {
+    const error = new Error("A manual bridge draft is still pending in this ChatGPT tab");
+    error.code = "MANUAL_DRAFT_PENDING";
+    throw error;
+  }
 
   return response?.ok === true;
 }
 
-async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType, controlRunId = "") {
+async function sendTextPromptToChatGpt(
+  tabId,
+  taskCount,
+  promptText,
+  taskType,
+  controlRunId = "",
+  autoSend = true,
+  promptKind = "",
+) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -2227,7 +2284,15 @@ async function sendTextPromptToChatGpt(tabId, taskCount, promptText, taskType, c
     promptText,
     taskType,
     controlRunId,
+    autoSend,
+    promptKind,
   });
+
+  if (response?.manualDraftPending === true) {
+    const error = new Error("A manual bridge draft is still pending in this ChatGPT tab");
+    error.code = "MANUAL_DRAFT_PENDING";
+    throw error;
+  }
 
   return response?.ok === true;
 }
@@ -2275,7 +2340,7 @@ async function queueRepeatScreenshot(tabId, imageDataUrls, taskCount) {
   return response?.ok === true;
 }
 
-async function submitRepeatDraft(tabId, taskCount, promptText, taskType) {
+async function submitRepeatDraft(tabId, taskCount, promptText, taskType, autoSend = true) {
   await ensureContentScript(tabId);
 
   const response = await chrome.tabs.sendMessage(tabId, {
@@ -2283,6 +2348,7 @@ async function submitRepeatDraft(tabId, taskCount, promptText, taskType) {
     taskCount,
     promptText,
     taskType,
+    autoSend,
   });
 
   return response?.ok === true;
@@ -2744,7 +2810,15 @@ async function deliverPendingSubmissionAttempt() {
       isAlertSubmission
         ? showAlertInChatGpt(target.tabId, taskCount, target.promptText, controlRunId)
         : isTextSubmission
-        ? sendTextPromptToChatGpt(target.tabId, taskCount, target.promptText, target.taskType, controlRunId)
+        ? sendTextPromptToChatGpt(
+          target.tabId,
+          taskCount,
+          target.promptText,
+          target.taskType,
+          controlRunId,
+          pendingSubmission.autoSend !== false,
+          pendingSubmission.promptKind || "",
+        )
         : sendToChatGpt(
           target.tabId,
           imageDataUrls,
@@ -2752,7 +2826,10 @@ async function deliverPendingSubmissionAttempt() {
           target.promptText,
           target.taskType,
           controlRunId,
-          { multiScreenshot: pendingSubmission.multiScreenshot ?? null },
+          {
+            autoSend: pendingSubmission.autoSend !== false,
+            multiScreenshot: pendingSubmission.multiScreenshot ?? null,
+          },
         )
     )),
   );
@@ -2766,7 +2843,11 @@ async function deliverPendingSubmissionAttempt() {
     if (result.status === "fulfilled" && result.value === true) {
       successfulCount += 1;
       state.lastChatGptTabId = target.tabId;
-      if (!isAlertSubmission && shouldCountControlRunSubmission(controlRunId)) {
+      if (
+        !isAlertSubmission
+        && (pendingSubmission.autoSend !== false || pendingSubmission.multiScreenshot)
+        && shouldCountControlRunSubmission(controlRunId)
+      ) {
         await incrementTabSubmissionCount(target.tabId);
       }
       continue;
@@ -2775,6 +2856,7 @@ async function deliverPendingSubmissionAttempt() {
     failedTargets.push({
       ...target,
       lastError: result.status === "rejected" ? `${result.reason}` : "Content script did not acknowledge delivery.",
+      manualDraftPending: result.status === "rejected" && result.reason?.code === "MANUAL_DRAFT_PENDING",
     });
   }
 
@@ -2789,6 +2871,18 @@ async function deliverPendingSubmissionAttempt() {
   }
 
   console.warn("Local Query Bridge delivery left pending targets", failedTargets.map((target) => target.tabId));
+  if (failedTargets.every((target) => target.manualDraftPending === true)) {
+    state.pendingSubmission.targets = failedTargets;
+    pendingSubmission.deliveryAttempts = 0;
+    await reportControlDeliveryStatus(
+      pendingSubmission,
+      "worker-send",
+      "Delivery paused while a manual bridge draft is waiting in ChatGPT.",
+      { retryDelayMs: MANUAL_DRAFT_RETRY_DELAY_MS },
+    );
+    schedulePendingDeliveryRetry(MANUAL_DRAFT_RETRY_DELAY_MS);
+    return;
+  }
   if (deliveryAttempt < MAX_DELIVERY_ATTEMPTS) {
     state.pendingSubmission.targets = failedTargets;
     await reportControlDeliveryStatus(
@@ -3180,6 +3274,20 @@ function decodeOptionalControlRunId(payload, field = "f") {
   return xorDecryptHex(payload?.[field] ?? "", XOR_KEY).trim();
 }
 
+function decodeOptionalEventMetadata(payload, field = "g") {
+  const metadataPayload = xorDecryptBase64ToString(payload?.[field] ?? "", XOR_KEY).trim();
+  if (!metadataPayload) {
+    return {};
+  }
+
+  try {
+    const metadata = JSON.parse(metadataPayload);
+    return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
 async function sendControlStatusToChatGpt(status) {
   const rawTabId = Number.parseInt(`${status?.tabId ?? ""}`, 10);
   const candidateTabIds = [];
@@ -3250,7 +3358,7 @@ async function reportControlDeliveryStatus(pendingSubmission, type, message, det
   });
 }
 
-function schedulePendingDeliveryRetry() {
+function schedulePendingDeliveryRetry(delayMs = DELIVERY_RETRY_DELAY_MS) {
   if (state.pendingDeliveryRetryTimer !== null) {
     return;
   }
@@ -3260,7 +3368,7 @@ function schedulePendingDeliveryRetry() {
     void deliverPendingSubmission().catch((error) => {
       console.warn("Local Query Bridge pending delivery retry failed", error);
     });
-  }, DELIVERY_RETRY_DELAY_MS);
+  }, delayMs);
 }
 
 function clearPendingDeliveryRetry() {
@@ -3786,19 +3894,27 @@ async function handleRepeatConfirmRequest() {
 
   state.pendingRepeatDraft.targets = validTargets;
   const { taskCount, targets } = state.pendingRepeatDraft;
+  const targetSendSettings = await Promise.all(targets.map(async (target) => ({
+    target,
+    autoSend: await getTaskTypePromptAutoSend(target.taskType, "repeatScreenshotAutoSend"),
+  })));
   const results = await Promise.allSettled(
-    targets.map((target) => submitRepeatDraft(target.tabId, taskCount, target.promptText, target.taskType)),
+    targetSendSettings.map(({ target, autoSend }) => (
+      submitRepeatDraft(target.tabId, taskCount, target.promptText, target.taskType, autoSend)
+    )),
   );
 
   const failedTargets = [];
   let successfulCount = 0;
   for (let index = 0; index < targets.length; index += 1) {
     const result = results[index];
-    const target = targets[index];
+    const { target, autoSend } = targetSendSettings[index];
     if (result.status === "fulfilled" && result.value === true) {
       successfulCount += 1;
       state.lastChatGptTabId = target.tabId;
-      await incrementTabSubmissionCount(target.tabId);
+      if (autoSend) {
+        await incrementTabSubmissionCount(target.tabId);
+      }
       continue;
     }
 
@@ -3806,7 +3922,7 @@ async function handleRepeatConfirmRequest() {
   }
 
   if (failedTargets.length === 0) {
-    console.log(`Local Query Bridge submitted repeat draft to ChatGPT in ${successfulCount} tab(s)`);
+    console.log(`Local Query Bridge prepared repeat draft in ${successfulCount} ChatGPT tab(s)`);
     state.pendingRepeatDraft = null;
     return;
   }
@@ -3928,6 +4044,7 @@ async function pollLocalBridge() {
 
       const eventTaskType = decodeOptionalEventTaskType(payload);
       const controlRunId = decodeOptionalControlRunId(payload);
+      const eventMetadata = decodeOptionalEventMetadata(payload);
 
       if (eventType === EVENT_TYPE_TEXT_TASK) {
         if (!payload?.a) {
@@ -3983,6 +4100,9 @@ async function pollLocalBridge() {
           taskType: eventTaskType || "(active)",
           controlRunId: controlRunId || "",
         });
+        const autoSend = typeof eventMetadata.autoSend === "boolean"
+          ? eventMetadata.autoSend
+          : await getTaskTypePromptAutoSend(eventTaskType, "ocrTaskInputAutoSend");
         state.pendingRepeatDraft = null;
         state.pendingSubmission = {
           taskCount,
@@ -3993,6 +4113,8 @@ async function pollLocalBridge() {
           controlRunId,
           preferredTabId: getControlRunTabId(controlRunId),
           requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
+          autoSend,
+          promptKind: typeof eventMetadata.promptKind === "string" ? eventMetadata.promptKind : "",
         };
 
         clearControlProcessingWatch(controlRunId);
@@ -4134,19 +4256,12 @@ async function pollLocalBridge() {
           promptTexts = normalizePromptTexts(promptPayload);
         }
       }
-      let eventMetadata = {};
-      const metadataPayload = xorDecryptBase64ToString(payload.g ?? "", XOR_KEY).trim();
-      if (metadataPayload) {
-        try {
-          const parsedMetadata = JSON.parse(metadataPayload);
-          eventMetadata = parsedMetadata && typeof parsedMetadata === "object" && !Array.isArray(parsedMetadata)
-            ? parsedMetadata
-            : {};
-        } catch (_error) {
-          eventMetadata = {};
-        }
-      }
       const multiScreenshot = normalizeMultiScreenshotPayloadMetadata(eventMetadata, promptTexts);
+      const autoSend = multiScreenshot
+        ? multiScreenshot.finalAutoSend
+        : (typeof eventMetadata.autoSend === "boolean"
+          ? eventMetadata.autoSend
+          : await getTaskTypePromptAutoSend(eventTaskType, "boilerplateAutoSend"));
 
       console.log("Local Query Bridge retrieved new task screenshot", {
         taskCount,
@@ -4154,6 +4269,7 @@ async function pollLocalBridge() {
         taskType: eventTaskType || "(active)",
         controlRunId: controlRunId || "",
         multiScreenshot: Boolean(multiScreenshot),
+        autoSend,
       });
       await reportControlRunStatus(
         controlRunId,
@@ -4179,6 +4295,7 @@ async function pollLocalBridge() {
         preferredTabId: getControlRunTabId(controlRunId),
         requiresCurrentChat: controlRunRequiresCurrentChat(controlRunId),
         multiScreenshot,
+        autoSend,
       };
 
       clearControlProcessingWatch(controlRunId);
