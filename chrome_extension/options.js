@@ -124,6 +124,26 @@ const SETTINGS_SYNC_DIFF_REFRESH_DEBOUNCE_MS = 250;
 const STORAGE_KEY_BRIDGE_TRAFFIC_HISTORY = "bridgeTrafficHistory";
 const STORAGE_KEY_BRIDGE_NEXT_COVER_TRAFFIC_AT = "bridgeNextCoverTrafficAt";
 const STORAGE_KEY_CHAT_PROCESSING_QUEUE = "chatProcessingQueue";
+const STORAGE_KEY_PROMPT_DIFF_TASK_TYPE = "promptDiffTaskType";
+
+const PROMPT_DIFF_FIELDS = [
+  { key: "boilerplatePrompt", label: "Boilerplate prompt", inputId: "task-type-boilerplate-prompt" },
+  { key: "ocrTaskInputPrompt", label: "OCR task input template", inputId: "task-type-ocr-input-prompt" },
+  { key: "commentDraftPrompt", label: "Rating comment feedback prompt", inputId: "task-type-comment-draft-prompt" },
+  { key: "repeatScreenshotPrompt", label: "Repeat screenshot prompt", inputId: "task-type-repeat-screenshot-prompt" },
+  { key: "chatProcessingPrompt", label: "Chat processing prompt", inputId: "task-type-chat-processing-prompt" },
+  {
+    key: "chatProcessingAbstractionPrompt",
+    label: "Abstraction level prompt",
+    inputId: "task-type-chat-abstraction-prompt",
+  },
+  { key: "additionalContextPrompt", label: "Additional context prompt", inputId: "task-type-additional-context-prompt" },
+  {
+    key: "multiScreenshotBatchPrompt",
+    label: "Multi-screenshot batch prompt",
+    inputId: "task-type-multi-screenshot-batch-prompt",
+  },
+];
 
 const STORAGE_KEY_START_PAGE_URL = "defaultStartPageUrl";
 const STORAGE_KEY_PROJECT_IDS = "projectIds";
@@ -708,6 +728,7 @@ const highlightState = {
   taskTypeLatestPromptScrollHoldSeconds: {},
   taskTypeTocEntries: {},
   activeBridgeTaskType: BRIDGE_TASK_TYPE_SEARCH_PRODUCT_USEFULNESS,
+  promptDiffTaskType: "",
   taskTypeDefinitions: DEFAULT_BRIDGE_TASK_TYPE_DEFINITIONS,
   taskTypeProjectIds: DEFAULT_TASK_TYPE_PROJECT_IDS,
   taskTypeActiveProjectAccounts: DEFAULT_TASK_TYPE_ACTIVE_PROJECT_ACCOUNTS,
@@ -2513,6 +2534,460 @@ function getOptionsTabKeyFromHash() {
   return OPTIONS_TAB_KEYS.includes(hashValue) ? hashValue : DEFAULT_OPTIONS_TAB_KEY;
 }
 
+function sanitizePromptDiffTaskType(value) {
+  const taskType = typeof value === "string" ? value.trim() : "";
+  if (!taskType || taskType === highlightState.activeBridgeTaskType) {
+    return "";
+  }
+  return getTaskTypeDefinitions().some((definition) => definition.key === taskType) ? taskType : "";
+}
+
+function getPromptDiffTaskDefinition() {
+  const taskType = sanitizePromptDiffTaskType(highlightState.promptDiffTaskType);
+  return taskType ? getTaskTypeDefinitions().find((definition) => definition.key === taskType) ?? null : null;
+}
+
+function mergePromptDiffOperations(operations) {
+  const merged = [];
+  for (const operation of operations) {
+    if (!operation.text) {
+      continue;
+    }
+    const previous = merged[merged.length - 1];
+    if (previous?.type === operation.type) {
+      previous.text += operation.text;
+    } else {
+      merged.push({ ...operation });
+    }
+  }
+  return merged;
+}
+
+function buildPromptSequenceDiff(leftSequence, rightSequence) {
+  const left = Array.isArray(leftSequence) ? leftSequence : [];
+  const right = Array.isArray(rightSequence) ? rightSequence : [];
+  if (left.length === right.length && left.every((value, index) => value === right[index])) {
+    return left.length > 0 ? [{ type: "equal", text: left.join("") }] : [];
+  }
+  if (left.length === 0) {
+    return [{ type: "insert", text: right.join("") }];
+  }
+  if (right.length === 0) {
+    return [{ type: "delete", text: left.join("") }];
+  }
+
+  const maximumDepth = left.length + right.length;
+  const trace = [];
+  const frontier = new Map([[1, 0]]);
+  for (let depth = 0; depth <= maximumDepth; depth += 1) {
+    trace.push(new Map(frontier));
+    for (let diagonal = -depth; diagonal <= depth; diagonal += 2) {
+      const previousDelete = frontier.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY;
+      const previousInsert = frontier.get(diagonal + 1) ?? Number.NEGATIVE_INFINITY;
+      let leftIndex = diagonal === -depth || (diagonal !== depth && previousDelete < previousInsert)
+        ? (frontier.get(diagonal + 1) ?? 0)
+        : (frontier.get(diagonal - 1) ?? 0) + 1;
+      let rightIndex = leftIndex - diagonal;
+      while (
+        leftIndex < left.length
+        && rightIndex < right.length
+        && left[leftIndex] === right[rightIndex]
+      ) {
+        leftIndex += 1;
+        rightIndex += 1;
+      }
+      frontier.set(diagonal, leftIndex);
+      if (leftIndex < left.length || rightIndex < right.length) {
+        continue;
+      }
+
+      const reversed = [];
+      let backtrackLeft = left.length;
+      let backtrackRight = right.length;
+      for (let backtrackDepth = trace.length - 1; backtrackDepth >= 0; backtrackDepth -= 1) {
+        const previousFrontier = trace[backtrackDepth];
+        const currentDiagonal = backtrackLeft - backtrackRight;
+        const deleteIndex = previousFrontier.get(currentDiagonal - 1) ?? Number.NEGATIVE_INFINITY;
+        const insertIndex = previousFrontier.get(currentDiagonal + 1) ?? Number.NEGATIVE_INFINITY;
+        const previousDiagonal = currentDiagonal === -backtrackDepth
+          || (currentDiagonal !== backtrackDepth && deleteIndex < insertIndex)
+          ? currentDiagonal + 1
+          : currentDiagonal - 1;
+        const previousLeft = previousFrontier.get(previousDiagonal) ?? 0;
+        const previousRight = previousLeft - previousDiagonal;
+        while (backtrackLeft > previousLeft && backtrackRight > previousRight) {
+          reversed.push({ type: "equal", text: left[backtrackLeft - 1] });
+          backtrackLeft -= 1;
+          backtrackRight -= 1;
+        }
+        if (backtrackDepth === 0) {
+          break;
+        }
+        if (backtrackLeft === previousLeft) {
+          reversed.push({ type: "insert", text: right[backtrackRight - 1] });
+          backtrackRight -= 1;
+        } else {
+          reversed.push({ type: "delete", text: left[backtrackLeft - 1] });
+          backtrackLeft -= 1;
+        }
+      }
+      return mergePromptDiffOperations(reversed.reverse());
+    }
+  }
+  return mergePromptDiffOperations([
+    { type: "delete", text: left.join("") },
+    { type: "insert", text: right.join("") },
+  ]);
+}
+
+function buildPromptLcsSequenceDiff(leftSequence, rightSequence) {
+  const left = Array.isArray(leftSequence) ? leftSequence : [];
+  const right = Array.isArray(rightSequence) ? rightSequence : [];
+  const lengths = Array.from(
+    { length: left.length + 1 },
+    () => new Uint16Array(right.length + 1),
+  );
+  for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
+    for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
+      lengths[leftIndex][rightIndex] = left[leftIndex] === right[rightIndex]
+        ? lengths[leftIndex + 1][rightIndex + 1] + 1
+        : Math.max(lengths[leftIndex + 1][rightIndex], lengths[leftIndex][rightIndex + 1]);
+    }
+  }
+
+  const operations = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+  while (leftIndex < left.length && rightIndex < right.length) {
+    if (left[leftIndex] === right[rightIndex]) {
+      operations.push({ type: "equal", text: left[leftIndex] });
+      leftIndex += 1;
+      rightIndex += 1;
+    } else if (lengths[leftIndex + 1][rightIndex] >= lengths[leftIndex][rightIndex + 1]) {
+      operations.push({ type: "delete", text: left[leftIndex] });
+      leftIndex += 1;
+    } else {
+      operations.push({ type: "insert", text: right[rightIndex] });
+      rightIndex += 1;
+    }
+  }
+  while (leftIndex < left.length) {
+    operations.push({ type: "delete", text: left[leftIndex] });
+    leftIndex += 1;
+  }
+  while (rightIndex < right.length) {
+    operations.push({ type: "insert", text: right[rightIndex] });
+    rightIndex += 1;
+  }
+  return mergePromptDiffOperations(operations);
+}
+
+function buildExactPromptCharacterDiff(leftText, rightText) {
+  return buildPromptLcsSequenceDiff(Array.from(leftText), Array.from(rightText));
+}
+
+function tokenizePromptDiffText(text) {
+  return text.match(/[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s]+/gu) ?? [];
+}
+
+function tokenizePromptDiffLines(text) {
+  return text.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) ?? [];
+}
+
+function refinePromptDiffChange(leftText, rightText) {
+  const left = Array.from(leftText);
+  const right = Array.from(rightText);
+  let prefixLength = 0;
+  while (
+    prefixLength < left.length
+    && prefixLength < right.length
+    && left[prefixLength] === right[prefixLength]
+  ) {
+    prefixLength += 1;
+  }
+
+  let suffixLength = 0;
+  while (
+    suffixLength < left.length - prefixLength
+    && suffixLength < right.length - prefixLength
+    && left[left.length - suffixLength - 1] === right[right.length - suffixLength - 1]
+  ) {
+    suffixLength += 1;
+  }
+
+  const leftMiddle = left.slice(prefixLength, left.length - suffixLength).join("");
+  const rightMiddle = right.slice(prefixLength, right.length - suffixLength).join("");
+  const operations = [];
+  if (prefixLength > 0) {
+    operations.push({ type: "equal", text: left.slice(0, prefixLength).join("") });
+  }
+  if (leftMiddle.length + rightMiddle.length <= 1800) {
+    operations.push(...buildExactPromptCharacterDiff(leftMiddle, rightMiddle));
+  } else {
+    operations.push(
+      { type: "delete", text: leftMiddle },
+      { type: "insert", text: rightMiddle },
+    );
+  }
+  if (suffixLength > 0) {
+    operations.push({ type: "equal", text: left.slice(left.length - suffixLength).join("") });
+  }
+  return mergePromptDiffOperations(operations);
+}
+
+function refinePromptDiffOperationBlocks(sequenceOperations, refineChangedText) {
+  const operations = [];
+  let pendingLeft = "";
+  let pendingRight = "";
+  const flushChangedText = () => {
+    if (pendingLeft || pendingRight) {
+      operations.push(...refineChangedText(pendingLeft, pendingRight));
+      pendingLeft = "";
+      pendingRight = "";
+    }
+  };
+
+  for (const operation of sequenceOperations) {
+    if (operation.type === "equal") {
+      flushChangedText();
+      operations.push(operation);
+    } else if (operation.type === "delete") {
+      pendingLeft += operation.text;
+    } else {
+      pendingRight += operation.text;
+    }
+  }
+  flushChangedText();
+  return mergePromptDiffOperations(operations);
+}
+
+function buildTokenPromptCharacterDiff(leftText, rightText) {
+  if (leftText.length + rightText.length <= 1800) {
+    return buildExactPromptCharacterDiff(leftText, rightText);
+  }
+  const leftTokens = tokenizePromptDiffText(leftText);
+  const rightTokens = tokenizePromptDiffText(rightText);
+  return refinePromptDiffOperationBlocks(
+    buildPromptLcsSequenceDiff(leftTokens, rightTokens),
+    refinePromptDiffChange,
+  );
+}
+
+function buildPromptCharacterDiff(leftText, rightText) {
+  const left = typeof leftText === "string" ? leftText : "";
+  const right = typeof rightText === "string" ? rightText : "";
+  if (left === right) {
+    return left ? [{ type: "equal", text: left }] : [];
+  }
+  if (left.length + right.length <= 1800) {
+    return buildExactPromptCharacterDiff(left, right);
+  }
+  return refinePromptDiffOperationBlocks(
+    buildPromptSequenceDiff(tokenizePromptDiffLines(left), tokenizePromptDiffLines(right)),
+    buildTokenPromptCharacterDiff,
+  );
+}
+
+const promptDiffOperationCache = new Map();
+
+function getPromptCharacterDiff(fieldKey, leftText, rightText) {
+  const cached = promptDiffOperationCache.get(fieldKey);
+  if (cached?.leftText === leftText && cached.rightText === rightText) {
+    return cached.operations;
+  }
+  const operations = buildPromptCharacterDiff(leftText, rightText);
+  promptDiffOperationCache.set(fieldKey, { leftText, rightText, operations });
+  return operations;
+}
+
+function getPromptDiffRunsForSide(operations, side) {
+  return mergePromptDiffOperations(operations.flatMap((operation) => {
+    if (operation.type === "equal") {
+      return [{ type: "match", text: operation.text }];
+    }
+    if ((side === "left" && operation.type === "delete") || (side === "right" && operation.type === "insert")) {
+      return [{ type: "mismatch", text: operation.text }];
+    }
+    return [];
+  }));
+}
+
+function renderPromptDiffHighlight(highlight, runs) {
+  highlight.replaceChildren();
+  for (const run of runs) {
+    const span = document.createElement("span");
+    span.className = `prompt-diff-char ${run.type}`;
+    span.textContent = run.text;
+    highlight.append(span);
+  }
+  if (runs.length === 0) {
+    highlight.append(document.createTextNode("\u200b"));
+  }
+}
+
+function ensurePromptDiffEditor(textarea) {
+  let editor = textarea.parentElement;
+  if (!(editor instanceof HTMLElement) || !editor.classList.contains("prompt-diff-editor")) {
+    editor = document.createElement("div");
+    editor.className = "prompt-diff-editor";
+    textarea.before(editor);
+    editor.append(textarea);
+  }
+  let highlight = editor.querySelector(".prompt-diff-highlight");
+  if (!(highlight instanceof HTMLElement)) {
+    highlight = document.createElement("pre");
+    highlight.className = "prompt-diff-highlight";
+    highlight.setAttribute("aria-hidden", "true");
+    editor.prepend(highlight);
+  }
+  return { editor, highlight };
+}
+
+function resizePromptDiffTextareas(comparisonEnabled) {
+  for (const textarea of document.querySelectorAll(".prompt-diff-editor textarea")) {
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      continue;
+    }
+    if (!comparisonEnabled) {
+      if (!textarea.readOnly) {
+        textarea.style.height = "";
+      }
+      continue;
+    }
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(92, textarea.scrollHeight + 2)}px`;
+  }
+}
+
+function updatePromptDiffLayout(activeTabKey = getOptionsTabKeyFromHash()) {
+  const comparisonEnabled = activeTabKey === "boilerplate-prompt" && getPromptDiffTaskDefinition() !== null;
+  document.querySelector("main")?.classList.toggle("prompt-diff-active", comparisonEnabled);
+  document.querySelector("#options-panel-boilerplate-prompt")?.classList.toggle(
+    "prompt-diff-active",
+    comparisonEnabled,
+  );
+
+  const headings = document.querySelector("#prompt-diff-column-headings");
+  if (headings instanceof HTMLElement) {
+    headings.hidden = !comparisonEnabled;
+  }
+  for (const pane of document.querySelectorAll("[data-prompt-diff-reference]")) {
+    if (pane instanceof HTMLElement) {
+      pane.hidden = !comparisonEnabled;
+    }
+  }
+  window.requestAnimationFrame(() => resizePromptDiffTextareas(comparisonEnabled));
+}
+
+function renderPromptDiffTaskTypeOptions() {
+  const select = document.querySelector("#prompt-diff-task-type");
+  const currentSelect = document.querySelector("#prompt-diff-current-task-type");
+  if (!(select instanceof HTMLSelectElement) || !(currentSelect instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const previousTaskType = highlightState.promptDiffTaskType;
+  highlightState.promptDiffTaskType = sanitizePromptDiffTaskType(previousTaskType);
+  currentSelect.replaceChildren();
+  select.replaceChildren();
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = "No comparison";
+  select.append(emptyOption);
+  for (const definition of getTaskTypeDefinitions()) {
+    const currentOption = document.createElement("option");
+    currentOption.value = definition.key;
+    currentOption.textContent = definition.label;
+    currentSelect.append(currentOption);
+    if (definition.key === highlightState.activeBridgeTaskType) {
+      continue;
+    }
+    const option = document.createElement("option");
+    option.value = definition.key;
+    option.textContent = definition.label;
+    select.append(option);
+  }
+  currentSelect.value = highlightState.activeBridgeTaskType;
+  select.value = highlightState.promptDiffTaskType;
+  currentSelect.disabled = currentSelect.options.length <= 1;
+  select.disabled = select.options.length <= 1;
+
+  if (highlightState.promptDiffTaskType !== previousTaskType) {
+    void chrome.storage.local.set({
+      [STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]: highlightState.promptDiffTaskType,
+    });
+  }
+}
+
+function updatePromptDiffReferenceValue(taskTypeKey, fieldKey, value) {
+  highlightState.taskTypeDefinitions = getTaskTypeDefinitions().map((definition) => (
+    definition.key === taskTypeKey
+      ? { ...definition, [fieldKey]: value }
+      : definition
+  ));
+}
+
+function renderPromptDiffComparison() {
+  const activeDefinition = getTaskTypeDefinition();
+  const referenceDefinition = getPromptDiffTaskDefinition();
+  const currentLabel = document.querySelector("#prompt-diff-current-task-label");
+  const referenceLabel = document.querySelector("#prompt-diff-reference-task-label");
+  if (currentLabel instanceof HTMLElement) {
+    currentLabel.textContent = activeDefinition.label;
+  }
+  if (referenceLabel instanceof HTMLElement) {
+    referenceLabel.textContent = referenceDefinition?.label ?? "";
+  }
+
+  for (const field of PROMPT_DIFF_FIELDS) {
+    const input = document.querySelector(`#${field.inputId}`);
+    const referencePane = document.querySelector(`[data-prompt-diff-reference="${field.key}"]`);
+    if (!(input instanceof HTMLTextAreaElement) || !(referencePane instanceof HTMLElement)) {
+      continue;
+    }
+
+    const { highlight: currentHighlight } = ensurePromptDiffEditor(input);
+    if (!referenceDefinition) {
+      currentHighlight.replaceChildren();
+      referencePane.replaceChildren();
+      continue;
+    }
+
+    const currentText = input.value;
+    const referenceText = String(referenceDefinition[field.key] ?? "");
+    const operations = getPromptCharacterDiff(field.key, currentText, referenceText);
+    renderPromptDiffHighlight(currentHighlight, getPromptDiffRunsForSide(operations, "left"));
+
+    const referenceTitle = document.createElement("h3");
+    referenceTitle.className = "prompt-diff-reference-title";
+    referenceTitle.textContent = field.label;
+
+    const referenceEditor = document.createElement("div");
+    referenceEditor.className = "prompt-diff-editor";
+    const referenceHighlight = document.createElement("pre");
+    referenceHighlight.className = "prompt-diff-highlight";
+    referenceHighlight.setAttribute("aria-hidden", "true");
+    const referenceTextarea = document.createElement("textarea");
+    referenceTextarea.value = referenceText;
+    referenceTextarea.rows = input.rows;
+    referenceTextarea.spellcheck = input.spellcheck;
+    referenceTextarea.setAttribute("aria-label", `${field.label} for ${referenceDefinition.label}`);
+    referenceEditor.append(referenceHighlight, referenceTextarea);
+    referencePane.replaceChildren(referenceTitle, referenceEditor);
+    renderPromptDiffHighlight(referenceHighlight, getPromptDiffRunsForSide(operations, "right"));
+    referenceTextarea.addEventListener("input", () => {
+      const nextReferenceText = referenceTextarea.value;
+      updatePromptDiffReferenceValue(referenceDefinition.key, field.key, nextReferenceText);
+      const nextOperations = getPromptCharacterDiff(field.key, input.value, nextReferenceText);
+      renderPromptDiffHighlight(currentHighlight, getPromptDiffRunsForSide(nextOperations, "left"));
+      renderPromptDiffHighlight(referenceHighlight, getPromptDiffRunsForSide(nextOperations, "right"));
+      resizePromptDiffTextareas(true);
+      setStatus(`${field.label} changed for ${referenceDefinition.label}. Save settings to apply it.`);
+    });
+  }
+  updatePromptDiffLayout();
+}
+
 function setActiveOptionsTab(tabKey, options = {}) {
   const activeTabKey = OPTIONS_TAB_KEYS.includes(tabKey) ? tabKey : DEFAULT_OPTIONS_TAB_KEY;
   const buttons = document.querySelectorAll("[data-options-tab]");
@@ -2528,6 +3003,8 @@ function setActiveOptionsTab(tabKey, options = {}) {
   for (const panel of panels) {
     panel.hidden = panel.dataset.optionsTabPanel !== activeTabKey;
   }
+
+  updatePromptDiffLayout(activeTabKey);
 
   if (activeTabKey === "traffic") {
     void loadTrafficHistory();
@@ -2955,6 +3432,29 @@ function setStatus(message) {
   document.querySelector("#status").textContent = message;
 }
 
+function selectActiveTaskType(taskTypeKey) {
+  const taskDefinition = getTaskTypeDefinitions().find((definition) => definition.key === taskTypeKey);
+  if (!taskDefinition || taskDefinition.key === highlightState.activeBridgeTaskType) {
+    return;
+  }
+
+  syncTaskTypeProjectInputValues();
+  syncTaskTypeDefinitionEditorValues();
+  syncActiveTaskTypeScopedSettings();
+  const previousTaskType = highlightState.activeBridgeTaskType;
+  if (highlightState.promptDiffTaskType === taskDefinition.key) {
+    highlightState.promptDiffTaskType = previousTaskType;
+    void chrome.storage.local.set({
+      [STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]: highlightState.promptDiffTaskType,
+    });
+  }
+  highlightState.activeBridgeTaskType = taskDefinition.key;
+  applyActiveTaskTypeScopedSettings();
+  renderTaskTypeProjectIds();
+  renderActiveTaskTypeScopedSettings();
+  setStatus(`${taskDefinition.label} selected. Save settings to apply it.`);
+}
+
 function renderTaskTypeProjectIds() {
   highlightState.taskTypeProjectIds = sanitizeTaskTypeProjectIds(highlightState.taskTypeProjectIds);
   highlightState.taskTypeActiveProjectAccounts = sanitizeTaskTypeActiveProjectAccounts(
@@ -2972,14 +3472,7 @@ function renderTaskTypeProjectIds() {
       button.textContent = taskDefinition.label;
       button.classList.toggle("active", taskDefinition.key === highlightState.activeBridgeTaskType);
       button.addEventListener("click", () => {
-        syncTaskTypeProjectInputValues();
-        syncTaskTypeDefinitionEditorValues();
-        syncActiveTaskTypeScopedSettings();
-        highlightState.activeBridgeTaskType = taskDefinition.key;
-        applyActiveTaskTypeScopedSettings();
-        renderTaskTypeProjectIds();
-        renderActiveTaskTypeScopedSettings();
-        setStatus(`${taskDefinition.label} selected. Save settings to apply it.`);
+        selectActiveTaskType(taskDefinition.key);
       });
       taskBar.append(button);
     }
@@ -3307,6 +3800,7 @@ function syncTaskTypeDefinitionEditorValues() {
         : normalizeTaskPromptAutoSend(definition.multiScreenshotFinalAutoSend),
     };
   });
+  renderPromptDiffComparison();
 }
 
 function insertTextAtCursor(textArea, text) {
@@ -3319,38 +3813,66 @@ function insertTextAtCursor(textArea, text) {
   syncTaskTypeDefinitionEditorValues();
 }
 
-function renderPromptPlaceholderButtons(taskDefinition) {
-  const container = document.querySelector("#task-type-placeholder-buttons");
-  if (!(container instanceof HTMLElement)) {
+function renderPromptPlaceholderButtonGroup(containerSelector, inputSelector, placeholders) {
+  const container = document.querySelector(containerSelector);
+  const promptInput = document.querySelector(inputSelector);
+  if (!(container instanceof HTMLElement) || !(promptInput instanceof HTMLTextAreaElement)) {
     return;
   }
 
   container.replaceChildren();
-  const placeholderRegions = taskDefinition.regions.filter((region) => (
-    region.kind === TASK_REGION_KIND_OCR || region.kind === TASK_REGION_KIND_GOOGLE_RESULTS
-  ));
-  if (placeholderRegions.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.textContent = "Add an OCR region to get prompt placeholder buttons.";
-    container.append(empty);
-    return;
-  }
-
-  const promptInput = document.querySelector("#task-type-boilerplate-prompt");
-  for (const region of placeholderRegions) {
-    const placeholder = getPromptPlaceholderText(region);
+  const uniquePlaceholders = Array.from(new Set(placeholders.filter(Boolean)));
+  for (const placeholder of uniquePlaceholders) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = placeholder;
+    button.title = `Insert ${placeholder}`;
+    button.setAttribute("aria-label", `Insert ${placeholder}`);
     button.addEventListener("click", () => {
-      if (promptInput instanceof HTMLTextAreaElement) {
-        insertTextAtCursor(promptInput, placeholder);
-        setStatus(`${placeholder} inserted. Save settings to apply it.`);
-      }
+      insertTextAtCursor(promptInput, placeholder);
+      setStatus(`${placeholder} inserted. Save settings to apply it.`);
     });
     container.append(button);
   }
+}
+
+function renderPromptPlaceholderButtons(taskDefinition) {
+  const boilerplatePlaceholders = taskDefinition.regions
+    .filter((region) => (
+      region.kind === TASK_REGION_KIND_OCR || region.kind === TASK_REGION_KIND_GOOGLE_RESULTS
+    ))
+    .map(getPromptPlaceholderText);
+
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-boilerplate-placeholder-buttons",
+    "#task-type-boilerplate-prompt",
+    [...boilerplatePlaceholders, "[TASK_TYPE]"],
+  );
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-ocr-input-placeholder-buttons",
+    "#task-type-ocr-input-prompt",
+    ["[query]", "[product text]", "[ocr warning]"],
+  );
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-comment-draft-placeholder-buttons",
+    "#task-type-comment-draft-prompt",
+    ["[rating comment]"],
+  );
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-repeat-screenshot-placeholder-buttons",
+    "#task-type-repeat-screenshot-prompt",
+    ["[TASK_TYPE]"],
+  );
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-additional-context-placeholder-buttons",
+    "#task-type-additional-context-prompt",
+    ["[additional context ocr]"],
+  );
+  renderPromptPlaceholderButtonGroup(
+    "#task-type-multi-screenshot-placeholder-buttons",
+    "#task-type-multi-screenshot-batch-prompt",
+    ["[batch number]", "[batch count]", "[first screenshot]", "[last screenshot]"],
+  );
 }
 
 function renderOcrRegionEditor(taskDefinition) {
@@ -3740,6 +4262,8 @@ function renderTaskTypeConfiguration() {
   renderOcrRegionEditor(taskDefinition);
   renderRegionCoordinateEditor(taskDefinition);
   renderPromptPlaceholderButtons(taskDefinition);
+  renderPromptDiffTaskTypeOptions();
+  renderPromptDiffComparison();
 }
 
 function addTaskTypeDefinition() {
@@ -4988,6 +5512,7 @@ async function loadOptions() {
     [STORAGE_KEY_TASK_TYPE_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_HIGHLIGHT_RULES]: null,
     [STORAGE_KEY_CHAT_PROCESSING_QUEUE]: [],
+    [STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]: "",
   });
   const migrateCommentDraftAction = shouldMigrateCommentDraftAction(
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
@@ -4997,6 +5522,9 @@ async function loadOptions() {
     localStored[STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS],
     { addCommentDraftAction: migrateCommentDraftAction },
   );
+  highlightState.promptDiffTaskType = typeof localStored[STORAGE_KEY_PROMPT_DIFF_TASK_TYPE] === "string"
+    ? localStored[STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]
+    : "";
   if (migrateCommentDraftAction) {
     void chrome.storage.local.set({
       [STORAGE_KEY_SERVER_CONTROL_TASK_TYPE_DEFINITIONS]: highlightState.taskTypeDefinitions,
@@ -5932,10 +6460,20 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     );
     renderChatProcessingQueue();
   }
+
+  if (changes[STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]) {
+    highlightState.promptDiffTaskType = typeof changes[STORAGE_KEY_PROMPT_DIFF_TASK_TYPE].newValue === "string"
+      ? changes[STORAGE_KEY_PROMPT_DIFF_TASK_TYPE].newValue
+      : "";
+    renderPromptDiffTaskTypeOptions();
+    renderPromptDiffComparison();
+  }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector("#options-form");
+  const promptDiffCurrentTaskTypeSelect = document.querySelector("#prompt-diff-current-task-type");
+  const promptDiffTaskTypeSelect = document.querySelector("#prompt-diff-task-type");
   const syncSettingsButton = document.querySelector("#sync-settings");
   const saveRuleButton = document.querySelector("#save-highlight-rule");
   const clearRuleButton = document.querySelector("#clear-highlight-rule");
@@ -5990,6 +6528,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initializeOptionsTabs();
   void loadOptions();
+  window.addEventListener("resize", () => {
+    resizePromptDiffTextareas(
+      getOptionsTabKeyFromHash() === "boilerplate-prompt" && getPromptDiffTaskDefinition() !== null,
+    );
+  });
   window.setInterval(() => {
     void refreshSettingsSyncDiffCount();
   }, SETTINGS_SYNC_DIFF_REFRESH_INTERVAL_MS);
@@ -6005,6 +6548,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   clearTrafficButton?.addEventListener("click", () => {
     void clearTrafficHistory();
+  });
+  promptDiffCurrentTaskTypeSelect?.addEventListener("change", () => {
+    selectActiveTaskType(promptDiffCurrentTaskTypeSelect.value);
+  });
+  promptDiffTaskTypeSelect?.addEventListener("change", () => {
+    syncTaskTypeDefinitionEditorValues();
+    highlightState.promptDiffTaskType = sanitizePromptDiffTaskType(promptDiffTaskTypeSelect.value);
+    void chrome.storage.local.set({
+      [STORAGE_KEY_PROMPT_DIFF_TASK_TYPE]: highlightState.promptDiffTaskType,
+    });
+    renderPromptDiffTaskTypeOptions();
+    renderPromptDiffComparison();
+    const referenceDefinition = getPromptDiffTaskDefinition();
+    setStatus(referenceDefinition
+      ? `Comparing prompts with ${referenceDefinition.label}.`
+      : "Prompt comparison disabled.");
   });
   for (const input of document.querySelectorAll("[data-project-account-input]")) {
     input.addEventListener("input", () => {

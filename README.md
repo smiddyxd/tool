@@ -171,6 +171,7 @@ The options page also edits the control-menu task type definitions stored in Chr
 - choose independently whether rating-comment and additional-context prompts use OCR to fill their placeholders; this defaults on for existing task types
 - use `[query]`, `[product text]`, and `[ocr warning]` in the OCR input template, and `[rating comment]` in the rating-comment feedback prompt
 - use `[batch number]`, `[batch count]`, `[first screenshot]`, and `[last screenshot]` to place dynamic batch metadata inside the multi-screenshot prompt
+- use the compact placeholder buttons directly below each compatible prompt editor to insert the placeholders that the runtime supports for that prompt
 - leave the repeat screenshot prompt blank to repeat the main boilerplate without prepending another instruction
 
 Prompt placeholder behavior:

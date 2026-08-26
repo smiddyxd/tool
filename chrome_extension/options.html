@@ -43,6 +43,10 @@
       padding: 40px 24px 56px;
     }
 
+    main.prompt-diff-active {
+      max-width: 1600px;
+    }
+
     h1,
     h2,
     h3,
@@ -82,10 +86,44 @@
       gap: 18px;
     }
 
-    .options-tab-list {
+    .options-toolbar {
       position: sticky;
       top: 18px;
       z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .prompt-diff-picker {
+      display: grid;
+      align-content: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.94);
+      box-shadow: 0 12px 30px var(--shadow);
+      backdrop-filter: blur(8px);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .prompt-diff-picker select {
+      min-height: 34px;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+
+    .prompt-diff-picker label {
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .options-tab-list {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
@@ -95,6 +133,159 @@
       background: rgba(15, 23, 42, 0.94);
       box-shadow: 0 12px 30px var(--shadow);
       backdrop-filter: blur(8px);
+    }
+
+    .prompt-diff-column-headings {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .prompt-diff-column-heading {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .prompt-diff-column-heading span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .prompt-diff-column-heading strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+    }
+
+    .prompt-diff-legend {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .prompt-diff-legend span {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .prompt-diff-legend span::before {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: #f87171;
+      content: "";
+    }
+
+    .prompt-diff-legend .match::before {
+      background: #4ade80;
+    }
+
+    .prompt-diff-row,
+    .prompt-diff-current {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    #options-panel-boilerplate-prompt.prompt-diff-active .prompt-diff-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .prompt-diff-reference {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .prompt-diff-reference {
+      align-content: start;
+      padding-left: 18px;
+      border-left: 1px solid var(--line-strong);
+    }
+
+    .prompt-diff-reference-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .prompt-diff-editor {
+      position: relative;
+      display: grid;
+      min-width: 0;
+    }
+
+    .prompt-diff-highlight,
+    .prompt-diff-editor textarea {
+      grid-area: 1 / 1;
+      width: 100%;
+      min-height: 92px;
+      margin: 0;
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      font: inherit;
+      line-height: 1.5;
+      letter-spacing: 0;
+      tab-size: 4;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+
+    .prompt-diff-highlight {
+      display: none;
+      z-index: 0;
+      overflow: hidden;
+      background: var(--field);
+      color: var(--ink);
+      pointer-events: none;
+    }
+
+    #options-panel-boilerplate-prompt.prompt-diff-active .prompt-diff-highlight {
+      display: block;
+    }
+
+    #options-panel-boilerplate-prompt.prompt-diff-active .prompt-diff-editor textarea {
+      z-index: 1;
+      overflow: hidden;
+      resize: none;
+      background: transparent;
+      color: transparent;
+      caret-color: var(--ink);
+      -webkit-text-fill-color: transparent;
+    }
+
+    #options-panel-boilerplate-prompt.prompt-diff-active .prompt-diff-editor textarea::selection {
+      background: rgba(59, 130, 246, 0.35);
+    }
+
+    .prompt-diff-char.match {
+      background: rgba(34, 197, 94, 0.3);
+    }
+
+    .prompt-diff-char.mismatch {
+      background: rgba(239, 68, 68, 0.32);
+    }
+
+    .prompt-diff-reference[hidden],
+    .prompt-diff-column-headings[hidden] {
+      display: none;
     }
 
     .options-tab-button {
@@ -922,6 +1113,21 @@
       gap: 8px;
     }
 
+    .prompt-placeholder-buttons {
+      margin-top: -6px;
+      margin-bottom: 4px;
+    }
+
+    .prompt-placeholder-buttons button {
+      min-height: 28px;
+      border-color: var(--line);
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-family: Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .toc-settings-list {
       display: grid;
       gap: 10px;
@@ -1140,6 +1346,25 @@
         height: 10px;
       }
     }
+
+    @media (max-width: 980px) {
+      .options-toolbar,
+      .prompt-diff-column-headings,
+      #options-panel-boilerplate-prompt.prompt-diff-active .prompt-diff-row {
+        grid-template-columns: 1fr;
+      }
+
+      .options-toolbar {
+        position: static;
+      }
+
+      .prompt-diff-reference {
+        padding-top: 14px;
+        padding-left: 0;
+        border-top: 1px solid var(--line-strong);
+        border-left: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1149,18 +1374,33 @@
 
     <form id="options-form">
       <div class="options-tabs">
-        <div class="options-tab-list" role="tablist" aria-label="Options sections">
-          <button id="options-tab-bridge-settings" class="options-tab-button" type="button" role="tab" data-options-tab="bridge-settings" aria-controls="options-panel-bridge-settings">Bridge settings</button>
-          <button id="options-tab-general" class="options-tab-button" type="button" role="tab" data-options-tab="general" aria-controls="options-panel-general">General</button>
-          <button id="options-tab-ocr-regions" class="options-tab-button" type="button" role="tab" data-options-tab="ocr-regions" aria-controls="options-panel-ocr-regions">OCR regions</button>
-          <button id="options-tab-ui" class="options-tab-button" type="button" role="tab" data-options-tab="ui" aria-controls="options-panel-ui">UI</button>
-          <button id="options-tab-chat-processing" class="options-tab-button" type="button" role="tab" data-options-tab="chat-processing" aria-controls="options-panel-chat-processing">Chat processing</button>
-          <button id="options-tab-traffic" class="options-tab-button" type="button" role="tab" data-options-tab="traffic" aria-controls="options-panel-traffic">Traffic</button>
-          <button id="options-tab-status-colors" class="options-tab-button" type="button" role="tab" data-options-tab="status-colors" aria-controls="options-panel-status-colors">Status colors</button>
-          <button id="options-tab-status-messages" class="options-tab-button" type="button" role="tab" data-options-tab="status-messages" aria-controls="options-panel-status-messages">Status messages</button>
-          <button id="options-tab-boilerplate-prompt" class="options-tab-button" type="button" role="tab" data-options-tab="boilerplate-prompt" aria-controls="options-panel-boilerplate-prompt">Boilerplate prompt</button>
-          <button id="options-tab-highlighting" class="options-tab-button" type="button" role="tab" data-options-tab="highlighting" aria-controls="options-panel-highlighting">Highlighting</button>
-          <button id="options-tab-toc-buttons" class="options-tab-button" type="button" role="tab" data-options-tab="toc-buttons" aria-controls="options-panel-toc-buttons">TOC buttons</button>
+        <div class="options-toolbar">
+          <div class="prompt-diff-picker">
+            <label for="prompt-diff-current-task-type">
+              <span>Current task type</span>
+              <select id="prompt-diff-current-task-type"></select>
+            </label>
+            <label for="prompt-diff-task-type">
+              <span>Compare prompts with</span>
+              <select id="prompt-diff-task-type">
+                <option value="">No comparison</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="options-tab-list" role="tablist" aria-label="Options sections">
+            <button id="options-tab-bridge-settings" class="options-tab-button" type="button" role="tab" data-options-tab="bridge-settings" aria-controls="options-panel-bridge-settings">Bridge settings</button>
+            <button id="options-tab-general" class="options-tab-button" type="button" role="tab" data-options-tab="general" aria-controls="options-panel-general">General</button>
+            <button id="options-tab-ocr-regions" class="options-tab-button" type="button" role="tab" data-options-tab="ocr-regions" aria-controls="options-panel-ocr-regions">OCR regions</button>
+            <button id="options-tab-ui" class="options-tab-button" type="button" role="tab" data-options-tab="ui" aria-controls="options-panel-ui">UI</button>
+            <button id="options-tab-chat-processing" class="options-tab-button" type="button" role="tab" data-options-tab="chat-processing" aria-controls="options-panel-chat-processing">Chat processing</button>
+            <button id="options-tab-traffic" class="options-tab-button" type="button" role="tab" data-options-tab="traffic" aria-controls="options-panel-traffic">Traffic</button>
+            <button id="options-tab-status-colors" class="options-tab-button" type="button" role="tab" data-options-tab="status-colors" aria-controls="options-panel-status-colors">Status colors</button>
+            <button id="options-tab-status-messages" class="options-tab-button" type="button" role="tab" data-options-tab="status-messages" aria-controls="options-panel-status-messages">Status messages</button>
+            <button id="options-tab-boilerplate-prompt" class="options-tab-button" type="button" role="tab" data-options-tab="boilerplate-prompt" aria-controls="options-panel-boilerplate-prompt">Boilerplate prompt</button>
+            <button id="options-tab-highlighting" class="options-tab-button" type="button" role="tab" data-options-tab="highlighting" aria-controls="options-panel-highlighting">Highlighting</button>
+            <button id="options-tab-toc-buttons" class="options-tab-button" type="button" role="tab" data-options-tab="toc-buttons" aria-controls="options-panel-toc-buttons">TOC buttons</button>
+          </div>
         </div>
 
         <section id="options-panel-bridge-settings" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="bridge-settings" aria-labelledby="options-tab-bridge-settings">
@@ -1424,100 +1664,151 @@
         <section id="options-panel-boilerplate-prompt" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="boilerplate-prompt" aria-labelledby="options-tab-boilerplate-prompt" hidden>
           <div class="section-heading">
             <h2 id="boilerplate-prompt-settings-heading">Boilerplate Prompt</h2>
-            <p class="hint">Prompt text and placeholder shortcuts for the selected task type.</p>
+            <p class="hint">Prompt text and placeholder shortcuts for the selected task type. Choose another task type above to compare and edit both prompts character by character.</p>
           </div>
 
-          <label for="task-type-boilerplate-prompt">
-            Boilerplate prompt
-            <textarea id="task-type-boilerplate-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Placeholders are based on region labels and are case-insensitive, for example Query becomes [query]. Put placeholder lines on their own labeled line. Empty optional placeholder lines are skipped; use [!query] to require a value except in Screenshot mode.</p>
-          </label>
+          <div id="prompt-diff-column-headings" class="prompt-diff-column-headings" hidden>
+            <div class="prompt-diff-column-heading">
+              <span>Editing</span>
+              <strong id="prompt-diff-current-task-label"></strong>
+            </div>
+            <div class="prompt-diff-column-heading">
+              <span>Editing comparison</span>
+              <strong id="prompt-diff-reference-task-label"></strong>
+            </div>
+            <div class="prompt-diff-legend" aria-label="Prompt comparison legend">
+              <span class="match">Matching characters</span>
+              <span>Non-matching characters</span>
+            </div>
+          </div>
 
-          <label class="checkbox-row" for="task-type-boilerplate-auto-send">
-            <input id="task-type-boilerplate-auto-send" type="checkbox" checked>
-            Send boilerplate prompts automatically after insertion
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="boilerplatePrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-boilerplate-prompt">
+                Boilerplate prompt
+                <textarea id="task-type-boilerplate-prompt" rows="9" spellcheck="true"></textarea>
+                <p class="hint">Placeholders are based on region labels and are case-insensitive, for example Query becomes [query]. Put placeholder lines on their own labeled line. Empty optional placeholder lines are skipped; use [!query] to require a value except in Screenshot mode.</p>
+              </label>
+              <div id="task-type-boilerplate-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="Boilerplate prompt placeholders"></div>
+              <label class="checkbox-row" for="task-type-boilerplate-auto-send">
+                <input id="task-type-boilerplate-auto-send" type="checkbox" checked>
+                Send boilerplate prompts automatically after insertion
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="boilerplatePrompt" hidden></div>
+          </div>
 
-          <div id="task-type-placeholder-buttons" class="placeholder-buttons" aria-label="Prompt placeholders"></div>
+          <div class="prompt-diff-row" data-prompt-diff-row="ocrTaskInputPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-ocr-input-prompt">
+                OCR task input template
+                <textarea id="task-type-ocr-input-prompt" rows="8" spellcheck="true"></textarea>
+                <p class="hint">Appended to the boilerplate prompt when task OCR is sent instead of a screenshot. Supports [query], [product text], and [ocr warning].</p>
+              </label>
+              <div id="task-type-ocr-input-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="OCR task input placeholders"></div>
+              <label class="checkbox-row" for="task-type-ocr-input-auto-send">
+                <input id="task-type-ocr-input-auto-send" type="checkbox" checked>
+                Send task OCR prompts automatically after insertion
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="ocrTaskInputPrompt" hidden></div>
+          </div>
 
-          <label for="task-type-ocr-input-prompt">
-            OCR task input template
-            <textarea id="task-type-ocr-input-prompt" rows="8" spellcheck="true"></textarea>
-            <p class="hint">Appended to the boilerplate prompt when task OCR is sent instead of a screenshot. Supports [query], [product text], and [ocr warning].</p>
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="commentDraftPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-comment-draft-prompt">
+                Rating comment feedback prompt
+                <textarea id="task-type-comment-draft-prompt" rows="7" spellcheck="true"></textarea>
+                <p class="hint">Used by the Comment action. Put [rating comment] where the OCRed draft should be inserted.</p>
+              </label>
+              <div id="task-type-comment-draft-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="Rating comment prompt placeholders"></div>
+              <label class="checkbox-row" for="task-type-comment-draft-use-ocr">
+                <input id="task-type-comment-draft-use-ocr" type="checkbox" checked>
+                Use OCR to fill [rating comment]
+              </label>
+              <label class="checkbox-row" for="task-type-comment-draft-auto-send">
+                <input id="task-type-comment-draft-auto-send" type="checkbox" checked>
+                Send rating comment feedback automatically after insertion
+              </label>
+              <p class="hint">Turn OCR off to paste the template immediately with [rating comment] left for manual replacement. Automatic sending is blocked while that placeholder remains unresolved.</p>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="commentDraftPrompt" hidden></div>
+          </div>
 
-          <label class="checkbox-row" for="task-type-ocr-input-auto-send">
-            <input id="task-type-ocr-input-auto-send" type="checkbox" checked>
-            Send task OCR prompts automatically after insertion
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="repeatScreenshotPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-repeat-screenshot-prompt">
+                Repeat screenshot prompt
+                <textarea id="task-type-repeat-screenshot-prompt" rows="5" spellcheck="true"></textarea>
+                <p class="hint">Prepended to the boilerplate prompt for repeat captures. Leave blank to resend the boilerplate prompt without an extra instruction.</p>
+              </label>
+              <div id="task-type-repeat-screenshot-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="Repeat screenshot prompt placeholders"></div>
+              <label class="checkbox-row" for="task-type-repeat-screenshot-auto-send">
+                <input id="task-type-repeat-screenshot-auto-send" type="checkbox" checked>
+                Send repeat screenshot prompts automatically after insertion
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="repeatScreenshotPrompt" hidden></div>
+          </div>
 
-          <label for="task-type-comment-draft-prompt">
-            Rating comment feedback prompt
-            <textarea id="task-type-comment-draft-prompt" rows="7" spellcheck="true"></textarea>
-            <p class="hint">Used by the Comment action. Put [rating comment] where the OCRed draft should be inserted.</p>
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="chatProcessingPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-chat-processing-prompt">
+                Chat processing prompt
+                <textarea id="task-type-chat-processing-prompt" rows="9" spellcheck="true"></textarea>
+                <p class="hint">Used by the Process button on chats saved for processing. It is pasted into the current chat without sending.</p>
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="chatProcessingPrompt" hidden></div>
+          </div>
 
-          <label class="checkbox-row" for="task-type-comment-draft-use-ocr">
-            <input id="task-type-comment-draft-use-ocr" type="checkbox" checked>
-            Use OCR to fill [rating comment]
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="chatProcessingAbstractionPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-chat-abstraction-prompt">
+                Abstraction level prompt
+                <textarea id="task-type-chat-abstraction-prompt" rows="9" spellcheck="true"></textarea>
+                <p class="hint">Used by the Abstraction level button on chats saved for processing. It is pasted into the current chat without sending.</p>
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="chatProcessingAbstractionPrompt" hidden></div>
+          </div>
 
-          <label class="checkbox-row" for="task-type-comment-draft-auto-send">
-            <input id="task-type-comment-draft-auto-send" type="checkbox" checked>
-            Send rating comment feedback automatically after insertion
-          </label>
-          <p class="hint">Turn OCR off to paste the template immediately with [rating comment] left for manual replacement. Automatic sending is blocked while that placeholder remains unresolved.</p>
+          <div class="prompt-diff-row" data-prompt-diff-row="additionalContextPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-additional-context-prompt">
+                Additional context prompt
+                <textarea id="task-type-additional-context-prompt" rows="9" spellcheck="true"></textarea>
+                <p class="hint">Used by the Add context bridge-control action. It attaches a fresh screenshot and sends OCR text into the current chat. Add [additional context ocr] to choose where that text appears; otherwise it is appended.</p>
+              </label>
+              <div id="task-type-additional-context-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="Additional context prompt placeholders"></div>
+              <label class="checkbox-row" for="task-type-additional-context-use-ocr">
+                <input id="task-type-additional-context-use-ocr" type="checkbox" checked>
+                Use OCR to fill [additional context ocr]
+              </label>
+              <label class="checkbox-row" for="task-type-additional-context-auto-send">
+                <input id="task-type-additional-context-auto-send" type="checkbox" checked>
+                Send additional context prompts automatically after insertion
+              </label>
+              <p class="hint">When OCR is off, the fresh screenshot is still attached and the prompt template is left unchanged for manual editing.</p>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="additionalContextPrompt" hidden></div>
+          </div>
 
-          <label for="task-type-repeat-screenshot-prompt">
-            Repeat screenshot prompt
-            <textarea id="task-type-repeat-screenshot-prompt" rows="5" spellcheck="true"></textarea>
-            <p class="hint">Prepended to the boilerplate prompt for repeat captures. Leave blank to resend the boilerplate prompt without an extra instruction.</p>
-          </label>
-
-          <label class="checkbox-row" for="task-type-repeat-screenshot-auto-send">
-            <input id="task-type-repeat-screenshot-auto-send" type="checkbox" checked>
-            Send repeat screenshot prompts automatically after insertion
-          </label>
-
-          <label for="task-type-chat-processing-prompt">
-            Chat processing prompt
-            <textarea id="task-type-chat-processing-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used by the Process button on chats saved for processing. It is pasted into the current chat without sending.</p>
-          </label>
-
-          <label for="task-type-chat-abstraction-prompt">
-            Abstraction level prompt
-            <textarea id="task-type-chat-abstraction-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used by the Abstraction level button on chats saved for processing. It is pasted into the current chat without sending.</p>
-          </label>
-
-          <label for="task-type-additional-context-prompt">
-            Additional context prompt
-            <textarea id="task-type-additional-context-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used by the Add context bridge-control action. It attaches a fresh screenshot and sends OCR text into the current chat. Add [additional context ocr] to choose where that text appears; otherwise it is appended.</p>
-          </label>
-
-          <label class="checkbox-row" for="task-type-additional-context-use-ocr">
-            <input id="task-type-additional-context-use-ocr" type="checkbox" checked>
-            Use OCR to fill [additional context ocr]
-          </label>
-
-          <label class="checkbox-row" for="task-type-additional-context-auto-send">
-            <input id="task-type-additional-context-auto-send" type="checkbox" checked>
-            Send additional context prompts automatically after insertion
-          </label>
-          <p class="hint">When OCR is off, the fresh screenshot is still attached and the prompt template is left unchanged for manual editing.</p>
-
-          <label for="task-type-multi-screenshot-batch-prompt">
-            Multi-screenshot batch prompt
-            <textarea id="task-type-multi-screenshot-batch-prompt" rows="9" spellcheck="true"></textarea>
-            <p class="hint">Used for each screenshot group before the final boilerplate prompt. Supports [batch number], [batch count], [first screenshot], and [last screenshot]. Batch prompts are sent automatically so the sequence can continue.</p>
-          </label>
-
-          <label class="checkbox-row" for="task-type-multi-screenshot-final-auto-send">
-            <input id="task-type-multi-screenshot-final-auto-send" type="checkbox" checked>
-            Send the final multi-screenshot boilerplate automatically
-          </label>
+          <div class="prompt-diff-row" data-prompt-diff-row="multiScreenshotBatchPrompt">
+            <div class="prompt-diff-current">
+              <label for="task-type-multi-screenshot-batch-prompt">
+                Multi-screenshot batch prompt
+                <textarea id="task-type-multi-screenshot-batch-prompt" rows="9" spellcheck="true"></textarea>
+                <p class="hint">Used for each screenshot group before the final boilerplate prompt. Supports [batch number], [batch count], [first screenshot], and [last screenshot]. Batch prompts are sent automatically so the sequence can continue.</p>
+              </label>
+              <div id="task-type-multi-screenshot-placeholder-buttons" class="placeholder-buttons prompt-placeholder-buttons" aria-label="Multi-screenshot prompt placeholders"></div>
+              <label class="checkbox-row" for="task-type-multi-screenshot-final-auto-send">
+                <input id="task-type-multi-screenshot-final-auto-send" type="checkbox" checked>
+                Send the final multi-screenshot boilerplate automatically
+              </label>
+            </div>
+            <div class="prompt-diff-reference" data-prompt-diff-reference="multiScreenshotBatchPrompt" hidden></div>
+          </div>
         </section>
 
         <section id="options-panel-highlighting" class="settings-section options-tab-panel" role="tabpanel" data-options-tab-panel="highlighting" aria-labelledby="options-tab-highlighting" hidden>
